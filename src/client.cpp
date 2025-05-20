@@ -142,104 +142,50 @@ void Client::doConnect(const std::string& ip, unsigned short port)
 
 //5.11修改 增加文件头发送与文件传输功能
 
+
 void Client::doRead()
 {
     auto buf = std::make_shared<boost::asio::streambuf>();
     boost::asio::async_read_until(*socket_, *buf, '\n',
-        [this, buf](boost::system::error_code ec, std::size_t bytes_transferred) {
-           if (!ec) {
+        [this, buf](boost::system::error_code ec, std::size_t /*bytes_transferred*/) {
+            if (!ec) {
+                std::istream is(buf.get());
+                std::string line;
+                std::getline(is, line);
+                QString qline = QString::fromStdString(line);
 
-               std::istream is(buf.get());
-               std::string line;
-              std::getline(is, line);
-               qDebug() << QString::fromStdString(line);
-                emit receivedMessage(QString::fromStdString(line));//这里第一次接收正在连接的消息，第二次收到连接成功的信号
-             doRead();
+                qDebug() << "[服务端]：" << qline;
+                emit receivedMessage(qline);  // 后续UI 可绑定
+
+             //5.13更新 防止阻塞回调
+                if (qline.contains("请输入要发送文件的路径")) {
+                    // 用独立线程读取输入，不阻塞io_ctx
+                    std::thread([this]() {
+                        std::cout << "请输入文件路径：";
+                        std::string path;
+                        std::getline(std::cin, path);
+                        if (!path.empty()) {
+                            sendFile(QString::fromStdString(path));
+                        }
+                    }).detach();
+                }
+                else if (qline.trimmed() == "OK") {
+                      qDebug() << "服务端同意接受";
+                    // 服务端确认接收，发送文件内容
+                    sendFileDataChunk();
+
+                }
+                else if (qline.trimmed() == "NO") {
+                    qDebug() << "服务端拒绝接收文件，连接即将关闭";
+                    socket_->close();
+                }
+                // 持续读取后续消息
+                doRead();
             } else {
                 emit connectionFailed(QString::fromStdString(ec.message()));
             }
         });
 }
-
-//void Client::doRead()
-//{
-//    auto buf = std::make_shared<boost::asio::streambuf>();
-//    boost::asio::async_read_until(*socket_, *buf, '\n',
-//        [this, buf](boost::system::error_code ec, std::size_t /*bytes_transferred*/) {
-//            if (!ec) {
-//                std::istream is(buf.get());
-//                std::string line;
-//                std::getline(is, line);
-//                QString qline = QString::fromStdString(line);
-
-//                qDebug() << "[服务端]：" << qline;
-//                emit receivedMessage(qline);  // 后续UI 可绑定
-
-//                if (qline.contains("请输入要发送文件的路径")) {
-//                    qDebug() << "收到服务端提示，可以选择文件";
-//                    emit authPassed();  // 转由窗口响应
-//                }
-
-//           //5.13更新 防止阻塞回调
-////                if (qline.contains("请输入要发送文件的路径")) {
-////                    qDebug() << "111";
-////                      emit authPassed();
-////                    // 用独立线程读取输入，不阻塞io_ctx
-////                    std::thread([this]() {
-////                        std::cout << "请输入文件路径：";
-////                        std::string path;
-////                        std::getline(std::cin, path);
-////                        if (!path.empty()) {
-////                               checkResumeAndStart(QString::fromStdString(path));
-////                            //sendFile(QString::fromStdString(path));
-////                        }
-////                    }).detach();
-////                }
-//                else if (qline.trimmed() == "OK") {
-//                      qDebug() << "服务端同意接受";
-//                      fileStream_.open(filePath_.toStdString(), std::ios::binary | std::ios::in);
-//                      if (!fileStream_.is_open()) {
-//                          qDebug() << "无法打开文件进行续传：" << filePath_;
-//                          return;
-//                      }
-//                       fileStream_.clear();
-//                      // 正确从断点 offset 开始
-//                      sendFileDataChunk();
-//                }
-//                else if (qline.trimmed() == "NO") {
-//                    qDebug() << "服务端拒绝接收文件，连接即将关闭";
-//                    socket_->close();
-//                }
-//                //新增断点重传5.15
-//                else if (qline.trimmed().startsWith("RESUME_OK")) {
-//                    fileStream_.open(filePath_.toStdString(), std::ios::binary);
-//                    if (!fileStream_.is_open()) {
-//                        qDebug() << "无法打开文件进行续传：" << filePath_;
-//                        return;
-//                    }
-//                    fileStream_.seekg(currentOffset_);  // 跳到 offset
-//                    currentOffset_1=currentOffset_;
-//                    bytesSent_ = currentOffset_;
-//                    sendFileDataChunk();
-//                }
-//                else if (qline.trimmed().startsWith("RESUME_REJECT")) {
-//                    qDebug() << "服务端拒绝续传，重新开始发送";
-//                    currentOffset_ = 0;
-//                    QFile::remove(resumeMetaFile_);
-//                    //sendFile(filePath_);
-//                }
-//                else if (qline.trimmed()  == "AUTH_FAIL") {
-//                       emit authFailed();  // 密码错误，停止操作
-//                       io_context_.stop();
-//                               }
-
-//                // 持续读取后续消息
-//                  doRead();
-//            } else {
-//                emit connectionFailed(QString::fromStdString(ec.message()));
-//            }
-//        });
-//}
 
 //5.11新增文件头发送
 void Client::sendFile(const QString& path)
