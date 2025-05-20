@@ -69,7 +69,8 @@ void Session::doWrite()
 
 
 
-//5.11新增状态机+ 读取客户端传来的文件数据
+//5.10
+//5.11新增状态机 读取客户端传来的文件数据
 void Session::doRead()
 {
     if (state_ == SessionState::ReceivingFile) {
@@ -85,6 +86,11 @@ void Session::doRead()
                 std::istream is(buf.get());
                 std::string line;
                 std::getline(is, line);
+                //5.15 断点重传
+                if (line.rfind("RESUME", 0) == 0) {  //
+                    handleResumeCommand(line);
+                    return;
+                }
 
                 // 状态驱动
 
@@ -95,8 +101,9 @@ void Session::doRead()
                         break;
                     case SessionState::Authenticated:
                         qDebug() << "接收到客户端输入的文件路径：" << QString::fromStdString(line);
-                            handleSendCommand(line); // 正常 SEND
+                        handleSendCommand(line);
                         // 这里不能调用doread
+
                         break;
                     default:
                         qDebug() << "当前状态不支持接收输入";
@@ -108,6 +115,7 @@ void Session::doRead()
             }
         });
 }
+
 
 //5.10 新增处理客户端发送的密码
 void Session::handlePassword(const std::string& line)
