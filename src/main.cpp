@@ -1,49 +1,77 @@
-#include <boost/asio.hpp>
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/use_awaitable.hpp>
-#include <core/manager.hpp>
-
-namespace net = boost::asio;
-using tcp = net::ip::tcp;
+#include <QCoreApplication>
+#include <QApplication>
+#include <QTextStream>
+#include "mainwindow.h"
+#include <QThread>
+#include <QTimer>
+#include <iostream>
+#include <QDebug>
+#include "core/filesender_manager.h"
+#include "server.h"
+#include "client.h"
 
 const short PORT = 8888;
 
-// net::awaitable<void> handle_client(tcp::socket socket) {}
+int main(int argc, char *argv[])
+{
+    QApplication app(argc, argv);
+    qRegisterMetaType<std::size_t>("std::size_t");
 
-// net::awaitable<void> async_server() {
-//   net::io_context ioc{static_cast<int>(std::thread::hardware_concurrency())};
-//   net::ip::tcp::endpoint ep(net::ip::address_v6::any(), 9999);
-//   net::ip::tcp::acceptor acceptor(ioc, ep);
-//   acceptor.set_option(net::socket_base::reuse_address(true));
-//   acceptor.listen();
+    MainWindow w;
+    w.show();
 
-//   for (;;) {
-//     try {
-//       auto clientSocket = co_await acceptor.async_accept();
-//       net::co_spawn(ioc, handle_client(std::move(clientSocket)), net::detached);
-//     } catch (std::exception e) {
-//     }
-//   }
-// }
-
-int main() {
-    // std::cout<<"Starting broadcast sender and receiver..."<<std::endl;
-    // FilesenderManager fm(PORT);
-    // std::cout<<"Login successful!"<<std::endl;
-    // std::thread broadcast_thread([&fm]() { fm.run_broadcast(); });
-    // std::thread verification_thread([&fm]() { fm.verifying(); });
-    // std::cout<<"Please Enter the target username..."<<std::endl;
-    // std::cin.get();
-    // broadcast_thread.join();
-    // verification_thread.join();
-    net::io_context ioc{static_cast<int>(std::thread::hardware_concurrency())};
-
-    // ioc.run();
-    Manager manager(ioc);
-    // std::cout << manager.ip << std::endl;
-    net::co_spawn(manager.ioc, manager.run(), net::detached);
-    ioc.run();
-    return 0;
+    return app.exec();  // 启动事件循环，GUI 应用必须有
 }
+
+//int main(int argc, char *argv[])
+//{  QCoreApplication a(argc, argv);
+
+//    FilesenderManager fm(PORT);
+//    std::cout<<"Login successful!"<<std::endl;
+
+
+//    Server server;
+//    server.startServer(PORT);
+
+//    Client client;
+
+
+//  //各种信号
+//   QObject::connect(&server, &Server::newSessionConnected, [](const QString& clientInfo){
+//          std::cout << "新连接来自: " << clientInfo.toStdString() << std::endl;});
+
+
+//   //启动广播
+
+//        auto target_opt = fm.run_broadcast();
+
+//     if (target_opt) {
+//        const Account& target = target_opt.value();
+//       // std::cout << "自动连接到: " << target.name << " - " << target.ip << ":" << target.port << std::endl;
+//       client.connectToServer(QString::fromStdString(target.ip), target.port);
+//       //client.connectToServer("58.199.161.11", 8888);
+
+////            QObject::connect(&client, &Client::connectedToServer, []() {
+////                std::cout << "已经创建传输通道！" << std::endl;
+////            });
+
+////            QObject::connect(&client, &Client::receivedMessage, [](const QString& msg) {
+////                std::cout << "【服务器消息】" << msg.toStdString() << std::endl;
+////            });
+
+//            QObject::connect(&client, &Client::connectionFailed, [](const QString& error) {
+//                std::cout << "【连接失败】" << error.toStdString() << std::endl;
+//            });
+
+//    }
+
+//else {
+//        std::cout << "未找到目标用户，无法连接。" << std::endl;
+//    }
+
+
+
+
+
+//   return a.exec();
+//}
