@@ -69,53 +69,41 @@ void Session::doWrite()
 
 
 
-//5.10
-//5.11新增状态机 读取客户端传来的文件数据
-void Session::doRead()
-{
-    if (state_ == SessionState::ReceivingFile) {
-        // 此状态不应使用行读取逻辑！
-        return;
-    }
+//5.10 改进版doread 加入状态机处理
+//void Session::doRead()
+//{
+//    auto buf = std::make_shared<boost::asio::streambuf>();
 
-    auto buf = std::make_shared<boost::asio::streambuf>();
+//    boost::asio::async_read_until(socket_, *buf, '\n',
+//        [this, buf](boost::system::error_code ec, std::size_t /*bytes_transferred*/) {
+//            if (!ec) {
+//                std::istream is(buf.get());
+//                std::string line;
+//                std::getline(is, line);
 
-    boost::asio::async_read_until(socket_, *buf, '\n',
-        [this, buf](boost::system::error_code ec, std::size_t /*bytes_transferred*/) {
-            if (!ec) {
-                std::istream is(buf.get());
-                std::string line;
-                std::getline(is, line);
-                //5.15 断点重传
-                if (line.rfind("RESUME", 0) == 0) {  //
-                    handleResumeCommand(line);
-                    return;
-                }
+//                // 新增状态机，根据当前状态处理输入
+//                switch (state_) {
+//                    case SessionState::WaitingForPassword:
+//                        handlePassword(line);
+//                        break;
+//                    case SessionState::Authenticated:
+//                        handleSendCommand(line);
+//                        qDebug() << "接收到客户端输入的文件路径：" << QString::fromStdString(line);
+//                        // 后续扩展用
+//                        break;
+//                    default:
+//                        qDebug() << "当前状态不支持接收输入";
+//                        break;
+//                }
 
-                // 状态驱动
-
-                switch (state_) {
-                    case SessionState::WaitingForPassword:
-                        handlePassword(line);
-                        doRead();
-                        break;
-                    case SessionState::Authenticated:
-                        qDebug() << "接收到客户端输入的文件路径：" << QString::fromStdString(line);
-                        handleSendCommand(line);
-                        // 这里不能调用doread
-
-                        break;
-                    default:
-                        qDebug() << "当前状态不支持接收输入";
-                        break;
-                }
-            } else {
-                qDebug() << "读取失败：" << QString::fromStdString(ec.message());
-                closeSession();
-            }
-        });
-}
-
+//                // 继续等待下一行输入（如后续扩展）
+//                doRead();
+//            } else {
+//                qDebug() << "读取失败：" << QString::fromStdString(ec.message());
+//                closeSession();
+//            }
+//        });
+//}
 
 //5.10 新增处理客户端发送的密码
 void Session::handlePassword(const std::string& line)
