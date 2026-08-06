@@ -2,10 +2,10 @@
   "schema_version": 1,
   "id": "XT-007",
   "task_type": "integration",
-  "state": "in_progress",
+  "state": "review",
   "owner": "governance-agent",
   "base_sha": "a95b047f258573d0f970a29c886a04530d1bc3b2",
-  "head_sha": "",
+  "head_sha": "06ca88f2cd5b33b2c9d068bd7a43908bc1f8bece",
   "handoff": ".agents/handoffs/XT-007.md",
   "impacts": {
     "adr": {
@@ -37,11 +37,11 @@
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:06ca88f2cd5b33b2c9d068bd7a43908bc1f8bece:2026-08-06T14:02:25Z"
   },
   "acceptance": {
     "accepted_by": "",
