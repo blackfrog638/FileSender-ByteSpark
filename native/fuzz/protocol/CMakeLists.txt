@@ -1,0 +1,8 @@
+add_executable(
+  xnn_transfer_protocol_fuzzer
+  v1_parser_fuzzer.cpp
+)
+target_link_libraries(xnn_transfer_protocol_fuzzer PRIVATE xnn_transfer_protocol)
+target_compile_options(xnn_transfer_protocol_fuzzer PRIVATE -fsanitize=fuzzer)
+target_link_options(xnn_transfer_protocol_fuzzer PRIVATE -fsanitize=fuzzer)
+xnn_transfer_enable_sanitizers(xnn_transfer_protocol_fuzzer)

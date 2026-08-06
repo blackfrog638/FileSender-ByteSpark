@@ -27,3 +27,24 @@ python3 protocol/testdata/v1/validate_vectors.py
 The validator is a fixture oracle for framing and negotiation. It is not a
 production parser, transport-security implementation, or replacement for the
 native parser tests owned by XT-006.
+
+## Native fixture generation
+
+The dependency-free C++ protocol tests consume
+`native/tests/protocol/v1_golden_vectors.inc`, which is generated
+deterministically from `vectors.json`:
+
+```bash
+python3 protocol/testdata/v1/generate_native_vectors.py
+```
+
+CI or local verification should detect fixture drift without rewriting files:
+
+```bash
+python3 protocol/testdata/v1/generate_native_vectors.py --check
+```
+
+The generated file embeds the source manifest SHA-256 and all 29 cases. The
+native test executes each complete directional transcript and compares either
+acceptance or the stable expected protocol error code. It does not treat the
+vectors as evidence of TLS, pairing, or `TRANSPORT_FINISHED` verification.
