@@ -35,6 +35,7 @@ KIND_SAS_INFO = 3
 KIND_TRANSPORT_CONTEXT = 4
 KIND_ROTATION_CONTEXT = 5
 KIND_ROTATION_PROOF = 6
+KIND_DEVICE_IDENTIFIER = 7
 
 BASE_TRANSFER_V1 = 0x00010001
 
@@ -48,6 +49,10 @@ TRANSPORT_CONTEXT_LABEL = b"XnnTransfer transport v1"
 TRANSPORT_EXPORTER_LABEL = b"EXPORTER-XnnTransfer-Transport-v1"
 ROTATION_CONTEXT_LABEL = b"XnnTransfer rotation v1"
 ROTATION_PROOF_LABEL = b"XnnTransfer rotation proof v1"
+DEVICE_IDENTIFIER_LABEL = b"XnnTransfer device identifier v1"
+
+AUTHENTICATED_REJECT = "authenticated_reject"
+AFFIRMATIVE_CONFIRM = "affirmative_confirm"
 
 EXPECTED_PROFILE_METADATA = {
     "id": SECURITY_PROFILE_ID,
@@ -62,6 +67,10 @@ EXPECTED_PROFILE_METADATA = {
     "sas_word_count": 5,
     "sas_wordlist": "BIP39-English-index-order",
     "exporter_material": "fixture-input-only",
+    "device_identifier_label_hex": DEVICE_IDENTIFIER_LABEL.hex(),
+    "device_identifier_input": "XNNS-canonical-kind-07",
+    "device_identifier_hash": "SHA-256",
+    "device_identifier_text": "lowercase-hex-no-prefix",
 }
 
 
@@ -79,6 +88,15 @@ class CanonicalObject:
     kind: int
     fields: Dict[int, bytes]
     encoded: bytes
+
+
+@dataclass(frozen=True)
+class ConfirmationResult:
+    sender_role: int
+    decision: int
+    authenticated_result: str
+    terminal: bool
+    trust_commit_permitted: bool
 
 
 def fail(code: str, detail: str) -> None:
@@ -191,6 +209,10 @@ def field_schema(kind: int) -> Dict[int, Optional[int]]:
             1: len(ROTATION_PROOF_LABEL),
             2: 32,
             3: 1,
+        },
+        KIND_DEVICE_IDENTIFIER: {
+            1: len(DEVICE_IDENTIFIER_LABEL),
+            2: 32,
         },
     }
     schema = schemas.get(kind)
@@ -588,6 +610,9 @@ def validate_object(value: CanonicalObject) -> None:
             bytes([SIGNER_NEW_KEY]),
         }:
             fail("ROLE_MISMATCH", "rotation signer is invalid")
+    elif value.kind == KIND_DEVICE_IDENTIFIER:
+        if fields[1] != DEVICE_IDENTIFIER_LABEL:
+            fail("DOMAIN_MISMATCH", "device identifier label is invalid")
 
 
 def canonical_digest(encoded: bytes, expected_kind: int) -> bytes:
@@ -704,6 +729,37 @@ def build_rotation_proof(fixture: Mapping[str, Any], signer: int) -> bytes:
             (3, bytes([signer])),
         ],
     )
+
+
+def build_device_identifier(public_key: bytes) -> bytes:
+    if len(public_key) != 32:
+        fail(
+            "INVALID_LENGTH",
+            "device identifier public key must contain 32 octets",
+        )
+    encoded = encode_object(
+        KIND_DEVICE_IDENTIFIER,
+        [
+            (1, DEVICE_IDENTIFIER_LABEL),
+            (2, public_key),
+        ],
+    )
+    parse_object(encoded, KIND_DEVICE_IDENTIFIER)
+    return encoded
+
+
+def derive_device_identifier(public_key: bytes) -> Dict[str, Any]:
+    encoded = build_device_identifier(public_key)
+    digest = hashlib.sha256(encoded).digest()
+    return {
+        "label_ascii": DEVICE_IDENTIFIER_LABEL.decode("ascii"),
+        "label_hex": DEVICE_IDENTIFIER_LABEL.hex(),
+        "public_key_hex": public_key.hex(),
+        "canonical_input_hex": encoded.hex(),
+        "sha256_hex": digest.hex(),
+        "binary_length": len(digest),
+        "text_encoding": "lowercase-hex-no-prefix",
+    }
 
 
 def hkdf_expand_sha256(prk: bytes, info: bytes, length: int) -> bytes:
@@ -830,12 +886,64 @@ def positive_output(
             32,
         )
         message = confirmation_message(pair_context, role, DECISION_CONFIRM)
+        presented = mac_sha256(key, message, "confirmation exporter")
+        result = require_trust_commit(
+            key,
+            message,
+            presented,
+            pair_context,
+            role,
+            DECISION_CONFIRM,
+        )
+        if (
+            result.authenticated_result != AFFIRMATIVE_CONFIRM
+            or not result.trust_commit_permitted
+        ):
+            fail(
+                "OUTPUT_MISMATCH",
+                "confirm vector did not satisfy the two-decision trust gate",
+            )
         return {
             "message_hex": message.hex(),
-            "hmac_sha256_hex": mac_sha256(
-                key, message, "confirmation exporter"
-            ).hex(),
+            "hmac_sha256_hex": presented.hex(),
         }
+    if operation in {
+        "confirmation_reject_initiator",
+        "confirmation_reject_responder",
+    }:
+        role = (
+            ROLE_INITIATOR
+            if operation == "confirmation_reject_initiator"
+            else ROLE_RESPONDER
+        )
+        key = decode_hex(
+            exporter.get("confirmation_hex"),
+            "fixture.exporter_material.confirmation_hex",
+            32,
+        )
+        message = confirmation_message(pair_context, role, DECISION_REJECT)
+        presented = mac_sha256(key, message, "confirmation exporter")
+        result = verify_confirmation(
+            key,
+            message,
+            presented,
+            pair_context,
+            role,
+        )
+        return {
+            "message_hex": message.hex(),
+            "hmac_sha256_hex": presented.hex(),
+            "sender_role": result.sender_role,
+            "decision": result.decision,
+            "authenticated_result": result.authenticated_result,
+            "terminal": result.terminal,
+            "trust_commit_permitted": result.trust_commit_permitted,
+        }
+    if operation == "device_identifier_initiator":
+        public_key = fixture_hex(
+            fixture, "identity", "initiator_key_hex", 32
+        )
+        return derive_device_identifier(public_key)
     if operation == "transport_context":
         return {
             "encoded_hex": transport_encoded.hex(),
@@ -897,6 +1005,88 @@ def verify_mac(
         fail(failure_code, f"{name} value does not match")
 
 
+def verify_confirmation(
+    key: bytes,
+    message: bytes,
+    presented: bytes,
+    expected_pair_context: bytes,
+    expected_role: int,
+) -> ConfirmationResult:
+    if len(message) != 34:
+        fail("INVALID_LENGTH", "confirmation message must contain 34 octets")
+    if len(expected_pair_context) != 32:
+        fail("INVALID_LENGTH", "expected pair context must contain 32 octets")
+    if expected_role not in {ROLE_INITIATOR, ROLE_RESPONDER}:
+        fail("ROLE_MISMATCH", "expected confirmation role is invalid")
+    if message[32] != expected_role:
+        fail("ROLE_MISMATCH", "confirmation role does not match the sender")
+    decision = message[33]
+    if decision not in {DECISION_REJECT, DECISION_CONFIRM}:
+        fail("INVALID_DECISION", "confirmation decision is invalid")
+
+    verify_mac(
+        key,
+        message,
+        presented,
+        "CONFIRMATION_MISMATCH",
+        "confirmation",
+    )
+    if not hmac.compare_digest(message[:32], expected_pair_context):
+        fail(
+            "CONTEXT_MISMATCH",
+            "confirmation does not bind the current live pair context",
+        )
+
+    if decision == DECISION_REJECT:
+        return ConfirmationResult(
+            sender_role=expected_role,
+            decision=decision,
+            authenticated_result=AUTHENTICATED_REJECT,
+            terminal=True,
+            trust_commit_permitted=False,
+        )
+    return ConfirmationResult(
+        sender_role=expected_role,
+        decision=decision,
+        authenticated_result=AFFIRMATIVE_CONFIRM,
+        terminal=False,
+        trust_commit_permitted=False,
+    )
+
+
+def require_trust_commit(
+    key: bytes,
+    message: bytes,
+    presented: bytes,
+    expected_pair_context: bytes,
+    expected_role: int,
+    local_decision: int,
+) -> ConfirmationResult:
+    if local_decision not in {DECISION_REJECT, DECISION_CONFIRM}:
+        fail("INVALID_DECISION", "local confirmation decision is invalid")
+    if local_decision == DECISION_REJECT:
+        fail("LOCAL_REJECT", "local rejection terminally closes the attempt")
+    result = verify_confirmation(
+        key,
+        message,
+        presented,
+        expected_pair_context,
+        expected_role,
+    )
+    if result.decision == DECISION_REJECT:
+        fail(
+            "AUTHENTICATED_REJECT",
+            "peer authenticated rejection terminally closes the attempt",
+        )
+    return ConfirmationResult(
+        sender_role=result.sender_role,
+        decision=result.decision,
+        authenticated_result=result.authenticated_result,
+        terminal=False,
+        trust_commit_permitted=True,
+    )
+
+
 def execute_negative(
     operation: str, inputs: Mapping[str, Any], wordlist: Sequence[str]
 ) -> None:
@@ -927,24 +1117,84 @@ def execute_negative(
         )
         return
     if operation == "verify_confirmation":
-        key = decode_hex(inputs.get("key_hex"), "input.key_hex")
-        message = decode_hex(inputs.get("message_hex"), "input.message_hex")
-        if len(message) != 34:
-            fail("INVALID_LENGTH", "confirmation message must contain 34 octets")
-        expected_role = require_integer(
-            inputs.get("expected_role"), "input.expected_role", 1, 2
-        )
-        if message[32] != expected_role:
-            fail("ROLE_MISMATCH", "confirmation role does not match the sender")
-        if message[33] not in {DECISION_REJECT, DECISION_CONFIRM}:
-            fail("INVALID_DECISION", "confirmation decision is invalid")
-        verify_mac(
-            key,
-            message,
+        verify_confirmation(
+            decode_hex(inputs.get("key_hex"), "input.key_hex"),
+            decode_hex(inputs.get("message_hex"), "input.message_hex"),
             decode_hex(inputs.get("presented_hex"), "input.presented_hex"),
-            "CONFIRMATION_MISMATCH",
-            "confirmation",
+            decode_hex(
+                inputs.get("expected_pair_context_hex"),
+                "input.expected_pair_context_hex",
+                32,
+            ),
+            require_integer(
+                inputs.get("expected_role"), "input.expected_role", 1, 2
+            ),
         )
+        return
+    if operation == "require_trust_commit":
+        require_trust_commit(
+            decode_hex(inputs.get("key_hex"), "input.key_hex"),
+            decode_hex(inputs.get("message_hex"), "input.message_hex"),
+            decode_hex(inputs.get("presented_hex"), "input.presented_hex"),
+            decode_hex(
+                inputs.get("expected_pair_context_hex"),
+                "input.expected_pair_context_hex",
+                32,
+            ),
+            require_integer(
+                inputs.get("expected_role"), "input.expected_role", 1, 2
+            ),
+            require_integer(
+                inputs.get("local_decision"),
+                "input.local_decision",
+                DECISION_REJECT,
+                DECISION_CONFIRM,
+            ),
+        )
+        return
+    if operation == "derive_device_identifier":
+        encoded = decode_hex(
+            inputs.get("canonical_input_hex"),
+            "input.canonical_input_hex",
+        )
+        canonical_digest(encoded, KIND_DEVICE_IDENTIFIER)
+        return
+    if operation == "verify_device_identifier":
+        public_key = decode_hex(
+            inputs.get("public_key_hex"), "input.public_key_hex", 32
+        )
+        expected = decode_hex(
+            inputs.get("expected_sha256_hex"),
+            "input.expected_sha256_hex",
+            32,
+        )
+        encoded = build_device_identifier(public_key)
+        actual = hashlib.sha256(encoded).digest()
+        if not hmac.compare_digest(actual, expected):
+            fail(
+                "DEVICE_IDENTIFIER_MISMATCH",
+                "device identifier does not match the canonical public key",
+            )
+        return
+    if operation == "verify_device_identifier_text":
+        public_key = decode_hex(
+            inputs.get("public_key_hex"), "input.public_key_hex", 32
+        )
+        presented = require_string(
+            inputs.get("presented_text"), "input.presented_text"
+        )
+        if re.fullmatch(r"[0-9a-f]{64}", presented) is None:
+            fail(
+                "NON_CANONICAL_ENCODING",
+                "device identifier text must be 64 lowercase hexadecimal characters",
+            )
+        encoded = build_device_identifier(public_key)
+        actual = hashlib.sha256(encoded).hexdigest()
+        if not hmac.compare_digest(actual, presented):
+            fail(
+                "DEVICE_IDENTIFIER_MISMATCH",
+                "device identifier text does not match the canonical public key",
+            )
         return
     if operation == "verify_transport_finished":
         key = decode_hex(inputs.get("key_hex"), "input.key_hex")

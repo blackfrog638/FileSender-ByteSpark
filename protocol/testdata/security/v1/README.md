@@ -34,14 +34,19 @@ Positive vectors cover:
 - pairing, confirmation, and transport exporter API inputs;
 - 55-bit SAS extraction and five fixed word-list indices;
 - initiator and responder peer-confirmation HMAC values;
+- initiator and responder authenticated-rejection HMAC values with typed,
+  terminal, no-trust-write outcomes;
+- byte-exact device-identifier input, label, digest, and text representation;
 - transport context and both role-specific finished values;
 - rotation context plus old-key and new-key Ed25519 proof input bytes.
 
 Negative vectors cover malformed canonical encoding, duplicate and omitted
 fields, role and identity-key swaps, replay on fresh pairing and transport
-contexts, negotiation downgrade, malformed raw transcript order, wrong fixed
-lengths, stale rotation counters, invalid rotation domains, and output
-mismatch.
+contexts, authenticated rejection where confirmation is required, invalid and
+substituted confirmation decisions, device-identifier label/key/output
+alternates and wrong-key verification, negotiation downgrade, malformed raw
+transcript order, wrong fixed lengths, stale rotation counters, invalid
+rotation domains, and output mismatch.
 
 ## Word list
 

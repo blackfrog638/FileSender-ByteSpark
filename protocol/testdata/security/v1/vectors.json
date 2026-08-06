@@ -13,7 +13,11 @@
     "sas_word_count": 5,
     "sas_wordlist": "BIP39-English-index-order",
     "wordlist_sha256": "2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda",
-    "exporter_material": "fixture-input-only"
+    "exporter_material": "fixture-input-only",
+    "device_identifier_label_hex": "586e6e5472616e7366657220646576696365206964656e746966696572207631",
+    "device_identifier_input": "XNNS-canonical-kind-07",
+    "device_identifier_hash": "SHA-256",
+    "device_identifier_text": "lowercase-hex-no-prefix"
   },
   "fixtures": {
     "baseline": {
@@ -248,6 +252,77 @@
         "output": {
           "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820201",
           "hmac_sha256_hex": "ae63dc5e1462dd80bcfc931111faef81fbcd560e4de9c88ef8e44a3f6a041a85"
+        }
+      }
+    },
+    {
+      "id": "peer-rejection-initiator",
+      "description": "An authenticated initiator rejection is a typed terminal outcome and never permits a trust write.",
+      "operation": "confirmation_reject_initiator",
+      "fixture": "baseline",
+      "input_encoding": "Exact pair-context, initiator role 01, reject decision 00, and HMAC-SHA256 defined by ADR 0002.",
+      "invariants": [
+        "P-09",
+        "SEC-03",
+        "SEC-18"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820100",
+          "hmac_sha256_hex": "671e0eb259d4cc05f1678e2f1add3e5ab0663a7b47c9eca87a6136c9413be071",
+          "sender_role": 1,
+          "decision": 0,
+          "authenticated_result": "authenticated_reject",
+          "terminal": true,
+          "trust_commit_permitted": false
+        }
+      }
+    },
+    {
+      "id": "peer-rejection-responder",
+      "description": "An authenticated responder rejection is role-specific, terminal, and never permits a trust write.",
+      "operation": "confirmation_reject_responder",
+      "fixture": "baseline",
+      "input_encoding": "Exact pair-context, responder role 02, reject decision 00, and HMAC-SHA256 defined by ADR 0002.",
+      "invariants": [
+        "P-09",
+        "SEC-03",
+        "SEC-18"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820200",
+          "hmac_sha256_hex": "e6eaf4d5e6a30b6bfd4f25f3f267fb51b951633e741189ff092bffd0b2e4da29",
+          "sender_role": 2,
+          "decision": 0,
+          "authenticated_result": "authenticated_reject",
+          "terminal": true,
+          "trust_commit_permitted": false
+        }
+      }
+    },
+    {
+      "id": "device-identifier-initiator",
+      "description": "The stable device identifier hashes one byte-exact kind-07 object containing the exact pin bytes.",
+      "operation": "device_identifier_initiator",
+      "fixture": "baseline",
+      "input_encoding": "Complete XNNS kind-07 canonical object; output is 32 digest octets represented as 64 lowercase hexadecimal characters.",
+      "invariants": [
+        "SEC-04",
+        "SEC-08"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "label_ascii": "XnnTransfer device identifier v1",
+          "label_hex": "586e6e5472616e7366657220646576696365206964656e746966696572207631",
+          "public_key_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+          "canonical_input_hex": "584e4e53010700020000004c000100000020586e6e5472616e7366657220646576696365206964656e746966696572207631000200000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+          "sha256_hex": "c0a74fca4f0e4dd1fc6d7c7ad7e8478b6096d35ec8fab8566234abfd4f5c00f3",
+          "binary_length": 32,
+          "text_encoding": "lowercase-hex-no-prefix"
         }
       }
     },
@@ -632,6 +707,7 @@
         "key_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
         "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820201",
         "presented_hex": "f90a5ddbecbbafeb7e9a2c3287404f5c313aef51ac60049506e8c6f67d78bcfd",
+        "expected_pair_context_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882",
         "expected_role": 1
       },
       "expect": {
@@ -653,11 +729,220 @@
         "key_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
         "message_hex": "0cbf09930145270a7ccdd5323bf3055d0f84a2cd6071af60051724aa52aa401b0101",
         "presented_hex": "f90a5ddbecbbafeb7e9a2c3287404f5c313aef51ac60049506e8c6f67d78bcfd",
+        "expected_pair_context_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882",
         "expected_role": 1
       },
       "expect": {
         "result": "reject",
         "error": "CONFIRMATION_MISMATCH"
+      }
+    },
+    {
+      "id": "confirmation-initiator-reject-where-confirm-required",
+      "description": "A valid authenticated initiator rejection is terminal when affirmative confirmation is required.",
+      "operation": "require_trust_commit",
+      "input_encoding": "Exact hexadecimal octets plus explicit live context, sender role, and local decision.",
+      "invariants": [
+        "P-09",
+        "SEC-03",
+        "SEC-18"
+      ],
+      "input": {
+        "key_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+        "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820100",
+        "presented_hex": "671e0eb259d4cc05f1678e2f1add3e5ab0663a7b47c9eca87a6136c9413be071",
+        "expected_pair_context_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882",
+        "expected_role": 1,
+        "local_decision": 1
+      },
+      "expect": {
+        "result": "reject",
+        "error": "AUTHENTICATED_REJECT"
+      }
+    },
+    {
+      "id": "confirmation-responder-reject-where-confirm-required",
+      "description": "A valid authenticated responder rejection is terminal when affirmative confirmation is required.",
+      "operation": "require_trust_commit",
+      "input_encoding": "Exact hexadecimal octets plus explicit live context, sender role, and local decision.",
+      "invariants": [
+        "P-09",
+        "SEC-03",
+        "SEC-18"
+      ],
+      "input": {
+        "key_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+        "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820200",
+        "presented_hex": "e6eaf4d5e6a30b6bfd4f25f3f267fb51b951633e741189ff092bffd0b2e4da29",
+        "expected_pair_context_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882",
+        "expected_role": 2,
+        "local_decision": 1
+      },
+      "expect": {
+        "result": "reject",
+        "error": "AUTHENTICATED_REJECT"
+      }
+    },
+    {
+      "id": "confirmation-local-reject-where-trust-required",
+      "description": "A local rejection prohibits trust even when the peer supplied a valid affirmative confirmation.",
+      "operation": "require_trust_commit",
+      "input_encoding": "Exact hexadecimal octets plus explicit live context, sender role, and local decision.",
+      "invariants": [
+        "P-09",
+        "SEC-03",
+        "SEC-18"
+      ],
+      "input": {
+        "key_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+        "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820101",
+        "presented_hex": "f90a5ddbecbbafeb7e9a2c3287404f5c313aef51ac60049506e8c6f67d78bcfd",
+        "expected_pair_context_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882",
+        "expected_role": 1,
+        "local_decision": 0
+      },
+      "expect": {
+        "result": "reject",
+        "error": "LOCAL_REJECT"
+      }
+    },
+    {
+      "id": "confirmation-invalid-decision",
+      "description": "An out-of-range decision is invalid even when accompanied by its matching HMAC.",
+      "operation": "verify_confirmation",
+      "input_encoding": "Exact hexadecimal octets plus explicit expected live context and sender role.",
+      "invariants": [
+        "P-09",
+        "SEC-03",
+        "SEC-18"
+      ],
+      "input": {
+        "key_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+        "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820102",
+        "presented_hex": "4e60cb38ba10ccf77e8360fd1018488f9f32d3e9e08262cfd3579c8b6f9ed674",
+        "expected_pair_context_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882",
+        "expected_role": 1
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_DECISION"
+      }
+    },
+    {
+      "id": "confirmation-substitute-reject-for-confirm",
+      "description": "Changing an initiator confirm message to reject without replacing its HMAC is not an authenticated rejection.",
+      "operation": "verify_confirmation",
+      "input_encoding": "Exact hexadecimal octets plus explicit expected live context and sender role.",
+      "invariants": [
+        "P-09",
+        "SEC-03",
+        "SEC-18"
+      ],
+      "input": {
+        "key_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+        "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820100",
+        "presented_hex": "f90a5ddbecbbafeb7e9a2c3287404f5c313aef51ac60049506e8c6f67d78bcfd",
+        "expected_pair_context_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882",
+        "expected_role": 1
+      },
+      "expect": {
+        "result": "reject",
+        "error": "CONFIRMATION_MISMATCH"
+      }
+    },
+    {
+      "id": "confirmation-substitute-confirm-for-reject",
+      "description": "Changing a responder reject message to confirm without replacing its HMAC cannot create affirmative consent.",
+      "operation": "verify_confirmation",
+      "input_encoding": "Exact hexadecimal octets plus explicit expected live context and sender role.",
+      "invariants": [
+        "P-09",
+        "SEC-03",
+        "SEC-18"
+      ],
+      "input": {
+        "key_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+        "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820201",
+        "presented_hex": "e6eaf4d5e6a30b6bfd4f25f3f267fb51b951633e741189ff092bffd0b2e4da29",
+        "expected_pair_context_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882",
+        "expected_role": 2
+      },
+      "expect": {
+        "result": "reject",
+        "error": "CONFIRMATION_MISMATCH"
+      }
+    },
+    {
+      "id": "device-identifier-alternate-label",
+      "description": "An alternate device-identifier label has no equivalent derivation.",
+      "operation": "derive_device_identifier",
+      "input_encoding": "Complete XNNS kind-07 canonical object encoded as exact hexadecimal octets.",
+      "invariants": [
+        "SEC-04",
+        "SEC-08",
+        "SEC-19"
+      ],
+      "input": {
+        "canonical_input_hex": "584e4e53010700020000004c000100000020586e6e5472616e7366657220646576696365206964656e746966696572207632000200000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "DOMAIN_MISMATCH"
+      }
+    },
+    {
+      "id": "device-identifier-alternate-public-key-encoding",
+      "description": "ASCII hexadecimal public-key text is not the canonical 32-octet Ed25519 pin.",
+      "operation": "derive_device_identifier",
+      "input_encoding": "Complete XNNS kind-07 object whose field 2 contains a non-canonical representation.",
+      "invariants": [
+        "SEC-04",
+        "SEC-08",
+        "SEC-19"
+      ],
+      "input": {
+        "canonical_input_hex": "584e4e53010700020000006c000100000020586e6e5472616e7366657220646576696365206964656e74696669657220763100020000004034303431343234333434343534363437343834393461346234633464346534663530353135323533353435353536353735383539356135623563356435653566"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_LENGTH"
+      }
+    },
+    {
+      "id": "device-identifier-wrong-key",
+      "description": "A device identifier derived from one key cannot verify for another key.",
+      "operation": "verify_device_identifier",
+      "input_encoding": "Canonical 32-octet Ed25519 public key and expected 32-octet SHA-256 identifier.",
+      "invariants": [
+        "SEC-04",
+        "SEC-08"
+      ],
+      "input": {
+        "public_key_hex": "606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f",
+        "expected_sha256_hex": "c0a74fca4f0e4dd1fc6d7c7ad7e8478b6096d35ec8fab8566234abfd4f5c00f3"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "DEVICE_IDENTIFIER_MISMATCH"
+      }
+    },
+    {
+      "id": "device-identifier-alternate-output-encoding",
+      "description": "Uppercase hexadecimal is not the canonical device-identifier text representation.",
+      "operation": "verify_device_identifier_text",
+      "input_encoding": "Canonical 32-octet Ed25519 public key and exact device-identifier text.",
+      "invariants": [
+        "SEC-04",
+        "SEC-08",
+        "SEC-19"
+      ],
+      "input": {
+        "public_key_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "presented_text": "C0A74FCA4F0E4DD1FC6D7C7AD7E8478B6096D35EC8FAB8566234ABFD4F5C00F3"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "NON_CANONICAL_ENCODING"
       }
     },
     {

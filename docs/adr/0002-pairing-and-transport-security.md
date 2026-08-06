@@ -167,6 +167,34 @@ PAIR_CONFIRMATION(role, decision) =
               pair_context || role:U8 || decision:U8)
 ```
 
+Confirmation verification takes the expected live `pair_context` and expected
+sender role as separate state-machine inputs; neither is inferred from the
+message. It first requires the exact 34-octet message shape, the expected role,
+and a decision in `{00, 01}`, then authenticates the complete message with the
+confirmation exporter and compares its context to the expected live context.
+An authenticated result is typed as follows:
+
+| Decision | Authenticated result | State-machine effect |
+| ---: | --- | --- |
+| `00` | `authenticated_reject` | terminally reject the live attempt, erase pending state, and prohibit a trust write |
+| `01` | `affirmative_confirm` | record peer confirmation for this live attempt; this result alone does not authorize trust |
+
+An out-of-range decision is `invalid_decision` and fails closed. A decision
+octet substituted without its matching HMAC is
+`confirmation_mismatch`, not an authenticated decision. When an affirmative
+peer confirmation is required, a correctly authenticated `00` produces the
+distinct terminal result `authenticated_reject`; it must never be returned as
+success merely because its HMAC is valid.
+
+The trust commit gate requires all of the following for the same currently
+live attempt: the local decision is exactly `01`, the authenticated peer
+decision is exactly `01`, both confirmations bind the attempt's exact
+`pair_context` and role, and all other pairing checks still hold. Any local or
+peer `00`, invalid decision, stale context, role mismatch, authentication
+failure, timeout, or closed attempt makes the gate terminally reject without a
+trust write. A previously authenticated decision cannot be applied to a new
+attempt.
+
 Object kind `04`, transport context input, has:
 
 | ID | Value |
@@ -209,6 +237,32 @@ field 1 is ASCII `XnnTransfer rotation proof v1`, field 2 is
 key. The signatures themselves and Ed25519 implementation are deliberately
 outside these exporter-input fixtures.
 
+Object kind `07`, device identifier input, has:
+
+| ID | Value |
+| ---: | --- |
+| 1 | exact 32 ASCII octets `XnnTransfer device identifier v1` (hex `586e6e5472616e7366657220646576696365206964656e746966696572207631`) |
+| 2 | canonical 32-octet Ed25519 public key |
+
+The canonical public key is the 32-octet compressed Edwards-y encoding defined
+by RFC 8032, exactly matching the bytes used for public-key pinning and
+private-key-possession verification. DER, PEM, certificate serialization,
+text, hexadecimal, length prefixes inside field 2, and other public-key
+representations are not accepted.
+
+`device_identifier_input` is the complete encoded kind-`07` object, including
+the `XNNS` envelope and both field records. The stable identifier is:
+
+```text
+device_identifier = SHA-256(device_identifier_input)
+```
+
+The canonical identifier is the 32 digest octets. Where a text representation
+is required, it is exactly 64 lowercase ASCII hexadecimal characters in digest
+byte order, without a prefix, separators, whitespace, or terminator. Decoders
+must not accept an alternate label, alternate public-key encoding, or alternate
+text representation as an equivalent derivation.
+
 The normative fixtures are under `protocol/testdata/security/v1/`. Exporter
 material in those files is fixed test input, not output from a TLS
 implementation. Any encoding or cryptographic output mismatch fails closed;
@@ -217,9 +271,11 @@ there is no alternate decoding or fallback derivation.
 ### Device identity
 
 Each installation has one device-local identity key. The stable device
-identifier is the SHA-256 digest of a domain-separation label and the canonical
-32-byte Ed25519 public key. The identifier and public key must not be included
-in unauthenticated discovery advertisements.
+identifier is the byte-exact kind-`07` SHA-256 derivation above. It is a stable
+scope and display identifier only: it never authenticates a peer, proves
+private-key possession, or overrides an exact Ed25519 public-key pin mismatch.
+The identifier and public key must not be included in unauthenticated
+discovery advertisements.
 
 The private key and pairing records must be stored using a platform-protected,
 non-synchronizing secure-storage backend. Private keys should be non-exportable
@@ -269,13 +325,15 @@ address is only a display hint.
    name or address comparison is not a substitute. The UI confirmation is
    bound to an opaque attempt identifier so a stale confirmation cannot
    approve another connection.
-6. After local confirmation, each peer sends a key-confirmation value over
-   the pairing channel. It is an HMAC over `pair_context`, role, and the
-   confirmation decision using a second, distinctly labelled TLS exporter.
-7. A peer becomes trusted only after local confirmation and verification of
-   the matching peer confirmation. Each side then atomically stores the
-   peer's public key, device identifier, approved security floor, a local
-   display label, and trust-state metadata.
+6. After its local decision, each peer sends a key-confirmation value over the
+   pairing channel. It is an HMAC over `pair_context`, role, and the
+   confirmation decision using a second, distinctly labelled TLS exporter. A
+   valid authenticated rejection terminates the attempt; it is not affirmative
+   confirmation.
+7. A peer becomes trusted only when both its local decision and the
+   authenticated peer decision are exactly `01` for the same live attempt.
+   Each side then atomically stores the peer's public key, device identifier,
+   approved security floor, a local display label, and trust-state metadata.
 
 The 55-bit SAS bounds an online active interception attempt to at most
 `2^-55` per independently generated transcript when the user compares all
