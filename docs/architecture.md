@@ -76,8 +76,8 @@ must enforce:
 - cancellation, timeout, backpressure, and idempotent cleanup;
 - no automatic file acceptance based only on discovery.
 
-ADR 0002 proposes the pairing and authenticated transport profile, but remains
-unaccepted and unimplemented. ADR 0004 accepts bounded v1 framing and
+ADR 0002 accepts the pairing and authenticated transport design, but the
+profile remains unimplemented. ADR 0004 accepts bounded v1 framing and
 negotiation independently from transport authentication. No current component
 may claim authenticated pairing, encrypted transfer, or production v1
 conformance.

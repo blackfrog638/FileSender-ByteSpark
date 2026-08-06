@@ -15,7 +15,7 @@ do not overlap.
 ## P0: contracts before networking
 
 - [x] LAN threat model and negative-test matrix
-- [ ] Accept the proposed pairing and transport security ADR
+- [x] Accept the pairing and transport security design
 - [x] Wire framing, version negotiation, and limits specification
 - [x] Native event model and ABI callback contract
 - [x] Flutter transfer application state and protocol error taxonomy
@@ -62,6 +62,9 @@ do not overlap.
 | XT-009 | protocol | proposed security-profile golden vectors | done |
 | XT-011 | protocol | hostile path and manifest contract fixtures | done |
 | XT-012 | integration | task-local governance artifact ownership | done |
+| XT-013 | protocol | confirmation and device-identifier blocker fixes | done |
+| XT-014 | protocol | valid Ed25519 fixture keys | done |
+| XT-015 | protocol | prime-subgroup key validation | done |
 
 Task state and acceptance evidence live under `.agents/records/`. Roadmap
 checkboxes describe product milestones and are not the runtime task state.

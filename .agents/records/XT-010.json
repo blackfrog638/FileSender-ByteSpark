@@ -17,14 +17,18 @@
       "rationale": "The fourth independent review reproduces the XT-015 subgroup and identity-forgery evidence, confirms all 17 positive outputs and 34 prior error contracts are unchanged, verifies the three new subgroup negatives, closes BR-01 through BR-04, and finds no remaining design blocker."
     },
     "architecture": {
-      "status": "not_required",
-      "references": [],
-      "rationale": "XT-010 must not edit the integration-owned architecture document; the integration owner must replace its proposed-ADR wording when integrating this accepted design. No runtime architecture is implemented by this task."
+      "status": "updated",
+      "references": [
+        "docs/architecture.md"
+      ],
+      "rationale": "The integration owner synchronized the durable architecture wording to distinguish the accepted design from the still-unimplemented pairing and transport runtime."
     },
     "roadmap": {
-      "status": "not_required",
-      "references": [],
-      "rationale": "XT-010 must not edit the integration-owned roadmap; the integration owner must mark the ADR-acceptance milestone complete while retaining all runtime pairing and transport milestones."
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "The integration owner closed only the P0 design-decision milestone; authenticated pairing, encrypted transfer, and interoperability remain open implementation milestones."
     }
   },
   "integration": {
