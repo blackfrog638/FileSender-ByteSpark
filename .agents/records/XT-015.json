@@ -2,9 +2,9 @@
   "schema_version": 1,
   "id": "XT-015",
   "task_type": "decision",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
+  "state": "claimed",
+  "owner": "ed25519-subgroup-agent",
+  "base_sha": "b361412a3d1a5bf425044c55cb7ac984a43e2284",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-015.md",
   "impacts": {
