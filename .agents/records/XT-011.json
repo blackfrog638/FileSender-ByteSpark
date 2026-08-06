@@ -2,10 +2,10 @@
   "schema_version": 1,
   "id": "XT-011",
   "task_type": "test",
-  "state": "in_progress",
+  "state": "review",
   "owner": "manifest-fixtures-agent",
   "base_sha": "3235a225722df4e7b06b8903f5eb49dd0852d2b0",
-  "head_sha": "",
+  "head_sha": "42dad3884d246e9e614dea9c19328757c10b67b0",
   "handoff": ".agents/handoffs/XT-011.md",
   "impacts": {
     "adr": {
@@ -35,12 +35,12 @@
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "python3 protocol/testdata/v1/manifest/validate_vectors.py",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:42dad3884d246e9e614dea9c19328757c10b67b0:2026-08-06T15:46:54Z"
   },
   "acceptance": {
     "accepted_by": "",
