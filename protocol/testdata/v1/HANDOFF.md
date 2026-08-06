@@ -11,7 +11,7 @@
 - Head SHA: this handoff's task commit; use `git rev-parse HEAD`
 - Worktree clean: yes after the task commit
 - Owned paths: `protocol/spec/v1.md`, `protocol/testdata/v1/**`
-- Observable behavior: defines a fail-closed v1.0 wire contract and provides 28
+- Observable behavior: defines a fail-closed v1.0 wire contract and provides 29
   machine-checked legal and malformed framing/negotiation transcripts
 
 ## Contracts
@@ -31,7 +31,8 @@
 ## Verification evidence
 
 - Command: `python3 protocol/testdata/v1/validate_vectors.py`
-- Result: passed all 28 legal and malformed vector cases
+- Result: passed all 29 legal and malformed vector cases, including
+  transport-binding completion and wrong-role rejection
 - Command: `python3 -m json.tool protocol/testdata/v1/vectors.json`
 - Result: passed
 - Command: `make verify`
@@ -46,7 +47,8 @@
   XT-001 is approved; cleartext vectors are test-only and production v1
   conformance remains prohibited
 - Known limitation: the Python validator is a fixture oracle for framing and
-  negotiation, not a production parser or security implementation
+  negotiation/binding order, not a production parser or TLS exporter
+  verification implementation
 - Follow-up task: XT-006 must implement and fuzz the native parser against
   these fixtures; integration owner must review this shared wire contract
 

@@ -21,13 +21,25 @@
       "direction": "responder_to_initiator",
       "hex": "584e4e54001c0100000300000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010"
     },
+    "transport_finished_initiator": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c010000080000000000000000000000000003000000310001010100000001010002050100000020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+    },
+    "transport_finished_responder": {
+      "direction": "responder_to_initiator",
+      "hex": "584e4e54001c010000080000000000000000000000000003000000310001010100000001020002050100000020202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+    },
+    "transport_finished_wrong_role": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c010000080000000000000000000000000003000000310001010100000001020002050100000020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
+    },
     "ping": {
       "direction": "initiator_to_responder",
-      "hex": "584e4e54001c0100000500000000000000000000000000030000001000010401000000080102030405060708"
+      "hex": "584e4e54001c0100000500000000000000000000000000040000001000010401000000080102030405060708"
     },
     "pong": {
       "direction": "responder_to_initiator",
-      "hex": "584e4e54001c0100000600000000000000000000000000030000001000010401000000080102030405060708"
+      "hex": "584e4e54001c0100000600000000000000000000000000040000001000010401000000080102030405060708"
     },
     "hello_unknown_noncritical": {
       "direction": "initiator_to_responder",
@@ -147,7 +159,7 @@
     },
     "pong_wrong_token": {
       "direction": "responder_to_initiator",
-      "hex": "584e4e54001c0100000600000000000000000000000000030000001000010401000000080102030405060709"
+      "hex": "584e4e54001c0100000600000000000000000000000000040000001000010401000000080102030405060709"
     }
   },
   "cases": [
@@ -159,6 +171,8 @@
         "hello_responder",
         "negotiate",
         "negotiate_ack",
+        "transport_finished_initiator",
+        "transport_finished_responder",
         "ping",
         "pong"
       ],
@@ -468,6 +482,21 @@
       }
     },
     {
+      "name": "transport_finished_wrong_role",
+      "description": "The finished sender role is bound to its authenticated direction.",
+      "frames": [
+        "hello_initiator",
+        "hello_responder",
+        "negotiate",
+        "negotiate_ack",
+        "transport_finished_wrong_role"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "STATE_VIOLATION"
+      }
+    },
+    {
       "name": "pong_token_mismatch",
       "description": "PONG echoes an outstanding PING token.",
       "frames": [
@@ -475,6 +504,8 @@
         "hello_responder",
         "negotiate",
         "negotiate_ack",
+        "transport_finished_initiator",
+        "transport_finished_responder",
         "ping",
         "pong_wrong_token"
       ],

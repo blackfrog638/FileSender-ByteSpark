@@ -29,6 +29,7 @@ ERROR = 0x0004
 PING = 0x0005
 PONG = 0x0006
 GOAWAY = 0x0007
+TRANSPORT_FINISHED = 0x0008
 
 CONNECTION_TYPES = {
     HELLO,
@@ -37,6 +38,7 @@ CONNECTION_TYPES = {
     PING,
     PONG,
     GOAWAY,
+    TRANSPORT_FINISHED,
 }
 TRANSFER_TYPES = {
     0x0100,
@@ -125,6 +127,10 @@ CONTROL_SCHEMAS = {
     NEGOTIATE_ACK: NEGOTIATE_SCHEMA,
     PING: {1: FieldRule(U64)},
     PONG: {1: FieldRule(U64)},
+    TRANSPORT_FINISHED: {
+        1: FieldRule(U8),
+        2: FieldRule(BYTES),
+    },
 }
 
 
@@ -318,6 +324,8 @@ class TranscriptValidator:
         }
         self.hellos: dict[str, Frame] = {}
         self.negotiated_fields: dict[int, list[Any]] | None = None
+        self.negotiation_complete = False
+        self.finished_directions: set[str] = set()
         self.established = False
         self.ping_tokens: dict[str, int] = {}
 
@@ -339,7 +347,7 @@ class TranscriptValidator:
                 one(self.negotiated_fields, 1),
                 one(self.negotiated_fields, 2),
             )
-            if self.established and self.negotiated_fields is not None
+            if self.negotiation_complete and self.negotiated_fields is not None
             else (1, 0)
         )
         if (frame.major, frame.minor) != expected_version:
@@ -351,8 +359,10 @@ class TranscriptValidator:
             self.process_negotiate(direction, frame)
         elif frame.message_type == NEGOTIATE_ACK:
             self.process_negotiate_ack(direction, frame)
+        elif frame.message_type == TRANSPORT_FINISHED:
+            self.process_transport_finished(direction, frame)
         elif not self.established:
-            fail("STATE_VIOLATION", "message is not allowed during negotiation")
+            fail("STATE_VIOLATION", "message is not allowed before transport binding")
         elif frame.message_type == PING:
             self.process_ping(direction, frame)
         elif frame.message_type == PONG:
@@ -404,9 +414,25 @@ class TranscriptValidator:
             fail("STATE_VIOLATION", "initiator sent NEGOTIATE_ACK")
         if self.negotiated_fields is None:
             fail("STATE_VIOLATION", "NEGOTIATE_ACK arrived before NEGOTIATE")
+        if self.negotiation_complete:
+            fail("STATE_VIOLATION", "NEGOTIATE_ACK is repeated")
         if frame.fields != self.negotiated_fields:
             fail("MALFORMED_MESSAGE", "NEGOTIATE_ACK does not match selection")
-        self.established = True
+        self.negotiation_complete = True
+
+    def process_transport_finished(self, direction: str, frame: Frame) -> None:
+        if not self.negotiation_complete:
+            fail("STATE_VIOLATION", "TRANSPORT_FINISHED arrived before negotiation ACK")
+        if direction in self.finished_directions:
+            fail("STATE_VIOLATION", "TRANSPORT_FINISHED is repeated")
+        expected_role = 1 if direction == INITIATOR_TO_RESPONDER else 2
+        if one(frame.fields, 1) != expected_role:
+            fail("STATE_VIOLATION", "TRANSPORT_FINISHED role conflicts with direction")
+        verify_data = one(frame.fields, 2)
+        if not 1 <= len(verify_data) <= 64:
+            fail("MALFORMED_MESSAGE", "TRANSPORT_FINISHED value exceeds framing bounds")
+        self.finished_directions.add(direction)
+        self.established = self.finished_directions == DIRECTIONS
 
     def process_ping(self, direction: str, frame: Frame) -> None:
         reverse = (
