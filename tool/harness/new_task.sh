@@ -64,12 +64,14 @@ if [[ "${#owned_paths[@]}" -eq 0 ]]; then
   printf 'At least one --owned path is required.\n' >&2
   exit 2
 fi
-for dependency in "${dependencies[@]}"; do
-  if [[ ! "$dependency" =~ ^XT-[0-9]{3,}$ ]]; then
-    printf 'Invalid dependency: %s\n' "$dependency" >&2
-    exit 2
-  fi
-done
+if [[ "${#dependencies[@]}" -gt 0 ]]; then
+  for dependency in "${dependencies[@]}"; do
+    if [[ ! "$dependency" =~ ^XT-[0-9]{3,}$ ]]; then
+      printf 'Invalid dependency: %s\n' "$dependency" >&2
+      exit 2
+    fi
+  done
+fi
 
 destination="$root/.agents/tasks/$task_id-$slug.md"
 record="$root/.agents/records/$task_id.json"
@@ -78,7 +80,10 @@ if [[ -e "$destination" || -e "$record" ]]; then
   exit 1
 fi
 
-dependencies_text="$(printf '%s\n' "${dependencies[@]:-}")"
+dependencies_text=""
+if [[ "${#dependencies[@]}" -gt 0 ]]; then
+  dependencies_text="$(printf '%s\n' "${dependencies[@]}")"
+fi
 owned_paths_text="$(printf '%s\n' "${owned_paths[@]}")"
 DEPENDENCIES="$dependencies_text" OWNED_PATHS="$owned_paths_text" \
   python3 - \

@@ -229,7 +229,11 @@ def validate_record(
         if commit and not SHA_PATTERN.fullmatch(commit):
             errors.append(f"{task_id}.{label} must be a full lowercase SHA")
         elif commit and verify_git and not commit_exists(commit):
-            errors.append(f"{task_id}.{label} commit is unavailable: {commit}")
+            source_may_be_archived = (
+                label == "head_sha" and state in {"integrated", "done"}
+            )
+            if not source_may_be_archived:
+                errors.append(f"{task_id}.{label} commit is unavailable: {commit}")
 
     handoff = require_string(errors, record.get("handoff"), f"{task_id}.handoff")
     if state in {"review", "integrated", "done"} and handoff:

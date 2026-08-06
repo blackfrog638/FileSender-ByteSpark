@@ -184,4 +184,44 @@ test "$(
 )" = "done"
 "$repository/tool/harness/agent.sh" validate >/dev/null
 
+record="$repository/.agents/records/$task_id.json"
+record_backup="$temporary/$task_id-record.json"
+cp "$record" "$record_backup"
+python3 - "$record" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+record = json.loads(path.read_text(encoding="utf-8"))
+archived_source = "f" * 40
+record["head_sha"] = archived_source
+record["integration"]["mappings"][-1]["source"] = archived_source
+path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+PY
+"$repository/tool/harness/agent.sh" validate >/dev/null
+
+python3 - "$record" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+record = json.loads(path.read_text(encoding="utf-8"))
+record["integration"]["mappings"][-1]["patch_id"] = "0" * 40
+path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+PY
+if "$repository/tool/harness/governance.py" validate >/dev/null 2>&1; then
+  printf 'Governance validation accepted a tampered result patch ID.\n' >&2
+  exit 1
+fi
+cp "$record_backup" "$record"
+"$repository/tool/harness/agent.sh" validate >/dev/null
+
+"$repository/tool/harness/new_task.sh" \
+  XT-998 no-dependency-fixture integration \
+  --owned '.agents/handoffs/XT-998.md' >/dev/null
+test -f "$repository/.agents/tasks/XT-998-no-dependency-fixture.md"
+test -f "$repository/.agents/records/XT-998.json"
+
 printf 'Governance lifecycle test passed.\n'
