@@ -69,6 +69,20 @@ if(XNN_TRANSFER_BUILD_TESTS)
   endif()
 
   add_test(NAME xnn_transfer_native_tests COMMAND xnn_transfer_native_tests)
+
+  add_executable(
+    xnn_transfer_bridge_event_tests
+    tests/bridge/c_api_event_test.cpp
+  )
+  target_link_libraries(xnn_transfer_bridge_event_tests PRIVATE xnn_transfer_core)
+  if(XNN_TRANSFER_ENABLE_ASAN_UBSAN)
+    xnn_transfer_enable_sanitizers(xnn_transfer_bridge_event_tests)
+  endif()
+
+  add_test(
+    NAME xnn_transfer_bridge_event_tests
+    COMMAND xnn_transfer_bridge_event_tests
+  )
 endif()
 
 if(XNN_TRANSFER_BUILD_BENCHMARKS)

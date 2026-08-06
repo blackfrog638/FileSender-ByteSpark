@@ -150,6 +150,12 @@ class NativeEngine {
     _stop = library.lookupFunction<_LifecycleNative, _LifecycleDart>(
       'xnn_transfer_engine_stop',
     );
+    if (!library.providesSymbol('xnn_transfer_engine_set_event_callback') ||
+        !library.providesSymbol('xnn_transfer_engine_poll_event')) {
+      throw StateError(
+        'The native library does not provide the asynchronous event ABI',
+      );
+    }
     _setEventCallback =
         library.lookupFunction<_SetEventCallbackNative, _SetEventCallbackDart>(
       'xnn_transfer_engine_set_event_callback',

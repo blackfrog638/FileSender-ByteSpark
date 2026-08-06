@@ -1,9 +1,14 @@
-// ignore_for_file: depend_on_referenced_packages
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xnn_transfer/core/native/native_engine.dart';
 
 void main() {
+  final String? libraryPath = Platform.environment['XNN_TRANSFER_LIBRARY_PATH'];
+  final Object skipReason = libraryPath == null || libraryPath.isEmpty
+      ? 'Requires a built native library via XNN_TRANSFER_LIBRARY_PATH'
+      : false;
+
   test(
     'listener drains native-owned lifecycle events after wakeup returns',
     () async {
@@ -36,16 +41,21 @@ void main() {
         isTrue,
       );
     },
+    skip: skipReason,
   );
 
-  test('dispose is an idempotent callback shutdown barrier', () async {
-    final NativeEngine engine = NativeEngine.open();
-    engine.initialize();
-    engine.start();
+  test(
+    'dispose is an idempotent callback shutdown barrier',
+    () async {
+      final NativeEngine engine = NativeEngine.open();
+      engine.initialize();
+      engine.start();
 
-    engine.dispose();
-    engine.dispose();
+      engine.dispose();
+      engine.dispose();
 
-    await expectLater(engine.events, emitsDone);
-  });
+      await expectLater(engine.events, emitsDone);
+    },
+    skip: skipReason,
+  );
 }

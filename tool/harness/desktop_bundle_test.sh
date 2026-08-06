@@ -75,6 +75,25 @@ print(f"Loaded {library_path}; ABI version={actual_version}.")
 PY
 }
 
+verify_dart_event_bridge() {
+  local library="$1"
+  local flutter_platform="$2"
+  local dart_library="$library"
+
+  if [[ "$flutter_platform" == "windows" ]] &&
+    command -v cygpath >/dev/null 2>&1; then
+    dart_library="$(cygpath -w "$library")"
+  fi
+
+  printf 'Testing Dart event bridge against %s.\n' "$library"
+  (
+    cd "$root/apps/desktop"
+    XNN_TRANSFER_LIBRARY_PATH="$dart_library" \
+      "$root/tool/harness/sdk.sh" flutter test \
+      test/core/native/native_engine_event_test.dart
+  )
+}
+
 if [[ "$#" -eq 0 ]]; then
   set -- debug release
 fi
@@ -159,4 +178,5 @@ for mode in "$@"; do
   esac
 
   verify_library_load "$library" "$python_command"
+  verify_dart_event_bridge "$library" "$flutter_platform"
 done
