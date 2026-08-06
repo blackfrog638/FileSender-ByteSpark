@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-008",
   "task_type": "integration",
-  "state": "integrated",
+  "state": "done",
   "owner": "governance-ci-agent",
   "base_sha": "c6b63dc7a297b86392178b22b03f59959f80ada3",
   "head_sha": "2aec33664adc83751134eeca4dff83bfe76252c1",
@@ -54,18 +54,18 @@
         "patch_id": "ff3eb42e23f6d9745c27fc6b5317726c6a57f68b"
       }
     ],
-    "verified_sha": ""
+    "verified_sha": "b9fc5d6d797f383dbbf5c75ed0174d666205173b"
   },
   "verification": {
     "status": "passed",
     "commands": [
       "make verify"
     ],
-    "reference": "local:2aec33664adc83751134eeca4dff83bfe76252c1:2026-08-06T14:11:17Z"
+    "reference": "local:b9fc5d6d797f383dbbf5c75ed0174d666205173b:2026-08-06T14:12:17Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-06T22:12:17+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
