@@ -22,6 +22,7 @@ yet and therefore are not currently tested.
 make verify          # required local completion gate
 make security-test   # ASan, UBSan, and bounded libFuzzer run
 make benchmark       # informational native benchmark
+make macos-bundle-test # build app, verify signing, and load bundled dylib
 ```
 
 Use `XNN_TRANSFER_FUZZ_SECONDS=60 make security-test` for a longer local fuzz

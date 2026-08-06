@@ -68,15 +68,17 @@ class NativeEngine {
       return NativeEngine._(DynamicLibrary.open(configuredPath));
     }
 
-    final String libraryName = switch (Platform.operatingSystem) {
-      'macos' => 'libxnn_transfer_core.dylib',
-      'windows' => 'xnn_transfer_core.dll',
-      'linux' => 'libxnn_transfer_core.so',
+    final File executable = File(Platform.resolvedExecutable);
+    final String libraryPath = switch (Platform.operatingSystem) {
+      'macos' => '${executable.parent.parent.path}/Frameworks/'
+          'libxnn_transfer_core.dylib',
+      'windows' => '${executable.parent.path}\\xnn_transfer_core.dll',
+      'linux' => '${executable.parent.path}/libxnn_transfer_core.so',
       _ => throw UnsupportedError(
           'Unsupported desktop platform: ${Platform.operatingSystem}',
         ),
     };
-    return NativeEngine._(DynamicLibrary.open(libraryName));
+    return NativeEngine._(DynamicLibrary.open(libraryPath));
   }
 
   void initialize() {
