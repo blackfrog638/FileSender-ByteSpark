@@ -2,10 +2,10 @@
   "schema_version": 1,
   "id": "XT-012",
   "task_type": "integration",
-  "state": "in_progress",
+  "state": "review",
   "owner": "integration-owner-agent",
   "base_sha": "037ab005fe71f81bddde9e0139a70a1844404150",
-  "head_sha": "",
+  "head_sha": "2ea618df1588813731a31e4bbf9b4fa300f77ad4",
   "handoff": ".agents/handoffs/XT-012.md",
   "impacts": {
     "adr": {
@@ -31,11 +31,11 @@
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:2ea618df1588813731a31e4bbf9b4fa300f77ad4:2026-08-06T15:41:27Z"
   },
   "acceptance": {
     "accepted_by": "",
