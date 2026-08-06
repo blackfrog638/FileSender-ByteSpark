@@ -78,6 +78,24 @@
         "native/fuzz/protocol/**",
         "protocol/testdata/v1/**"
       ]
+    },
+    {
+      "id": "XT-007",
+      "title": "Enforce auditable harness governance",
+      "readiness": "ready",
+      "workstream": "integration",
+      "depends_on": [],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/**",
+        "tool/harness/**",
+        ".github/workflows/**",
+        "Makefile",
+        "docs/architecture.md",
+        "docs/roadmap.md",
+        "docs/testing.md",
+        "docs/adr/**"
+      ]
     }
   ]
 }
