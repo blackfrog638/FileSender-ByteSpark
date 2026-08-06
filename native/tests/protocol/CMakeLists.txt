@@ -25,3 +25,15 @@ add_test(
     "${PROJECT_SOURCE_DIR}/protocol/testdata/v1/generate_native_vectors.py"
     --check
 )
+add_test(
+  NAME xnn_transfer_manifest_vector_oracle
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${PROJECT_SOURCE_DIR}/protocol/testdata/v1/manifest/validate_vectors.py"
+)
+add_test(
+  NAME xnn_transfer_security_profile_vector_oracle
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${PROJECT_SOURCE_DIR}/protocol/testdata/security/v1/validate_vectors.py"
+)

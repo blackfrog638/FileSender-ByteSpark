@@ -8,6 +8,10 @@ The harness phase has real checks for:
 - native lifecycle events, callback serialization, and shutdown barriers;
 - bounded v1 frame/TLV parsing against legal and hostile vectors;
 - generated-fixture drift and parser transcript-state regression;
+- byte-exact proposed security-profile vectors for transcript, SAS,
+  confirmation, transport binding, and rotation proof inputs;
+- host-independent path and manifest contract vectors for legal limits,
+  traversal, collisions, invalid entries, and inconsistent summaries;
 - C++ compiler warnings;
 - ASan and UBSan over the native test suite;
 - short libFuzzer runs over C ABI lifecycle and protocol parser inputs;
@@ -43,8 +47,8 @@ Each module must add its row before it can claim production readiness.
 | --- | --- | --- |
 | C ABI | nulls, short structs, versions, invalid state, lifecycle sequences | Covered foundation |
 | Framing | truncation, oversized length, unknown type, downgrade, state order | Covered foundation |
-| Pairing | MITM, replay, wrong code, key replacement, revoked peer | Blocked |
-| Manifest | count/size overflow, duplicate paths, invalid encoding | Blocked |
+| Pairing | MITM, replay, wrong code, key replacement, revoked peer | Contract vectors covered; implementation blocked |
+| Manifest | count/size overflow, duplicate paths, invalid encoding | Contract vectors covered; implementation blocked |
 | Storage | traversal, absolute paths, links, collisions, low space, rollback | Blocked |
 | Transfer | corrupt/replayed chunks, cancellation, timeout, resume mismatch | Blocked |
 | Concurrency | callback-after-free, races, shutdown under load | Partial |
