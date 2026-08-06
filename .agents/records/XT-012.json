@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-012",
   "task_type": "integration",
-  "state": "claimed",
+  "state": "in_progress",
   "owner": "integration-owner-agent",
   "base_sha": "037ab005fe71f81bddde9e0139a70a1844404150",
   "head_sha": "",
