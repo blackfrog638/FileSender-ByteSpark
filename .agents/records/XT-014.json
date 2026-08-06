@@ -2,10 +2,10 @@
   "schema_version": 1,
   "id": "XT-014",
   "task_type": "test",
-  "state": "in_progress",
+  "state": "review",
   "owner": "ed25519-fixture-agent",
   "base_sha": "d05fc6856ebb61fd1fed2b644d2281dd8fb19516",
-  "head_sha": "",
+  "head_sha": "7edca7c1943411f2dba3dc9cc0296325792a57fc",
   "handoff": ".agents/handoffs/XT-014.md",
   "impacts": {
     "adr": {
@@ -33,12 +33,12 @@
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "python3 protocol/testdata/security/v1/validate_vectors.py",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:7edca7c1943411f2dba3dc9cc0296325792a57fc:2026-08-06T16:48:52Z"
   },
   "acceptance": {
     "accepted_by": "",
