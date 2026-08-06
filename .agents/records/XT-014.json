@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "XT-014",
+  "task_type": "test",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-014.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [
+        "docs/adr/0002-pairing-and-transport-security.md"
+      ],
+      "rationale": "The task corrects fixture evidence to satisfy the existing proposed Ed25519 key requirement."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "No runtime architecture or implementation is added."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The P0 milestone remains open until XT-010 independently accepts ADR 0002."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "python3 protocol/testdata/security/v1/validate_vectors.py",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

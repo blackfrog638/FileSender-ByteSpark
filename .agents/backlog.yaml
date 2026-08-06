@@ -175,6 +175,18 @@
         "protocol/testdata/security/v1/**",
         "docs/adr/0002-pairing-and-transport-security.md"
       ]
+    },
+    {
+      "id": "XT-014",
+      "title": "Validate ed25519 fixture keys",
+      "readiness": "ready",
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-013"
+      ],
+      "owned_paths": [
+        "protocol/testdata/security/v1/**"
+      ]
     }
   ]
 }
