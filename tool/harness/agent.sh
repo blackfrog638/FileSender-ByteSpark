@@ -169,8 +169,11 @@ validate() {
     task_field "$task_id" title >/dev/null
     owner="$(task_config "$task_id" xnnOwner)"
     state="$(task_config "$task_id" xnnState)"
+    if [[ -z "$owner" && -z "$state" ]]; then
+      continue
+    fi
     if [[ -z "$owner" || -z "$state" ]]; then
-      printf 'Claim %s is missing owner or runtime state.\n' "$task_id" >&2
+      printf 'Local scheduler cache for %s is incomplete.\n' "$task_id" >&2
       exit 1
     fi
     record_json="$(
