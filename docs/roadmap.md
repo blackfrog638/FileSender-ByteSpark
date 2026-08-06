@@ -57,7 +57,7 @@ do not overlap.
 | XT-004 | flutter_desktop | transfer application state | done |
 | XT-005 | integration | cross-platform native packaging | done |
 | XT-006 | native_core | bounded v1 parser and fuzzing | done |
-| XT-007 | integration | auditable harness governance | in progress |
+| XT-007 | integration | auditable harness governance | done |
 
 Task state and acceptance evidence live under `.agents/records/`. Roadmap
 checkboxes describe product milestones and are not the runtime task state.
