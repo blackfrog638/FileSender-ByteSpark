@@ -1,9 +1,9 @@
 ---
 id: XT-002
 title: Specify v1 framing and protocol limits
-state: done
+initial_state: done
 workstream: protocol
-owner: protocol-agent
+initial_owner: protocol-agent
 depends_on: []
 owned_paths:
   - protocol/spec/v1.md

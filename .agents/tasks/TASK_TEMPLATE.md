@@ -1,9 +1,9 @@
 ---
 id: XT-000
 title: Replace with a concrete outcome
-state: ready
+initial_state: ready
 workstream: integration
-owner: unassigned
+initial_owner: unassigned
 depends_on: []
 owned_paths: []
 contract_changes: []

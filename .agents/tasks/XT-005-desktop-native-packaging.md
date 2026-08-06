@@ -1,9 +1,9 @@
 ---
 id: XT-005
 title: Package the native library for Flutter desktop
-state: done
+initial_state: done
 workstream: integration
-owner: packaging-agent
+initial_owner: packaging-agent
 depends_on: []
 owned_paths:
   - apps/desktop/linux/**

@@ -1,9 +1,9 @@
 ---
 id: XT-006
 title: Add bounded v1 parser security coverage
-state: done
+initial_state: done
 workstream: native_core
-owner: protocol-parser-agent
+initial_owner: protocol-parser-agent
 depends_on:
   - XT-002
 owned_paths:

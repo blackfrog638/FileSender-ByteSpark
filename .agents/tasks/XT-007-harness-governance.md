@@ -1,9 +1,9 @@
 ---
 id: XT-007
 title: Enforce auditable harness governance
-state: ready
+initial_state: ready
 workstream: integration
-owner: unassigned
+initial_owner: unassigned
 depends_on: []
 owned_paths:
   - AGENTS.md
@@ -42,17 +42,17 @@ contain stale acceptance and architecture/roadmap state.
 
 ## Acceptance criteria
 
-- [ ] Completed tasks have versioned owner, acceptance, verification, document
+- [x] Completed tasks have versioned owner, acceptance, verification, document
       impact, and integration provenance records.
-- [ ] Moving to review validates a clean task worktree, owned paths, handoff,
+- [x] Moving to review validates a clean task worktree, owned paths, handoff,
       dependencies, and required evidence.
-- [ ] Moving to done cannot bypass integration-owner acceptance.
-- [ ] Cherry-pick integration records original and integrated SHAs.
-- [ ] Worktree cleanup is refused until the task is accepted and integrated.
-- [ ] Roadmap, architecture, testing documentation, and ADR policy reflect the
+- [x] Moving to done cannot bypass integration-owner acceptance.
+- [x] Cherry-pick integration records original and integrated SHAs.
+- [x] Worktree cleanup is refused until the task is accepted and integrated.
+- [x] Roadmap, architecture, testing documentation, and ADR policy reflect the
       implemented baseline.
-- [ ] Governance checks run in `make verify` and CI.
-- [ ] Repository verification passes.
+- [x] Governance checks run in `make verify` and CI.
+- [x] Repository verification passes.
 
 ## Verification
 

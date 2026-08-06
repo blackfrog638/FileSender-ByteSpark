@@ -1,9 +1,9 @@
 ---
 id: XT-003
 title: Add the asynchronous native event ABI
-state: done
+initial_state: done
 workstream: native_bridge
-owner: native-bridge-agent
+initial_owner: native-bridge-agent
 depends_on:
   - XT-002
 owned_paths:

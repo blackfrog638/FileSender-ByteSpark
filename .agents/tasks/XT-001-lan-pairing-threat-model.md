@@ -1,9 +1,9 @@
 ---
 id: XT-001
 title: Define the LAN pairing threat model
-state: done
+initial_state: done
 workstream: protocol
-owner: security-agent
+initial_owner: security-agent
 depends_on: []
 owned_paths:
   - docs/adr/0002-pairing-and-transport-security.md

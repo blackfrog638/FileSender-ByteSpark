@@ -1,9 +1,9 @@
 ---
 id: XT-004
 title: Define Flutter transfer application state
-state: done
+initial_state: done
 workstream: flutter_desktop
-owner: flutter-agent
+initial_owner: flutter-agent
 depends_on: []
 owned_paths:
   - apps/desktop/lib/features/transfer/**
