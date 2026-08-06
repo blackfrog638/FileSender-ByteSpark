@@ -99,8 +99,8 @@ the libFuzzer runtime. Apple Clang 21 on this host lacked
 - Specification ambiguity: v1.0 senders must use a 28-byte header while
   receivers apply future-field rules. The parser accepts structurally valid
   unknown noncritical header TLVs and rejects critical ones.
-- Follow-up task: integration owner applies the shared CMake hooks and reviews
-  how the parser is consumed by the future authenticated session state machine.
+- Follow-up task: connect the parser to the future authenticated session state
+  machine without weakening the pre-binding body gate.
 
 ## Review focus
 
@@ -113,6 +113,11 @@ the libFuzzer runtime. Apple Clang 21 on this host lacked
 
 ## Acceptance
 
-- Accepted by: pending integration-owner review
-- Accepted at: pending
-- Follow-up runtime state: `review`
+- Accepted by: integration owner
+- Accepted at: 2026-08-06
+- Shared integration: CMake/CTest run the native parser, Python oracle, and
+  generated-fixture drift checks; the security gate runs the protocol fuzzer
+  against an isolated corpus generated from all v1 vectors.
+- Final local gates: `make verify`, ASan/UBSan, 29/29 vectors, fixture drift,
+  and protocol fuzzing passed.
+- Follow-up runtime state: `done`

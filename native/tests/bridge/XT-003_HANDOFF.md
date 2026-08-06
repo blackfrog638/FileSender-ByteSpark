@@ -44,10 +44,9 @@
 - `NativeCallable.listener` receives no ephemeral pointer. Its later Dart
   handler allocates a Dart-owned FFI event struct and drains copied payloads.
   Dispose clears the native callback before closing `NativeCallable`.
-- ADR 0001 supports opaque handles, explicit ownership, ABI versioning, and
-  extensible structs, so this uses an additive ABI v1 extension. ADR 0001 also
-  requires coordinated contract review. Integration-owner review and a new
-  asynchronous-event ADR are required before acceptance.
+- ADR 0003 accepts the additive ABI v1 extension, wakeup/drain ownership,
+  callback threading, queue limits, overflow policy, and shutdown barrier
+  after integration-owner review.
 
 ## Verification evidence
 
@@ -119,9 +118,9 @@
 ## Residual risk
 
 - ABI v1 preserves old-client/new-library compatibility, but the existing
-  single integer version cannot advertise optional symbols. This new adapter
-  requires a library build that exports the two event symbols and will reject
-  an older ABI v1 library at symbol lookup.
+  single integer version cannot advertise optional symbols. The Dart adapter
+  feature-detects both event exports and rejects an older ABI v1 library with
+  an explicit compatibility error.
 - The actual FFI test ran on macOS arm64 only. Windows and Linux struct layout,
   symbol loading, and callback shutdown still need CI coverage.
 - Queue overflow is implemented and signaled but cannot be driven through the
@@ -135,6 +134,18 @@
 
 - Callback ownership and the `NativeCallable.listener` wakeup-only boundary.
 - `EventChannel` lock ordering, callback self-unregister, and stop barrier.
-- ABI v1 additive compatibility and the inability to feature-detect older v1
+- ABI v1 additive compatibility and required-symbol detection for older v1
   libraries.
 - Platform FFI struct layout for inline payloads.
+
+## Integration acceptance
+
+- Accepted by: integration owner
+- Accepted at: 2026-08-06
+- Review fixes: added deterministic lost-wakeup coverage and redispatch when an
+  event arrives after a callback drains but before it returns.
+- Shared integration: ADR 0003 accepted the contract, CTest runs the bridge
+  suite, the Dart test moved under `apps/desktop/test/`, and desktop bundle
+  verification runs the callback path against the packaged native library.
+- Final local gates: `make verify`, ASan/UBSan, and macOS Debug/Release bundle
+  loading with the real Dart FFI callback all passed.
