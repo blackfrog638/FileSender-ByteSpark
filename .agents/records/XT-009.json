@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-009",
   "task_type": "decision",
-  "state": "integrated",
+  "state": "done",
   "owner": "security-vectors-agent",
   "base_sha": "3235a225722df4e7b06b8903f5eb49dd0852d2b0",
   "head_sha": "b167f4d8bfe4f8bb160e7de86e641a6c4c7deb45",
@@ -61,7 +61,7 @@
         "patch_id": "023be2a52632bcd104221500c2ccf4a4c4b23702"
       }
     ],
-    "verified_sha": ""
+    "verified_sha": "6e559ba8b4a448024e4b713804d5bf6e129053f2"
   },
   "verification": {
     "status": "passed",
@@ -69,11 +69,11 @@
       "python3 protocol/testdata/security/v1/validate_vectors.py",
       "make verify"
     ],
-    "reference": "local:b167f4d8bfe4f8bb160e7de86e641a6c4c7deb45:2026-08-06T15:45:31Z"
+    "reference": "local:6e559ba8b4a448024e4b713804d5bf6e129053f2:2026-08-06T15:50:07Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-06T23:50:07+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
