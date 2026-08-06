@@ -34,7 +34,7 @@ backlog["tasks"].append(
         "readiness": "ready",
         "workstream": "integration",
         "depends_on": [],
-        "owned_paths": [f".agents/handoffs/{task_id}.md"],
+        "owned_paths": ["protocol/testdata/governance-fixture.txt"],
     }
 )
 backlog_path.write_text(json.dumps(backlog, indent=2) + "\n", encoding="utf-8")
@@ -49,7 +49,7 @@ workstream: integration
 owner: unassigned
 depends_on: []
 owned_paths:
-  - .agents/handoffs/{task_id}.md
+  - protocol/testdata/governance-fixture.txt
 contract_changes: []
 ---
 
@@ -112,12 +112,16 @@ git -C "$repository" commit -m "test: register governance fixture" >/dev/null
   transition "$task_id" in_progress >/dev/null
 
 task_worktree="$temporary/XnnTransfer-$task_id"
-python3 - "$task_worktree/.agents/handoffs/$task_id.md" "$task_id" <<'PY'
+python3 - \
+  "$task_worktree/.agents/handoffs/$task_id.md" \
+  "$task_id" \
+  "$task_worktree/protocol/testdata/governance-fixture.txt" <<'PY'
 import sys
 from pathlib import Path
 
 path = Path(sys.argv[1])
 task_id = sys.argv[2]
+fixture = Path(sys.argv[3])
 path.write_text(
     f"""# Agent handoff
 
@@ -163,8 +167,12 @@ path.write_text(
 """,
     encoding="utf-8",
 )
+fixture.parent.mkdir(parents=True, exist_ok=True)
+fixture.write_text("governance fixture\n", encoding="utf-8")
 PY
-git -C "$task_worktree" add ".agents/handoffs/$task_id.md"
+git -C "$task_worktree" add \
+  ".agents/handoffs/$task_id.md" \
+  protocol/testdata/governance-fixture.txt
 git -C "$task_worktree" commit -m "test: deliver governance fixture" >/dev/null
 
 "$repository/tool/harness/agent.sh" \
@@ -183,6 +191,28 @@ test "$(
   "$repository/tool/harness/governance.py" get "$task_id" state
 )" = "done"
 "$repository/tool/harness/agent.sh" validate >/dev/null
+
+python3 - "$repository/tool/harness/governance.py" "$task_id" <<'PY'
+import importlib.util
+import sys
+
+module_path, task_id = sys.argv[1:]
+spec = importlib.util.spec_from_file_location("governance", module_path)
+if spec is None or spec.loader is None:
+    raise SystemExit("Cannot load governance module")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+patterns = ["protocol/testdata/governance-fixture.txt"]
+assert module.path_allowed(
+    f".agents/handoffs/{task_id}.md", patterns, task_id
+)
+assert not module.path_allowed(
+    ".agents/handoffs/XT-998.md", patterns, task_id
+)
+assert not module.path_allowed(
+    ".agents/records/XT-998.json", patterns, task_id
+)
+PY
 
 record="$repository/.agents/records/$task_id.json"
 record_backup="$temporary/$task_id-record.json"

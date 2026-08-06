@@ -438,6 +438,7 @@ def find_worktree(task_id: str) -> Path:
 def path_allowed(path: str, patterns: list[str], task_id: str) -> bool:
     always_allowed = {
         f".agents/records/{task_id}.json",
+        f".agents/handoffs/{task_id}.md",
     }
     if path in always_allowed:
         return True
