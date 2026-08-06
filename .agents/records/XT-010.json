@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-010",
   "task_type": "decision",
-  "state": "integrated",
+  "state": "done",
   "owner": "security-review-agent",
   "base_sha": "dab54cce3ec411e3ddabae95e1ec4281d7bf29c3",
   "head_sha": "308e546cead28adad291717021ed15603fc9f8ee",
@@ -135,7 +135,7 @@
         "patch_id": "b4bbde765561352888e4252a70436e25043a34db"
       }
     ],
-    "verified_sha": ""
+    "verified_sha": "73da6e0cca4e6712c55ec676f257d0049894b624"
   },
   "verification": {
     "status": "passed",
@@ -144,11 +144,11 @@
       "make verify",
       "git diff --check"
     ],
-    "reference": "local:308e546cead28adad291717021ed15603fc9f8ee:2026-08-06T17:50:24Z"
+    "reference": "local:73da6e0cca4e6712c55ec676f257d0049894b624:2026-08-06T17:56:22Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-07T01:56:22+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
