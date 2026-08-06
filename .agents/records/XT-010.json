@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-010",
   "task_type": "decision",
-  "state": "blocked",
+  "state": "in_progress",
   "owner": "security-review-agent",
   "base_sha": "dab54cce3ec411e3ddabae95e1ec4281d7bf29c3",
   "head_sha": "",
