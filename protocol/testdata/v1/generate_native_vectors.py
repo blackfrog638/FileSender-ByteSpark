@@ -26,6 +26,10 @@ DIRECTIONS = {
 }
 
 
+def canonical_manifest_bytes(manifest_path: Path) -> bytes:
+    return manifest_path.read_bytes().replace(b"\r\n", b"\n")
+
+
 def cpp_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=True)
 
@@ -37,7 +41,7 @@ def require_string(value: Any, context: str) -> str:
 
 
 def render(manifest_path: Path) -> str:
-    source = manifest_path.read_bytes()
+    source = canonical_manifest_bytes(manifest_path)
     manifest = json.loads(source)
     if manifest.get("format_version") != 1:
         raise ValueError("unsupported vector manifest format")
@@ -165,7 +169,8 @@ def main() -> int:
             return 1
         print(
             f"Native vector fixture matches {args.manifest} "
-            f"(sha256 {hashlib.sha256(args.manifest.read_bytes()).hexdigest()})."
+            f"(sha256 "
+            f"{hashlib.sha256(canonical_manifest_bytes(args.manifest)).hexdigest()})."
         )
         return 0
 
