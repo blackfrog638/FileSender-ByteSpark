@@ -34,10 +34,10 @@ The same run exposed macOS Bash 3.2 empty-array handling in `new_task.sh`.
 
 ## Acceptance criteria
 
-- [ ] Fresh-clone governance validation passes without legacy task branches.
-- [ ] Tampered result patch IDs still fail validation.
-- [ ] `new_task.sh` supports a task with no dependencies on macOS Bash 3.2.
-- [ ] Repository verification passes.
+- [x] Fresh-clone governance validation passes without legacy task branches.
+- [x] Tampered result patch IDs still fail validation.
+- [x] `new_task.sh` supports a task with no dependencies on macOS Bash 3.2.
+- [x] Repository verification passes.
 
 ## Verification
 
