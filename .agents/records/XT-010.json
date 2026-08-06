@@ -2,10 +2,10 @@
   "schema_version": 1,
   "id": "XT-010",
   "task_type": "decision",
-  "state": "in_progress",
+  "state": "review",
   "owner": "security-review-agent",
   "base_sha": "dab54cce3ec411e3ddabae95e1ec4281d7bf29c3",
-  "head_sha": "",
+  "head_sha": "308e546cead28adad291717021ed15603fc9f8ee",
   "handoff": ".agents/handoffs/XT-010.md",
   "impacts": {
     "adr": {
@@ -39,7 +39,7 @@
       "make verify",
       "git diff --check"
     ],
-    "reference": "local:protocol/security/XT-010-independent-review.md:2026-08-07T01:46:41+08:00"
+    "reference": "local:308e546cead28adad291717021ed15603fc9f8ee:2026-08-06T17:50:24Z"
   },
   "acceptance": {
     "accepted_by": "",
