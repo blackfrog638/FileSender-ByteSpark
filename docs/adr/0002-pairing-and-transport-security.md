@@ -1,7 +1,8 @@
 # ADR 0002: Authenticated pairing and bound TLS transport
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-08-06
+- Accepted: 2026-08-07
 - Security requirements: `protocol/security/threat-model.md`
 - Required negative coverage: `protocol/security/negative-test-matrix.md`
 
@@ -15,6 +16,9 @@ identity or user intent.
 The repository does not currently implement discovery, pairing, transport
 security, or the transfer protocol. This ADR selects the security design that
 those implementations must satisfy; it is not an implementation claim.
+Acceptance records the design decision only. Every implementation,
+cross-platform conformance, secure-storage, and negative-test prerequisite
+below remains mandatory before production use or a security claim.
 
 The design must:
 
@@ -57,18 +61,19 @@ plaintext or TLS 1.2 fallback.
 
 ### Byte-exact profile definition
 
-This section makes the proposed profile deterministic for independent golden
-vector review. It remains test evidence for a `proposed` ADR and does not claim
-that TLS, pairing, or rotation is implemented.
+This section makes the accepted design deterministic for independent golden
+vector and implementation-conformance review. It remains design-level test
+evidence and does not claim that TLS, pairing, or rotation is implemented.
 
 All integers use unsigned big-endian encoding. All labels are the exact ASCII
 octets shown below, without a terminator. A role is one octet: initiator is
 `01` and responder is `02`. A confirmation decision is one octet: reject is
 `00` and confirm is `01`. Ed25519 public keys, nonces, SHA-256 values, exporter
 outputs, and HMAC-SHA256 values are exactly 32 octets. A transfer session
-identifier is exactly 16 octets. Within this proposed profile,
+identifier is exactly 16 octets. Within this accepted design,
 `security_profile` is the two-octet value `00 01`; production use remains
-blocked on ADR acceptance and wire registration.
+blocked on wire registration and the required implementation prerequisites
+below.
 
 An accepted Ed25519 identity or rotation public key must satisfy all of the
 following before use:
@@ -293,7 +298,7 @@ key. They also record the independent-review observation that OpenSSL 3.6.3,
 Node/OpenSSL, and Apple CryptoKit accepted the identity signature while
 libsodium rejects small-order and non-main-subgroup points. Identity,
 non-identity low-order, and mixed-order fixture keys must all fail the
-backend-independent rule above. These observations are proposed-profile test
+backend-independent rule above. These observations are security-profile design
 evidence, not a claim of production Ed25519, TLS, pairing, or platform
 conformance implementation.
 

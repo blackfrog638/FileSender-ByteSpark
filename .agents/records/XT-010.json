@@ -10,21 +10,21 @@
   "impacts": {
     "adr": {
       "required": true,
-      "status": "proposed",
+      "status": "accepted",
       "references": [
         "docs/adr/0002-pairing-and-transport-security.md"
       ],
-      "rationale": "The third independent review closes BR-03 after validating the XT-014 RFC keys and wrong-key vector, but BR-04 finds that point decoding admits identity, low-order, and mixed-order keys, so ADR 0002 remains proposed."
+      "rationale": "The fourth independent review reproduces the XT-015 subgroup and identity-forgery evidence, confirms all 17 positive outputs and 34 prior error contracts are unchanged, verifies the three new subgroup negatives, closes BR-01 through BR-04, and finds no remaining design blocker."
     },
     "architecture": {
       "status": "not_required",
       "references": [],
-      "rationale": "The blocked third review changes no runtime architecture; architecture synchronization remains an integration-owner action after ADR acceptance."
+      "rationale": "XT-010 must not edit the integration-owned architecture document; the integration owner must replace its proposed-ADR wording when integrating this accepted design. No runtime architecture is implemented by this task."
     },
     "roadmap": {
       "status": "not_required",
       "references": [],
-      "rationale": "The P0 milestone remains open while BR-04 blocks ADR 0002 acceptance; roadmap synchronization belongs to the integration owner."
+      "rationale": "XT-010 must not edit the integration-owned roadmap; the integration owner must mark the ADR-acceptance milestone complete while retaining all runtime pairing and transport milestones."
     }
   },
   "integration": {
@@ -33,12 +33,14 @@
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
+      "independent inline Python affine Edwards25519, OpenSSL seed derivation, and manifest contract comparison",
       "python3 protocol/testdata/security/v1/validate_vectors.py",
-      "make verify"
+      "make verify",
+      "git diff --check"
     ],
-    "reference": ""
+    "reference": "local:protocol/security/XT-010-independent-review.md:2026-08-07T01:46:41+08:00"
   },
   "acceptance": {
     "accepted_by": "",
