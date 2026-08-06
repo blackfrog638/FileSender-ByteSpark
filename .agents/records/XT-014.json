@@ -2,9 +2,9 @@
   "schema_version": 1,
   "id": "XT-014",
   "task_type": "test",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
+  "state": "claimed",
+  "owner": "ed25519-fixture-agent",
+  "base_sha": "d05fc6856ebb61fd1fed2b644d2281dd8fb19516",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-014.md",
   "impacts": {
