@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-015",
   "task_type": "decision",
-  "state": "claimed",
+  "state": "in_progress",
   "owner": "ed25519-subgroup-agent",
   "base_sha": "b361412a3d1a5bf425044c55cb7ac984a43e2284",
   "head_sha": "",
