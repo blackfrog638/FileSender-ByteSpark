@@ -2,9 +2,9 @@
   "schema_version": 1,
   "id": "XT-010",
   "task_type": "decision",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
+  "state": "claimed",
+  "owner": "security-review-agent",
+  "base_sha": "bd3bcc4843aad008de135cdf8149e2a7ecced675",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-010.md",
   "impacts": {
