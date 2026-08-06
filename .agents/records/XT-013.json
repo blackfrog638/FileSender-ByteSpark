@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-013",
   "task_type": "decision",
-  "state": "review",
+  "state": "integrated",
   "owner": "security-vector-fix-agent",
   "base_sha": "4a94e3a4e710605d297060b716a9390b884993f8",
   "head_sha": "d597ba8cb0a468fb1d12189e5cb370e9dec42ba2",
@@ -28,8 +28,34 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "cherry-pick",
+    "mappings": [
+      {
+        "source": "6138d9260e8c08013c919d5c48afdd54f2533d8c",
+        "result": "f40b1df78fae2c981882985b9d6e92823a7b9db1",
+        "patch_id": "a22740d677c637b80689ee4daa8410bc61c471c0"
+      },
+      {
+        "source": "5e04c52df387a63223e2d9c1ac9bb22532a10f7c",
+        "result": "a4f22e92d0156e9dfb7dde0a8da9f87aac4adae1",
+        "patch_id": "8d8b8785c41a77822718684822eb0f4bfa5d56d6"
+      },
+      {
+        "source": "fbea599bc95b8d92eb75da4f6802fbf080c60e74",
+        "result": "cecbf129048494a543c1c349a2063d4f3cc330d1",
+        "patch_id": "7ae6e45c5d16b52d2a46273f2bd5f38fb4da7033"
+      },
+      {
+        "source": "d597ba8cb0a468fb1d12189e5cb370e9dec42ba2",
+        "result": "acd9126a609d993cb67fe002a9250240f591f495",
+        "patch_id": "f0d404ef34df697cb8cb6863dca5389627f6bd81"
+      },
+      {
+        "source": "1ca2fa0ebb3e42e7c5cf5caa852acf9da81f9343",
+        "result": "8af9069b7a14e29a4c5d4cebc1d559b656e952c0",
+        "patch_id": "3e0311627dff8472c0e7b838a3eb7bca97f378a8"
+      }
+    ],
     "verified_sha": ""
   },
   "verification": {
