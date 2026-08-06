@@ -2,10 +2,10 @@
   "schema_version": 1,
   "id": "XT-008",
   "task_type": "integration",
-  "state": "in_progress",
+  "state": "review",
   "owner": "governance-ci-agent",
   "base_sha": "c6b63dc7a297b86392178b22b03f59959f80ada3",
-  "head_sha": "",
+  "head_sha": "2aec33664adc83751134eeca4dff83bfe76252c1",
   "handoff": ".agents/handoffs/XT-008.md",
   "impacts": {
     "adr": {
@@ -31,11 +31,11 @@
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:2aec33664adc83751134eeca4dff83bfe76252c1:2026-08-06T14:11:17Z"
   },
   "acceptance": {
     "accepted_by": "",
