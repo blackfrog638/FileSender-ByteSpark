@@ -372,7 +372,10 @@ integrate() {
 
   while IFS= read -r source; do
     [[ -n "$source" ]] || continue
-    if [[ "$(git -C "$root" rev-list --count "$source^@")" -ne 1 ]]; then
+    if [[ "$(
+      git -C "$root" rev-list --parents -n 1 "$source" |
+        awk '{ print NF - 1 }'
+    )" -ne 1 ]]; then
       printf 'Merge commits are not supported by cherry-pick integration: %s\n' \
         "$source" >&2
       rm -f "$mapping_rows" "$mapping_json"
