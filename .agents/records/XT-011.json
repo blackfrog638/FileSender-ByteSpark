@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-011",
   "task_type": "test",
-  "state": "claimed",
+  "state": "in_progress",
   "owner": "manifest-fixtures-agent",
   "base_sha": "fe87661dcb2a6101e02390b202adb53180eddc87",
   "head_sha": "",
