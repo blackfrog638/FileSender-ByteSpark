@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-015",
   "task_type": "decision",
-  "state": "integrated",
+  "state": "done",
   "owner": "ed25519-subgroup-agent",
   "base_sha": "b361412a3d1a5bf425044c55cb7ac984a43e2284",
   "head_sha": "18f6c9f029dc470f14e67639603d630dcb072d8c",
@@ -56,7 +56,7 @@
         "patch_id": "f7cea6a77139304dd667299b730a866b5736728d"
       }
     ],
-    "verified_sha": ""
+    "verified_sha": "0ea9ec80adec07af0f3a2ca666759faca38f92fc"
   },
   "verification": {
     "status": "passed",
@@ -64,11 +64,11 @@
       "python3 protocol/testdata/security/v1/validate_vectors.py",
       "make verify"
     ],
-    "reference": "local:18f6c9f029dc470f14e67639603d630dcb072d8c:2026-08-06T17:22:56Z"
+    "reference": "local:0ea9ec80adec07af0f3a2ca666759faca38f92fc:2026-08-06T17:34:42Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-07T01:34:42+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
