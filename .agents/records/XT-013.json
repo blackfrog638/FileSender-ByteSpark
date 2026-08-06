@@ -2,9 +2,9 @@
   "schema_version": 1,
   "id": "XT-013",
   "task_type": "decision",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
+  "state": "claimed",
+  "owner": "security-vector-fix-agent",
+  "base_sha": "4a94e3a4e710605d297060b716a9390b884993f8",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-013.md",
   "impacts": {
