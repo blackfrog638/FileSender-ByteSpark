@@ -78,7 +78,10 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
-          - windows-latest
+          # Flutter 3.32 recognizes Visual Studio 2022, while windows-latest
+          # currently resolves to a VS 2026 image and selects the wrong CMake
+          # generator.
+          - windows-2022
     steps:
       - uses: actions/checkout@v4
 
