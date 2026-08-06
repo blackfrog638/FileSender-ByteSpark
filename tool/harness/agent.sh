@@ -2,7 +2,8 @@
 
 set -euo pipefail
 
-root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+root="$(cd "${XNN_TRANSFER_ROOT:-$script_root}" && pwd)"
 backlog="$root/.agents/backlog.yaml"
 governance="$root/tool/harness/governance.py"
 integration_branch="${XNN_TRANSFER_INTEGRATION_BRANCH:-harness}"
