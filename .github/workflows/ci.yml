@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - harness
+  schedule:
+    - cron: "0 3 * * 0"
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Native (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: >-
+          cmake -S . -B out/build/ci -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DXNN_TRANSFER_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build out/build/ci
+
+      - name: Test
+        run: >-
+          ctest --test-dir out/build/ci
+          --output-on-failure
+          --no-tests=error
+
+  flutter:
+    name: Flutter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.32.8
+          channel: stable
+          cache: true
+
+      - name: Dependencies
+        working-directory: apps/desktop
+        run: flutter pub get
+
+      - name: Format
+        working-directory: apps/desktop
+        run: dart format --output=none --set-exit-if-changed lib test
+
+      - name: Analyze
+        working-directory: apps/desktop
+        run: flutter analyze
+
+      - name: Test
+        working-directory: apps/desktop
+        run: flutter test
+
+  native-security:
+    name: Native ASan, UBSan, and fuzz smoke
+    runs-on: ubuntu-latest
+    env:
+      CC: clang
+      CXX: clang++
+      XNN_TRANSFER_FUZZ_SECONDS: >-
+        ${{ github.event_name == 'schedule' && '300' || '15' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Security tests
+        run: make security-test
+
+  harness:
+    name: Harness contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell syntax
+        run: find tool/harness -type f -name '*.sh' -exec bash -n {} \;
+
+      - name: Layout
+        run: tool/harness/check_layout.sh
+
+      - name: Whitespace
+        run: git diff --check HEAD
+
+      - name: Agent contracts
+        run: tool/harness/agent.sh validate

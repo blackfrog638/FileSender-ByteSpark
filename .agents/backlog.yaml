@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "runtime_state": "Git task branches and worktrees are authoritative for claims",
+  "tasks": [
+    {
+      "id": "XT-001",
+      "title": "Define the LAN pairing threat model",
+      "readiness": "ready",
+      "workstream": "protocol",
+      "depends_on": [],
+      "owned_paths": [
+        "docs/adr/0002-pairing-and-transport-security.md",
+        "protocol/security/**"
+      ]
+    },
+    {
+      "id": "XT-002",
+      "title": "Specify v1 framing and protocol limits",
+      "readiness": "ready",
+      "workstream": "protocol",
+      "depends_on": [],
+      "owned_paths": [
+        "protocol/spec/v1.md",
+        "protocol/testdata/v1/**"
+      ]
+    },
+    {
+      "id": "XT-003",
+      "title": "Add the asynchronous native event ABI",
+      "readiness": "blocked",
+      "workstream": "native_bridge",
+      "depends_on": [
+        "XT-002"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/c_api.h",
+        "native/src/bridge/**",
+        "native/tests/bridge/**",
+        "apps/desktop/lib/core/native/**"
+      ]
+    },
+    {
+      "id": "XT-004",
+      "title": "Define Flutter transfer application state",
+      "readiness": "ready",
+      "workstream": "flutter_desktop",
+      "depends_on": [],
+      "owned_paths": [
+        "apps/desktop/lib/features/transfer/**",
+        "apps/desktop/test/features/transfer/**"
+      ]
+    },
+    {
+      "id": "XT-005",
+      "title": "Package the native library for Flutter desktop",
+      "readiness": "ready",
+      "workstream": "integration",
+      "depends_on": [],
+      "owned_paths": [
+        "apps/desktop/linux/**",
+        "apps/desktop/macos/**",
+        "apps/desktop/windows/**",
+        "tool/harness/**",
+        ".github/workflows/**"
+      ]
+    },
+    {
+      "id": "XT-006",
+      "title": "Add protocol parser security test fixtures",
+      "readiness": "blocked",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-002"
+      ],
+      "owned_paths": [
+        "native/src/protocol/**",
+        "native/tests/protocol/**",
+        "native/fuzz/protocol/**",
+        "protocol/testdata/v1/**"
+      ]
+    }
+  ]
+}

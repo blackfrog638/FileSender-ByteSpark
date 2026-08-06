@@ -1,0 +1,37 @@
+# Build output
+/out/
+/build/
+CMakeUserPresets.json
+compile_commands.json
+
+# Flutter and Dart
+.dart_tool/
+.fvm/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+*.iml
+apps/desktop/build/
+apps/desktop/linux/flutter/ephemeral/
+apps/desktop/macos/Flutter/ephemeral/
+apps/desktop/windows/flutter/ephemeral/
+
+# Editors
+.idea/
+.vscode/
+.cache/
+*.swp
+
+# Platform files
+.DS_Store
+Thumbs.db
+
+# Native artifacts
+*.a
+*.dylib
+*.dll
+*.exe
+*.lib
+*.o
+*.obj
+*.so

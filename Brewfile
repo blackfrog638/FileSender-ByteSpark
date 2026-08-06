@@ -1,0 +1,5 @@
+brew "cmake"
+brew "cocoapods"
+brew "fvm"
+brew "llvm"
+brew "ninja"

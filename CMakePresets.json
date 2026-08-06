@@ -1,0 +1,95 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "dev",
+      "displayName": "Local development",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/dev",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "XNN_TRANSFER_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "XNN_TRANSFER_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "sanitizers",
+      "displayName": "ASan and UBSan",
+      "inherits": "dev",
+      "binaryDir": "${sourceDir}/out/build/sanitizers",
+      "cacheVariables": {
+        "XNN_TRANSFER_ENABLE_ASAN_UBSAN": "ON"
+      }
+    },
+    {
+      "name": "fuzz",
+      "displayName": "libFuzzer",
+      "inherits": "dev",
+      "binaryDir": "${sourceDir}/out/build/fuzz",
+      "cacheVariables": {
+        "XNN_TRANSFER_BUILD_FUZZERS": "ON"
+      }
+    },
+    {
+      "name": "benchmark",
+      "displayName": "Native benchmarks",
+      "inherits": "release",
+      "binaryDir": "${sourceDir}/out/build/benchmark",
+      "cacheVariables": {
+        "XNN_TRANSFER_BUILD_BENCHMARKS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "sanitizers",
+      "configurePreset": "sanitizers"
+    },
+    {
+      "name": "fuzz",
+      "configurePreset": "fuzz"
+    },
+    {
+      "name": "benchmark",
+      "configurePreset": "benchmark"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "sanitizers",
+      "configurePreset": "sanitizers",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
