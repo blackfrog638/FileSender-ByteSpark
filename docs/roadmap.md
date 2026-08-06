@@ -60,6 +60,7 @@ do not overlap.
 | XT-007 | integration | auditable harness governance | done |
 | XT-008 | integration | remote-safe governance validation | done |
 | XT-009 | protocol | proposed security-profile golden vectors | done |
+| XT-010 | protocol | independently accepted pairing security design | done |
 | XT-011 | protocol | hostile path and manifest contract fixtures | done |
 | XT-012 | integration | task-local governance artifact ownership | done |
 | XT-013 | protocol | confirmation and device-identifier blocker fixes | done |
