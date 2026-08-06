@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-015",
   "task_type": "decision",
-  "state": "review",
+  "state": "integrated",
   "owner": "ed25519-subgroup-agent",
   "base_sha": "b361412a3d1a5bf425044c55cb7ac984a43e2284",
   "head_sha": "18f6c9f029dc470f14e67639603d630dcb072d8c",
@@ -28,8 +28,34 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "cherry-pick",
+    "mappings": [
+      {
+        "source": "87f670a437e34921c3274a23f2f454ccbede26f2",
+        "result": "5ae2dcf379a024f77b219023f2bcf6db03a51c82",
+        "patch_id": "56cdafe05df74e2477e94d81b69d82cd8ca6683e"
+      },
+      {
+        "source": "4c816b53e30cb7080e59dd9e4103a76de2c2af47",
+        "result": "e70a5a451c8175c944d0769bd228ed5cf7e0de52",
+        "patch_id": "63ffdf93f1caf57d24bc65a3778751adb22b7abe"
+      },
+      {
+        "source": "cc3a1e3f3108d87458d4a1a62df318308709c4ff",
+        "result": "2033437f0f0aa648ad3da50812bf669a9a57c9d9",
+        "patch_id": "b11dc1a3efb259053d5a3acb7d3d094641b083a3"
+      },
+      {
+        "source": "18f6c9f029dc470f14e67639603d630dcb072d8c",
+        "result": "322549a02693dd4fcfcf2f2c5d42b47a6caccc4f",
+        "patch_id": "e372b98b5667869e041a7e381328f0ac3cbced99"
+      },
+      {
+        "source": "1142b8014cdb24179225b6f04443407de6f4795f",
+        "result": "bb228a4c9708805d3e9b16cc4eca276a4d5c6a48",
+        "patch_id": "f7cea6a77139304dd667299b730a866b5736728d"
+      }
+    ],
     "verified_sha": ""
   },
   "verification": {
