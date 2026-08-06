@@ -162,6 +162,19 @@
         ".agents/**",
         "tool/harness/**"
       ]
+    },
+    {
+      "id": "XT-013",
+      "title": "Resolve security profile review blockers",
+      "readiness": "ready",
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-009"
+      ],
+      "owned_paths": [
+        "protocol/testdata/security/v1/**",
+        "docs/adr/0002-pairing-and-transport-security.md"
+      ]
     }
   ]
 }
