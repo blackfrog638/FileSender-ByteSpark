@@ -27,7 +27,7 @@
     {
       "id": "XT-003",
       "title": "Add the asynchronous native event ABI",
-      "readiness": "blocked",
+      "readiness": "ready",
       "workstream": "native_bridge",
       "depends_on": [
         "XT-002"
@@ -67,7 +67,7 @@
     {
       "id": "XT-006",
       "title": "Add protocol parser security test fixtures",
-      "readiness": "blocked",
+      "readiness": "ready",
       "workstream": "native_core",
       "depends_on": [
         "XT-002"
