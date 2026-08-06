@@ -4,7 +4,7 @@
   "task_type": "decision",
   "state": "in_progress",
   "owner": "security-vectors-agent",
-  "base_sha": "fe87661dcb2a6101e02390b202adb53180eddc87",
+  "base_sha": "3235a225722df4e7b06b8903f5eb49dd0852d2b0",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-009.md",
   "impacts": {
