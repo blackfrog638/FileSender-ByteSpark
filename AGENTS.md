@@ -8,14 +8,17 @@ file assigned to you before editing code.
 
 1. One agent owns one active task and one primary module boundary.
 2. Do not edit another task's owned paths without a written handoff.
-3. Public interfaces are contracts. Changes to the C ABI, wire protocol, or
-   cross-module types require an ADR and an integration-owner review.
+3. Public cross-workstream interfaces are contracts. Changes to the C ABI,
+   wire protocol, persisted schema, security profile, or shared types crossing
+   workstream boundaries require an ADR and an integration-owner review.
 4. Do not claim unimplemented networking, security, or transfer behavior.
 5. Generated Flutter runner files are infrastructure, not business-logic
    locations.
 6. Every handoff includes commands run, results, residual risks, and changed
    contracts.
 7. `make verify` is the repository-level completion gate.
+8. `done` is an acceptance result, not an agent-controlled transition. Only
+   the integration owner may run `agent.sh accept` after integration.
 
 ## Architecture boundaries
 
@@ -48,16 +51,28 @@ C ABI bridge -> C++ application -> C++ domain <- C++ infrastructure
 6. Run focused tests while developing, then `make verify`.
 7. Complete `.agents/handoffs/HANDOFF_TEMPLATE.md` in the task file or PR and
    move the runtime state to `review`.
+8. The integration owner runs `agent.sh integrate <task>`, performs any shared
+   integration fixes, then runs `agent.sh accept <task> <reviewer>`.
+9. Run `agent.sh cleanup <task>` only after the durable record is `done`.
 
-The backlog is a reviewed catalogue, not mutable runtime state. Git task
-branches and worktrees are authoritative for active claims.
+The backlog is a reviewed catalogue. `.agents/records/XT-NNN.json` is the
+versioned source of truth for lifecycle, verification, document impact,
+integration provenance, and acceptance. Git task branches and worktrees provide
+single-clone claim isolation. Local branch configuration is only a scheduler
+cache and must agree with the tracked record while a task is active.
 
 Only these task states are valid:
 
 ```text
-planned -> ready -> in_progress -> review -> done
-                            \-> blocked
+ready -> claimed -> in_progress -> review -> integrated -> done
+                         \-> blocked
+review -> in_progress
+blocked -> in_progress
 ```
+
+Cherry-pick is the standard task integration strategy. `agent.sh integrate`
+uses `git cherry-pick -x` and records each source SHA, integrated SHA, and
+stable patch ID. A hand-written cherry-pick is not sufficient evidence.
 
 ## Verification policy
 
@@ -70,6 +85,20 @@ planned -> ready -> in_progress -> review -> done
 
 If a required SDK is unavailable, report the skipped gate explicitly. A
 skipped gate is not equivalent to a passing gate.
+
+## Decision and documentation policy
+
+An ADR is required for a new or changed public cross-workstream contract,
+security profile, persisted format, compatibility policy, or architecture
+choice that is expensive to reverse. Internal implementation, tests, fixtures,
+CI wiring, and interfaces contained within one workstream do not require an ADR
+unless they change one of those decisions.
+
+Every task record declares ADR, architecture, and roadmap impact. Each impact
+must name updated documents or state `not_required` with a concrete rationale.
+The task author proposes the disposition; the integration owner accepts it.
+Architecture describes durable current boundaries, while the roadmap tracks
+delivery milestones. Neither document is a per-commit changelog.
 
 ## Shared-file policy
 

@@ -12,9 +12,15 @@ tool/harness/agent.sh claim XT-001 alice
 tool/harness/agent.sh prompt XT-001
 ```
 
-The backlog is the immutable task catalogue. Runtime ownership is represented
-by a unique `task/XT-NNN` Git branch plus its worktree. Branch creation is
-atomic, so two agents cannot claim the same task in one clone.
+The backlog is the reviewed task catalogue. Each task also has:
+
+- a human-readable specification under `.agents/tasks/`;
+- a machine-readable durable record under `.agents/records/`;
+- a unique `task/XT-NNN` branch and worktree while active.
+
+Branch creation is atomic, so two agents cannot claim the same task in one
+clone. The tracked record preserves owner, state, verification, document
+impact, integration provenance, and acceptance after cleanup.
 
 Claims require a clean, committed base. Give the generated prompt to a new
 agent and make sure that agent operates only in the printed worktree.
@@ -29,22 +35,33 @@ Parallel tasks should have disjoint owned paths. When two tasks need the same
 shared contract, serialize the contract change through the integration owner,
 then let both tasks build against the accepted interface.
 
-## Move and finish a task
+## Move, integrate, and finish a task
 
 ```bash
 tool/harness/agent.sh transition XT-001 in_progress
 tool/harness/agent.sh transition XT-001 review
-tool/harness/agent.sh transition XT-001 done
+tool/harness/agent.sh integrate XT-001
+tool/harness/agent.sh accept XT-001 integration-owner
+tool/harness/agent.sh cleanup XT-001
 ```
 
-Run the task's focused acceptance commands and `make verify`. Include the
-handoff fields from `handoffs/HANDOFF_TEMPLATE.md` in the task or pull request.
-Do not mark a task done when required verification was skipped.
+Commit implementation and handoff changes before requesting review. The review
+transition requires a clean worktree, validates owned paths and handoff fields,
+and executes the verification commands in the task record.
+
+`integrate` must run from the configured integration branch. It uses
+`git cherry-pick -x` and records stable patch-ID mappings. Shared integration
+fixes may be committed after this step. `accept` reruns the recorded commands
+and is the only path to `done`. `cleanup` refuses to remove a branch containing
+an unmapped commit.
 
 The valid runtime path is:
 
 ```text
-claimed -> in_progress -> review -> done
-                    \-> blocked -> in_progress
+ready -> claimed -> in_progress -> review -> integrated -> done
+                         \-> blocked -> in_progress
 review -> in_progress
 ```
+
+Local Git configuration accelerates single-clone scheduling but is not durable
+state. `.agents/records/XT-NNN.json` is authoritative for audit and CI.

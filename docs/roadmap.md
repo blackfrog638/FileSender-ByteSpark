@@ -8,16 +8,19 @@ do not overlap.
 - [x] Repository and multi-agent harness
 - [x] Native lifecycle with stable C ABI
 - [x] Flutter shell and native adapter boundary
-- [ ] CI validation on macOS, Windows, and Linux
-- [ ] Platform packaging of the native dynamic library
+- [x] CI validation on macOS, Windows, and Linux
+- [x] Platform packaging of the native dynamic library
+- [x] Auditable task review, integration, acceptance, and cleanup
 
 ## P0: contracts before networking
 
-- [ ] Threat model and pairing ADR
-- [ ] Wire framing, version negotiation, and limits specification
-- [ ] Native event model and ABI callback contract
-- [ ] Transfer state machine and error taxonomy
-- [ ] Test fixtures for hostile frames, paths, and manifests
+- [x] LAN threat model and negative-test matrix
+- [ ] Accept the proposed pairing and transport security ADR
+- [x] Wire framing, version negotiation, and limits specification
+- [x] Native event model and ABI callback contract
+- [x] Flutter transfer application state and protocol error taxonomy
+- [x] Hostile frame fixtures and bounded native parser
+- [ ] Hostile path and manifest fixtures
 
 ## P1: vertical slice
 
@@ -37,21 +40,24 @@ do not overlap.
 
 ## P2: hardening and release
 
-- [ ] Protocol fuzzing and corpus regression tests
+- [x] C ABI and frame-parser fuzz smoke with corpus regression
+- [ ] Session, manifest, storage, and transfer fuzz targets
 - [ ] Cross-platform interoperability matrix
 - [ ] Signed application packaging and update policy
 - [ ] Telemetry and privacy policy
 - [ ] Performance baselines and resource budgets
 
-## Suggested first parallel task split
+## Completed foundation tasks
 
-| Task | Workstream | Owned area | Dependency |
+| Task | Workstream | Outcome | State |
 | --- | --- | --- | --- |
-| XT-001 | protocol | threat model and pairing ADR | harness |
-| XT-002 | protocol | framing and limits specification | harness |
-| XT-003 | native_bridge | asynchronous event C ABI | XT-002 |
-| XT-004 | flutter_desktop | UI state and repository contract | harness |
-| XT-005 | integration | native library desktop packaging | harness |
+| XT-001 | protocol | threat model and proposed pairing ADR | done |
+| XT-002 | protocol | v1 framing, negotiation, and limits | done |
+| XT-003 | native_bridge | asynchronous event C ABI | done |
+| XT-004 | flutter_desktop | transfer application state | done |
+| XT-005 | integration | cross-platform native packaging | done |
+| XT-006 | native_core | bounded v1 parser and fuzzing | done |
+| XT-007 | integration | auditable harness governance | in progress |
 
-XT-001, XT-002, XT-004, and XT-005 can start in parallel. XT-003 waits for the
-wire error model so native and Flutter error semantics use one vocabulary.
+Task state and acceptance evidence live under `.agents/records/`. Roadmap
+checkboxes describe product milestones and are not the runtime task state.

@@ -1,4 +1,4 @@
-.PHONY: benchmark bootstrap doctor flutter-test format macos-bundle-test native-test security-test verify
+.PHONY: benchmark bootstrap doctor flutter-test format governance-test macos-bundle-test native-test security-test verify
 
 benchmark:
 	@tool/harness/performance_test.sh
@@ -17,6 +17,9 @@ security-test:
 
 flutter-test:
 	@tool/harness/flutter_test.sh
+
+governance-test:
+	@tool/harness/governance_test.sh
 
 macos-bundle-test:
 	@tool/harness/macos_bundle_test.sh

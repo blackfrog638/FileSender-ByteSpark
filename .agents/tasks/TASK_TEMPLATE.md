@@ -1,12 +1,13 @@
 ---
 id: XT-000
 title: Replace with a concrete outcome
-state: planned
+state: ready
 workstream: integration
 owner: unassigned
 depends_on: []
 owned_paths: []
 contract_changes: []
+handoff: .agents/handoffs/XT-000.md
 ---
 
 ## Outcome
@@ -18,6 +19,10 @@ networking".
 
 Link the relevant architecture section, ADR, protocol version, and predecessor
 tasks.
+
+Create the matching machine-readable `.agents/records/XT-000.json`. Declare
+ADR, architecture, and roadmap impact there. Use `not_required` only with a
+concrete rationale.
 
 ## Constraints
 
@@ -41,3 +46,5 @@ make verify
 ## Handoff
 
 Complete `.agents/handoffs/HANDOFF_TEMPLATE.md` before moving to `review`.
+`transition review` executes the commands recorded for the task and rejects
+uncommitted or out-of-scope paths.

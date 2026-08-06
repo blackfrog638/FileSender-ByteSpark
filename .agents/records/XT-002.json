@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "id": "XT-002",
+  "task_type": "decision",
+  "state": "done",
+  "owner": "protocol-agent",
+  "base_sha": "784375866646b9aa3374734ba6f02a00d11b5208",
+  "head_sha": "0618d78d97a521aed9f5d0be6ebbbda643f6d199",
+  "handoff": "protocol/testdata/v1/HANDOFF.md",
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "accepted",
+      "references": [
+        "docs/adr/0004-v1-framing-and-negotiation.md"
+      ],
+      "rationale": "The first wire framing and negotiation contract is an enduring cross-workstream decision."
+    },
+    "architecture": {
+      "status": "updated",
+      "references": [
+        "docs/architecture.md"
+      ],
+      "rationale": "Architecture identifies the bounded v1 framing contract and its non-security boundary."
+    },
+    "roadmap": {
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "The v1 framing and limits specification milestone is complete."
+    }
+  },
+  "integration": {
+    "strategy": "cherry-pick",
+    "mappings": [
+      {
+        "source": "4790cc3034f20e5495b033f536aa2b72583083a9",
+        "result": "a6dc953a974d218c1499b0654da36a1e4e2b63a9",
+        "patch_id": "6bdbb3129bca25e2313113477e06bbae9f8d00fa"
+      },
+      {
+        "source": "0618d78d97a521aed9f5d0be6ebbbda643f6d199",
+        "result": "df017962390489362d1cd1f33b1d33f741586805",
+        "patch_id": "85311ba66804bb0afa2274a7b5ba80a4d4278099"
+      }
+    ],
+    "verified_sha": "fe5a979d75b15a93fea0122030faefc889177847"
+  },
+  "verification": {
+    "status": "passed",
+    "commands": [
+      "python3 protocol/testdata/v1/validate_vectors.py",
+      "make verify"
+    ],
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31097441610"
+  },
+  "acceptance": {
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-06T19:34:55+08:00",
+    "note": "Retrospective governance audit linked the integrated wire contract to ADR 0004."
+  }
+}

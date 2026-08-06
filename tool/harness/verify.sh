@@ -23,6 +23,7 @@ cd "$root"
 git diff --check
 "$root/tool/harness/check_layout.sh"
 "$root/tool/harness/agent.sh" validate
+"$root/tool/harness/governance_test.sh"
 
 find "$root/tool/harness" -type f -name '*.sh' -exec bash -n {} \;
 

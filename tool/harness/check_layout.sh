@@ -7,6 +7,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 required=(
   "AGENTS.md"
   ".agents/manifest.yaml"
+  ".agents/records/README.md"
   ".agents/tasks/TASK_TEMPLATE.md"
   "docs/architecture.md"
   "docs/roadmap.md"
@@ -14,6 +15,8 @@ required=(
   "native/include/xnn_transfer/c_api.h"
   "apps/desktop/pubspec.yaml"
   "tool/harness/verify.sh"
+  "tool/harness/governance.py"
+  "tool/harness/governance_test.sh"
 )
 
 for path in "${required[@]}"; do

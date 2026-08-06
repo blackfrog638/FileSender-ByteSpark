@@ -39,3 +39,11 @@
 - Accepted by:
 - Accepted at:
 - Follow-up runtime state:
+- Integration strategy:
+- Integrated SHA:
+- Verification reference:
+
+The submitted handoff may leave acceptance fields pending while the task is in
+`review`. Final acceptance is written to `.agents/records/XT-NNN.json` by
+`agent.sh accept`; do not edit a submitted task handoff solely to duplicate the
+durable acceptance record.

@@ -5,10 +5,14 @@ purpose: multi-agent engineering harness
 source_of_truth:
   instructions: AGENTS.md
   backlog: .agents/backlog.yaml
+  task_specs: .agents/tasks
+  task_records: .agents/records
   architecture: docs/architecture.md
   roadmap: docs/roadmap.md
   decisions: docs/adr
   protocol: protocol/spec
+
+integration_branch: harness
 
 commands:
   doctor: make doctor
@@ -19,6 +23,7 @@ commands:
   security_test: make security-test
   benchmark: make benchmark
   agent_list: tool/harness/agent.sh list
+  governance_test: tool/harness/governance_test.sh
 
 workstreams:
   integration:
@@ -29,6 +34,7 @@ workstreams:
       - .github/workflows/**
       - CMakeLists.txt
       - Makefile
+      - docs/adr/**
       - apps/desktop/linux/**
       - apps/desktop/macos/**
       - apps/desktop/windows/**
@@ -56,7 +62,6 @@ workstreams:
   protocol:
     owns:
       - protocol/**
-      - docs/adr/*protocol*
   documentation:
     owns:
       - README.md
@@ -68,11 +73,13 @@ shared_contracts:
   - native/include/xnn_transfer/c_api.h
   - protocol/spec/**
   - apps/desktop/pubspec.yaml
+  - docs/adr/**
 
 quality_gates:
   required:
     - no whitespace errors
     - repository layout check
+    - task governance and integration provenance
     - native build and tests
     - flutter static analysis and tests
   policy: A missing tool reports a skipped local gate; CI must run all gates.

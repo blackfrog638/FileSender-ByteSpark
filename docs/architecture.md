@@ -30,6 +30,10 @@ operation identifier and publish events through a callback or polled event
 queue. No C++ exception, STL type, borrowed string, or ownership ambiguity may
 cross the ABI.
 
+The implemented ABI currently publishes lifecycle events through a bounded
+wakeup-and-drain queue. Discovery, session, and transfer operations have not
+yet been added to that event surface.
+
 ## Native modules
 
 - `core`: engine lifecycle, operation model, domain types, and orchestration.
@@ -42,6 +46,8 @@ cross the ABI.
 - `storage`: path normalization, destination policy, atomic writes, quota and
   free-space checks.
 - `bridge`: converts the C++ model to the versioned C ABI.
+- `protocol`: bounded v1 frame/TLV parsing and transcript-order validation.
+  Parser acceptance does not authenticate a peer or authorize a transfer.
 
 Infrastructure modules may implement domain interfaces, but domain code must
 not depend on a concrete socket, crypto, filesystem, or Flutter type.
@@ -70,10 +76,15 @@ must enforce:
 - cancellation, timeout, backpressure, and idempotent cleanup;
 - no automatic file acceptance based only on discovery.
 
-The security protocol is deliberately not selected in this scaffold. It needs
-a threat-model ADR and interoperable test vectors before implementation.
+ADR 0002 proposes the pairing and authenticated transport profile, but remains
+unaccepted and unimplemented. ADR 0004 accepts bounded v1 framing and
+negotiation independently from transport authentication. No current component
+may claim authenticated pairing, encrypted transfer, or production v1
+conformance.
 
 ## Data flow
+
+The following is the target product flow, not current end-to-end behavior:
 
 1. Discovery reports a reachable, untrusted peer candidate.
 2. The user selects a peer and completes an authenticated pairing flow.
@@ -92,22 +103,34 @@ One native engine owns all native state. Flutter creates exactly one engine per
 process and destroys it after subscriptions and operations stop. Native worker
 threads never invoke Flutter-owned memory after shutdown begins.
 
-The scaffold exposes these engine states:
+The implemented engine exposes these observable states:
 
 ```text
-created -> running -> stopped
+created -> running -> stopping -> stopped
 ```
 
-`start`, `stop`, cancellation, and destruction must be idempotent. The current
-scaffold implements only this synchronous lifecycle so later agents have a
-testable base. The asynchronous event ABI must add an observable stopping phase
-before worker threads exist.
+`start`, `stop`, callback clearing, and destruction have deterministic
+lifecycle rules. Lifecycle events are copied from a bounded native queue into
+caller-owned storage. The callback is only a serialized wakeup; it carries no
+borrowed event payload. Stop and destruction prevent callbacks from beginning
+after their shutdown barriers return.
+
+Flutter has an implemented, pure-Dart transfer application state model and
+gateway abstraction. It is currently exercised with a fake gateway and is not
+wired to native discovery, sessions, storage, or file transfer.
+
+## Packaging
+
+Debug and Release desktop builds compile and bundle the native core on Linux,
+macOS, and Windows. CI loads the packaged library and exercises the real Dart
+event callback boundary. This proves packaging and ABI loadability, not LAN
+transfer behavior.
 
 ## Versioning
 
 - C ABI: integer ABI version plus `struct_size` on extensible structs.
 - Wire protocol: explicit major/minor negotiation and versioned specifications
-  under `protocol/spec/`.
+  under `protocol/spec/`, governed by ADR 0004.
 - Persisted state: schema version and migration policy before state is stored.
 
 Breaking contract changes require an ADR. Unsupported versions fail closed

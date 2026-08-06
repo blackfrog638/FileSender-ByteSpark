@@ -128,6 +128,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Shell syntax
         run: find tool/harness -type f -name '*.sh' -exec bash -n {} \;
@@ -136,7 +138,18 @@ jobs:
         run: tool/harness/check_layout.sh
 
       - name: Whitespace
-        run: git diff --check HEAD
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            git diff --check "$BASE_SHA...HEAD"
+          else
+            git diff --check HEAD^..HEAD
+          fi
 
       - name: Agent contracts
         run: tool/harness/agent.sh validate
+
+      - name: Governance lifecycle
+        run: make governance-test

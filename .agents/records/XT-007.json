@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "id": "XT-007",
+  "task_type": "integration",
+  "state": "in_progress",
+  "owner": "governance-agent",
+  "base_sha": "a95b047f258573d0f970a29c886a04530d1bc3b2",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-007.md",
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "accepted",
+      "references": [
+        "docs/adr/0004-v1-framing-and-negotiation.md"
+      ],
+      "rationale": "The task backfills the missing v1 wire decision and narrows the future ADR trigger policy."
+    },
+    "architecture": {
+      "status": "updated",
+      "references": [
+        "docs/architecture.md"
+      ],
+      "rationale": "The architecture document is synchronized with the implemented event ABI, parser, application state, and packaging."
+    },
+    "roadmap": {
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "Completed milestones and the next unimplemented vertical slice are made explicit."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

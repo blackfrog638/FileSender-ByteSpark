@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "XT-005",
+  "task_type": "integration",
+  "state": "done",
+  "owner": "packaging-agent",
+  "base_sha": "784375866646b9aa3374734ba6f02a00d11b5208",
+  "head_sha": "265be315ddb7888ddb1511bfa8c737f9dc98583b",
+  "handoff": "tool/harness/XT-005-handoff.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implemented the packaging consequence already selected by ADR 0001 without changing a public contract."
+    },
+    "architecture": {
+      "status": "updated",
+      "references": [
+        "docs/architecture.md"
+      ],
+      "rationale": "Architecture records that all desktop bundles carry the native core beside or inside the application."
+    },
+    "roadmap": {
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "Cross-platform native-library packaging and CI verification are complete."
+    }
+  },
+  "integration": {
+    "strategy": "cherry-pick",
+    "mappings": [
+      {
+        "source": "265be315ddb7888ddb1511bfa8c737f9dc98583b",
+        "result": "67aed5f547ff00f0feaef9aead989cd98f0a2cca",
+        "patch_id": "b02ce2bf646067778b46998dbf86e3fc66fd2b2a"
+      }
+    ],
+    "verified_sha": "fe5a979d75b15a93fea0122030faefc889177847"
+  },
+  "verification": {
+    "status": "passed",
+    "commands": [
+      "make verify",
+      "tool/harness/desktop_bundle_test.sh"
+    ],
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31097441610"
+  },
+  "acceptance": {
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-06T19:34:55+08:00",
+    "note": "Retrospective governance audit accepted the packaged library after the nine-job cross-platform CI run."
+  }
+}
