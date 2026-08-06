@@ -1,0 +1,487 @@
+{
+  "format_version": 1,
+  "protocol": "XnnTransfer",
+  "wire_version": "1.0",
+  "byte_order": "big-endian",
+  "encoding": "Each named frame is an exact hexadecimal byte string. Cases list frame names in receive order; direction maintains an independent message_id sequence.",
+  "frames": {
+    "hello_initiator": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "hello_responder": {
+      "direction": "responder_to_initiator",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000102000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400080000000903010000000402000000000a0201000000020010"
+    },
+    "negotiate": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000200000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010"
+    },
+    "negotiate_ack": {
+      "direction": "responder_to_initiator",
+      "hex": "584e4e54001c0100000300000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010"
+    },
+    "ping": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000500000000000000000000000000030000001000010401000000080102030405060708"
+    },
+    "pong": {
+      "direction": "responder_to_initiator",
+      "hex": "584e4e54001c0100000600000000000000000000000000030000001000010401000000080102030405060708"
+    },
+    "hello_unknown_noncritical": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000008500010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a02010000000200200064050000000006667574757265"
+    },
+    "truncated_fixed_header": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000"
+    },
+    "truncated_body": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a02010000000200"
+    },
+    "oversized_body_declaration": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c01000001000000000000000000000000000100100001"
+    },
+    "invalid_magic": {
+      "direction": "initiator_to_responder",
+      "hex": "4641494c001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "unknown_message_type": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c01007777000000000000000000000000000100000000"
+    },
+    "reserved_frame_flag": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100010000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "zero_message_id": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000000000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "message_id_gap_ping": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000500000000000000000000000000040000001000010401000000080000000000000007"
+    },
+    "ping_before_negotiation": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000500000000000000000000000000010000001000010401000000080000000000000007"
+    },
+    "negotiate_before_responder_hello": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000200000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010"
+    },
+    "transfer_on_stream_zero": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c01000100000000000000000000000000000100000000"
+    },
+    "unknown_critical_hello_field": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000008000010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020006405010000000178"
+    },
+    "required_field_not_critical": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000007700010200000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "out_of_order_hello_fields": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000007700020201000000020000000102010000000200010003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "duplicate_scalar_hello_field": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000008100010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020000a0201000000020020"
+    },
+    "duplicate_capability": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000008300010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "multiple_versions_same_capability": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000008300010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400010002000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "missing_base_capability": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000006b00010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400020001000703010000000400020001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "receive_body_over_limit": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100001000903010000000404000000000a0201000000020020"
+    },
+    "wrong_transport_role": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000102000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "hello_initiator_v11": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020001000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "hello_responder_v11": {
+      "direction": "responder_to_initiator",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020001000501010000000102000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400080000000903010000000402000000000a0201000000020010"
+    },
+    "negotiate_downgraded": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000200000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010"
+    },
+    "negotiate_wrong_limit": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000200000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040010000000050301000000040200000000060201000000020010"
+    },
+    "negotiate_ack_mismatch": {
+      "direction": "responder_to_initiator",
+      "hex": "584e4e54001c0100000300000000000000000000000000020000004e00010201000000020001000202010000000200000003030100000004000100010003030100000004000200010004030100000004000800000005030100000004020000000006020100000002000f"
+    },
+    "hello_initiator_parallel": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000100000000000000000000000000010000008300010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000603010000000400030001000703010000000400010001000803010000000400100000000903010000000404000000000a0201000000020020"
+    },
+    "negotiate_extra_capability": {
+      "direction": "initiator_to_responder",
+      "hex": "584e4e54001c0100000200000000000000000000000000020000005a000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100030301000000040003000100040301000000040008000000050301000000040200000000060201000000020010"
+    },
+    "negotiate_from_responder": {
+      "direction": "responder_to_initiator",
+      "hex": "584e4e54001c0100000200000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010"
+    },
+    "pong_wrong_token": {
+      "direction": "responder_to_initiator",
+      "hex": "584e4e54001c0100000600000000000000000000000000030000001000010401000000080102030405060709"
+    }
+  },
+  "cases": [
+    {
+      "name": "valid_handshake_and_ping",
+      "description": "Canonical v1.0 negotiation followed by matching PING/PONG.",
+      "frames": [
+        "hello_initiator",
+        "hello_responder",
+        "negotiate",
+        "negotiate_ack",
+        "ping",
+        "pong"
+      ],
+      "expect": {
+        "result": "accept"
+      }
+    },
+    {
+      "name": "valid_unknown_noncritical_field",
+      "description": "An unknown noncritical HELLO field is skipped after structural validation.",
+      "frames": [
+        "hello_unknown_noncritical"
+      ],
+      "expect": {
+        "result": "accept"
+      }
+    },
+    {
+      "name": "truncated_fixed_header",
+      "description": "EOF before the 28-octet fixed header.",
+      "frames": [
+        "truncated_fixed_header"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_FRAME"
+      }
+    },
+    {
+      "name": "truncated_declared_body",
+      "description": "Encoded bytes end before the declared body length.",
+      "frames": [
+        "truncated_body"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_FRAME"
+      }
+    },
+    {
+      "name": "oversized_body",
+      "description": "The declared body exceeds the 1 MiB hard limit and is rejected before draining.",
+      "frames": [
+        "oversized_body_declaration"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "FRAME_TOO_LARGE"
+      }
+    },
+    {
+      "name": "invalid_magic",
+      "description": "A parser does not scan forward to resynchronize on magic.",
+      "frames": [
+        "invalid_magic"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_FRAME"
+      }
+    },
+    {
+      "name": "unknown_message_type",
+      "description": "An unnegotiated message type fails closed.",
+      "frames": [
+        "unknown_message_type"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "UNSUPPORTED_MESSAGE"
+      }
+    },
+    {
+      "name": "reserved_frame_flag",
+      "description": "v1.0 has no defined frame flags.",
+      "frames": [
+        "reserved_frame_flag"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_FRAME"
+      }
+    },
+    {
+      "name": "zero_message_id",
+      "description": "Per-direction message IDs start at one.",
+      "frames": [
+        "zero_message_id"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MESSAGE_ID_VIOLATION"
+      }
+    },
+    {
+      "name": "message_id_gap",
+      "description": "A gap after negotiation is connection-fatal.",
+      "frames": [
+        "hello_initiator",
+        "hello_responder",
+        "negotiate",
+        "negotiate_ack",
+        "message_id_gap_ping"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MESSAGE_ID_VIOLATION"
+      }
+    },
+    {
+      "name": "message_before_negotiation",
+      "description": "PING is not legal before negotiation completes.",
+      "frames": [
+        "ping_before_negotiation"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "STATE_VIOLATION"
+      }
+    },
+    {
+      "name": "negotiate_before_both_hellos",
+      "description": "The initiator waits for both HELLO messages.",
+      "frames": [
+        "hello_initiator",
+        "negotiate_before_responder_hello"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "STATE_VIOLATION"
+      }
+    },
+    {
+      "name": "transfer_message_on_stream_zero",
+      "description": "Transfer messages require a nonzero stream ID.",
+      "frames": [
+        "transfer_on_stream_zero"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "STATE_VIOLATION"
+      }
+    },
+    {
+      "name": "unknown_critical_field",
+      "description": "Unknown critical TLVs cannot be skipped.",
+      "frames": [
+        "unknown_critical_hello_field"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "UNKNOWN_CRITICAL_FIELD"
+      }
+    },
+    {
+      "name": "required_field_without_critical_flag",
+      "description": "Required schema fields carry the CRITICAL flag.",
+      "frames": [
+        "required_field_not_critical"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_MESSAGE"
+      }
+    },
+    {
+      "name": "out_of_order_tlv",
+      "description": "Canonical field order is mandatory.",
+      "frames": [
+        "out_of_order_hello_fields"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_MESSAGE"
+      }
+    },
+    {
+      "name": "duplicate_scalar_field",
+      "description": "A non-repeated field cannot occur twice.",
+      "frames": [
+        "duplicate_scalar_hello_field"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_MESSAGE"
+      }
+    },
+    {
+      "name": "duplicate_capability",
+      "description": "Capability values are sorted and unique.",
+      "frames": [
+        "duplicate_capability"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_MESSAGE"
+      }
+    },
+    {
+      "name": "multiple_versions_of_capability",
+      "description": "One HELLO cannot advertise two versions of one capability ID.",
+      "frames": [
+        "multiple_versions_same_capability"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_MESSAGE"
+      }
+    },
+    {
+      "name": "missing_base_capability",
+      "description": "BASE_TRANSFER_V1 is mandatory and required.",
+      "frames": [
+        "missing_base_capability"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "UNSUPPORTED_CAPABILITY"
+      }
+    },
+    {
+      "name": "advertised_limit_over_hard_limit",
+      "description": "Negotiation cannot raise a hard protocol limit.",
+      "frames": [
+        "receive_body_over_limit"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "LIMIT_EXCEEDED"
+      }
+    },
+    {
+      "name": "hello_role_mismatch",
+      "description": "HELLO role is bound to the protected transport role.",
+      "frames": [
+        "wrong_transport_role"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "STATE_VIOLATION"
+      }
+    },
+    {
+      "name": "version_downgrade",
+      "description": "The initiator must select the highest common version tuple.",
+      "frames": [
+        "hello_initiator_v11",
+        "hello_responder_v11",
+        "negotiate_downgraded"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "DOWNGRADE_DETECTED"
+      }
+    },
+    {
+      "name": "negotiated_limit_not_minimum",
+      "description": "Selected receive limits equal the exact advertised minima.",
+      "frames": [
+        "hello_initiator",
+        "hello_responder",
+        "negotiate_wrong_limit"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_MESSAGE"
+      }
+    },
+    {
+      "name": "selected_capability_not_intersection",
+      "description": "The selection cannot add a capability absent from the peer HELLO.",
+      "frames": [
+        "hello_initiator_parallel",
+        "hello_responder",
+        "negotiate_extra_capability"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "UNSUPPORTED_CAPABILITY"
+      }
+    },
+    {
+      "name": "negotiate_from_wrong_role",
+      "description": "Only the initiator selects negotiation parameters.",
+      "frames": [
+        "hello_initiator",
+        "hello_responder",
+        "negotiate_from_responder"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "STATE_VIOLATION"
+      }
+    },
+    {
+      "name": "negotiation_ack_mismatch",
+      "description": "The responder ACK must byte-semantically match the selection.",
+      "frames": [
+        "hello_initiator",
+        "hello_responder",
+        "negotiate",
+        "negotiate_ack_mismatch"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_MESSAGE"
+      }
+    },
+    {
+      "name": "pong_token_mismatch",
+      "description": "PONG echoes an outstanding PING token.",
+      "frames": [
+        "hello_initiator",
+        "hello_responder",
+        "negotiate",
+        "negotiate_ack",
+        "ping",
+        "pong_wrong_token"
+      ],
+      "expect": {
+        "result": "reject",
+        "error": "STATE_VIOLATION"
+      }
+    }
+  ]
+}
