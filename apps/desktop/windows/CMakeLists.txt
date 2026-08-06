@@ -49,8 +49,27 @@ endfunction()
 set(FLUTTER_MANAGED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/flutter")
 add_subdirectory(${FLUTTER_MANAGED_DIR})
 
+# Build the native core with the Flutter runner so every bundle gets the
+# library that matches its build configuration and target architecture.
+set(XNN_TRANSFER_BUILD_TESTS OFF)
+set(XNN_TRANSFER_BUILD_BENCHMARKS OFF)
+set(XNN_TRANSFER_BUILD_FUZZERS OFF)
+set(XNN_TRANSFER_ENABLE_ASAN_UBSAN OFF)
+add_subdirectory(
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../../native"
+  "${CMAKE_CURRENT_BINARY_DIR}/xnn_transfer_native"
+)
+set_target_properties(
+  xnn_transfer_core
+  PROPERTIES
+    CXX_STANDARD 20
+    CXX_STANDARD_REQUIRED YES
+    CXX_EXTENSIONS NO
+)
+
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
+add_dependencies(${BINARY_NAME} xnn_transfer_core)
 
 
 # Generated plugin build rules, which manage building the plugins and adding
@@ -73,6 +92,11 @@ set(INSTALL_BUNDLE_DATA_DIR "${CMAKE_INSTALL_PREFIX}/data")
 set(INSTALL_BUNDLE_LIB_DIR "${CMAKE_INSTALL_PREFIX}")
 
 install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
+  COMPONENT Runtime)
+
+# The Dart loader resolves the native core next to the runner executable.
+install(TARGETS xnn_transfer_core
+  RUNTIME DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
