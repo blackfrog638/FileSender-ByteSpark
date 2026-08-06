@@ -1,0 +1,774 @@
+{
+  "format_version": 1,
+  "profile": {
+    "id": 1,
+    "status": "proposed-test-evidence-only",
+    "byte_order": "big-endian",
+    "canonical_magic": "XNNS",
+    "canonical_version": 1,
+    "hash": "SHA-256",
+    "mac": "HMAC-SHA256",
+    "sas_kdf": "HKDF-Expand-SHA256",
+    "sas_bits": 55,
+    "sas_word_count": 5,
+    "sas_wordlist": "BIP39-English-index-order",
+    "wordlist_sha256": "2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda",
+    "exporter_material": "fixture-input-only"
+  },
+  "fixtures": {
+    "baseline": {
+      "security_profile_id": 1,
+      "identity": {
+        "initiator_key_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "responder_key_hex": "606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f"
+      },
+      "pairing": {
+        "initiator_nonce_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+        "responder_nonce_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+      },
+      "negotiation": {
+        "initiator": {
+          "min_version": [
+            1,
+            0
+          ],
+          "max_version": [
+            1,
+            0
+          ],
+          "capabilities": [
+            65537,
+            131073
+          ],
+          "required_capabilities": [
+            65537
+          ],
+          "receive_limits": {
+            "max_body": 1048576,
+            "max_in_flight": 67108864,
+            "max_streams": 32
+          }
+        },
+        "responder": {
+          "min_version": [
+            1,
+            0
+          ],
+          "max_version": [
+            1,
+            0
+          ],
+          "capabilities": [
+            65537,
+            131073
+          ],
+          "required_capabilities": [
+            65537
+          ],
+          "receive_limits": {
+            "max_body": 524288,
+            "max_in_flight": 33554432,
+            "max_streams": 16
+          }
+        },
+        "selected": {
+          "version": [
+            1,
+            0
+          ],
+          "capabilities": [
+            65537,
+            131073
+          ],
+          "effective_limits": {
+            "max_body": 524288,
+            "max_in_flight": 33554432,
+            "max_streams": 16
+          }
+        }
+      },
+      "transport": {
+        "initiator_session_nonce_hex": "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f",
+        "responder_session_nonce_hex": "a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf",
+        "session_id_hex": "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+        "raw_negotiation_transcript_hex": "0100000093584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a02010000000200200200000093584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000102000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400080000000903010000000402000000000a0201000000020010030000006a584e4e54001c0100000200000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010040000006a584e4e54001c0100000300000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010"
+      },
+      "exporter_material": {
+        "pairing_hex": "a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf",
+        "confirmation_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+        "transport_hex": "e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+      },
+      "rotation": {
+        "old_key_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+        "new_key_hex": "101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f",
+        "counter": 7,
+        "nonce_hex": "303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f"
+      }
+    }
+  },
+  "vectors": [
+    {
+      "id": "normalized-negotiation",
+      "description": "Canonical normalized negotiation binds both role-ordered offers and the exact selection.",
+      "operation": "normalized_negotiation",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-08",
+        "SEC-19"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "encoded_hex": "584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010",
+          "sha256_hex": "00200c2aa0cbc45a821e0896e29e03f6a61c3546d5b1563d04a9598d9a9ed741"
+        }
+      }
+    },
+    {
+      "id": "pair-context",
+      "description": "Pairing context binds roles, nonces, identity keys, profile, and negotiation.",
+      "operation": "pair_context",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-03",
+        "SEC-08"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "encoded_hex": "584e4e53010200090000017e000100000016586e6e5472616e736665722070616972696e672076310002000000010100030000000102000400000020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000500000020202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000600000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000700000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010",
+          "sha256_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882"
+        }
+      }
+    },
+    {
+      "id": "pairing-exporter-input",
+      "description": "Pairing exporter label, context, and length are byte-exact.",
+      "operation": "pairing_exporter_input",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-03",
+        "SEC-06"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "label_ascii": "EXPORTER-XnnTransfer-Pairing-v1",
+          "label_hex": "4558504f525445522d586e6e5472616e736665722d50616972696e672d7631",
+          "context_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882",
+          "length": 32
+        }
+      }
+    },
+    {
+      "id": "sas-five-words",
+      "description": "Pairing exporter material maps to five 11-bit word indices.",
+      "operation": "sas_words",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-03",
+        "SEC-18"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "hkdf_info_hex": "584e4e530103000200000044000100000018586e6e5472616e736665722053415320776f72647320763100020000002014faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882",
+          "hkdf_output_hex": "06b5482a0e78d9",
+          "indices": [
+            53,
+            1362,
+            84,
+            231,
+            1132
+          ],
+          "words": [
+            "allow",
+            "prevent",
+            "appear",
+            "brother",
+            "mirror"
+          ]
+        }
+      }
+    },
+    {
+      "id": "confirmation-exporter-input",
+      "description": "Confirmation uses a distinct exporter label.",
+      "operation": "confirmation_exporter_input",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-03",
+        "SEC-06"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "label_ascii": "EXPORTER-XnnTransfer-Pairing-Confirmation-v1",
+          "label_hex": "4558504f525445522d586e6e5472616e736665722d50616972696e672d436f6e6669726d6174696f6e2d7631",
+          "context_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882",
+          "length": 32
+        }
+      }
+    },
+    {
+      "id": "peer-confirmation-initiator",
+      "description": "Initiator confirmation binds context, role, and decision.",
+      "operation": "confirmation_initiator",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-03",
+        "SEC-18"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820101",
+          "hmac_sha256_hex": "f90a5ddbecbbafeb7e9a2c3287404f5c313aef51ac60049506e8c6f67d78bcfd"
+        }
+      }
+    },
+    {
+      "id": "peer-confirmation-responder",
+      "description": "Responder confirmation is role-separated.",
+      "operation": "confirmation_responder",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-03",
+        "SEC-18"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820201",
+          "hmac_sha256_hex": "ae63dc5e1462dd80bcfc931111faef81fbcd560e4de9c88ef8e44a3f6a041a85"
+        }
+      }
+    },
+    {
+      "id": "transport-context",
+      "description": "Transport context binds identity, nonces, both negotiation forms, and session ID.",
+      "operation": "transport_context",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-05",
+        "SEC-08"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "encoded_hex": "584e4e530104000b000003aa000100000018586e6e5472616e73666572207472616e73706f72742076310002000000010100030000000102000400000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000500000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f000600000020808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f000700000020a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010000a0000020e0100000093584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a02010000000200200200000093584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000102000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400080000000903010000000402000000000a0201000000020010030000006a584e4e54001c0100000200000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010040000006a584e4e54001c0100000300000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010000b00000010f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+          "sha256_hex": "deaf1569d495b3182b41fa24d874bb64254c9c99b76b1b258510fab69ffa4b43"
+        }
+      }
+    },
+    {
+      "id": "transport-exporter-input",
+      "description": "Transport exporter uses a distinct label and context.",
+      "operation": "transport_exporter_input",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-05",
+        "SEC-06"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "label_ascii": "EXPORTER-XnnTransfer-Transport-v1",
+          "label_hex": "4558504f525445522d586e6e5472616e736665722d5472616e73706f72742d7631",
+          "context_hex": "deaf1569d495b3182b41fa24d874bb64254c9c99b76b1b258510fab69ffa4b43",
+          "length": 32
+        }
+      }
+    },
+    {
+      "id": "transport-finished-initiator",
+      "description": "Initiator finished value binds the initiator role.",
+      "operation": "transport_finished_initiator",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-05",
+        "SEC-08"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "message_hex": "deaf1569d495b3182b41fa24d874bb64254c9c99b76b1b258510fab69ffa4b4301",
+          "hmac_sha256_hex": "b391d04249f6a3ebbcaa1b467e397cf01fa4c0b6bb2f2f881259b949fe3ed98c"
+        }
+      }
+    },
+    {
+      "id": "transport-finished-responder",
+      "description": "Responder finished value is role-separated.",
+      "operation": "transport_finished_responder",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-05",
+        "SEC-08"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "message_hex": "deaf1569d495b3182b41fa24d874bb64254c9c99b76b1b258510fab69ffa4b4302",
+          "hmac_sha256_hex": "b0c1d1b913085f4b25beed55787b3da45acaaa1196eaec3f72492f524d04201b"
+        }
+      }
+    },
+    {
+      "id": "rotation-context",
+      "description": "Rotation binds old/new keys, counter, nonce, and current transport.",
+      "operation": "rotation_context",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-09",
+        "SEC-11"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "encoded_hex": "584e4e5301050006000000c3000100000017586e6e5472616e7366657220726f746174696f6e207631000200000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000300000020101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f0004000000080000000000000007000500000020303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f000600000020deaf1569d495b3182b41fa24d874bb64254c9c99b76b1b258510fab69ffa4b43",
+          "sha256_hex": "92491f75fa6855de192b5fd110481b54381c351bfe9a0647a9848624466d9ac7"
+        }
+      }
+    },
+    {
+      "id": "rotation-proof-old-key",
+      "description": "Old-key proof input is signer-separated.",
+      "operation": "rotation_proof_old",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-11"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "message_hex": "584e4e53010600030000005000010000001d586e6e5472616e7366657220726f746174696f6e2070726f6f6620763100020000002092491f75fa6855de192b5fd110481b54381c351bfe9a0647a9848624466d9ac700030000000101",
+          "sha256_hex": "168e2619c2b0dc1ca7354b2d6d7420b9c8d672385e079215e07d0f09bc92578a"
+        }
+      }
+    },
+    {
+      "id": "rotation-proof-new-key",
+      "description": "New-key proof input is signer-separated.",
+      "operation": "rotation_proof_new",
+      "fixture": "baseline",
+      "input_encoding": "XNNS canonical bytes or the exact TLS exporter API tuple defined by ADR 0002.",
+      "invariants": [
+        "SEC-11"
+      ],
+      "expect": {
+        "result": "accept",
+        "output": {
+          "message_hex": "584e4e53010600030000005000010000001d586e6e5472616e7366657220726f746174696f6e2070726f6f6620763100020000002092491f75fa6855de192b5fd110481b54381c351bfe9a0647a9848624466d9ac700030000000102",
+          "sha256_hex": "e564b216c42625bcd3e68151000a442072ecab926ee09d7dddc819a5e4caec95"
+        }
+      }
+    }
+  ],
+  "negative_vectors": [
+    {
+      "id": "malformed-bad-magic",
+      "description": "Wrong canonical magic is rejected.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-14",
+        "SEC-19"
+      ],
+      "input": {
+        "encoded_hex": "4641494c010200090000017e000100000016586e6e5472616e736665722070616972696e672076310002000000010100030000000102000400000020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000500000020202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000600000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000700000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_ENCODING"
+      }
+    },
+    {
+      "id": "malformed-truncated-header",
+      "description": "Truncated canonical header is rejected.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-14",
+        "SEC-19"
+      ],
+      "input": {
+        "encoded_hex": "584e4e5301020009000001"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_ENCODING"
+      }
+    },
+    {
+      "id": "malformed-trailing-data",
+      "description": "Unaccounted fields are trailing data.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-14",
+        "SEC-19"
+      ],
+      "input": {
+        "encoded_hex": "584e4e53010200080000017e000100000016586e6e5472616e736665722070616972696e672076310002000000010100030000000102000400000020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000500000020202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000600000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000700000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "TRAILING_DATA"
+      }
+    },
+    {
+      "id": "malformed-duplicate-field",
+      "description": "Duplicate scalar fields are rejected.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-14",
+        "SEC-19"
+      ],
+      "input": {
+        "encoded_hex": "584e4e530102000a00000232000100000016586e6e5472616e736665722070616972696e672076310002000000010100030000000102000400000020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000500000020202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000600000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000700000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a000800000200000000100009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "DUPLICATE_FIELD"
+      }
+    },
+    {
+      "id": "malformed-out-of-order-field",
+      "description": "Out-of-order fields have no alternate canonical interpretation.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-14",
+        "SEC-19"
+      ],
+      "input": {
+        "encoded_hex": "584e4e53010200090000017e00020000000101000100000016586e6e5472616e736665722070616972696e6720763100030000000102000400000020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000500000020202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000600000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000700000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "NON_CANONICAL_ENCODING"
+      }
+    },
+    {
+      "id": "pair-context-omitted-negotiation",
+      "description": "Normalized negotiation cannot be omitted.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-08",
+        "SEC-19"
+      ],
+      "input": {
+        "encoded_hex": "584e4e5301020008000000ca000100000016586e6e5472616e736665722070616972696e672076310002000000010100030000000102000400000020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000500000020202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000600000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000700000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f0008000000020001"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "MISSING_FIELD"
+      }
+    },
+    {
+      "id": "pair-context-short-nonce",
+      "description": "A 31-byte nonce is rejected.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-06",
+        "SEC-14"
+      ],
+      "input": {
+        "encoded_hex": "584e4e53010200090000017d000100000016586e6e5472616e736665722070616972696e67207631000200000001010003000000010200040000001f000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e000500000020202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000600000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000700000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_LENGTH"
+      }
+    },
+    {
+      "id": "pair-context-swapped-roles",
+      "description": "Role swaps are rejected.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-08",
+        "SEC-18"
+      ],
+      "input": {
+        "encoded_hex": "584e4e53010200090000017e000100000016586e6e5472616e736665722070616972696e672076310002000000010200030000000101000400000020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000500000020202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000600000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000700000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "ROLE_MISMATCH"
+      }
+    },
+    {
+      "id": "pair-context-swapped-keys",
+      "description": "Key-order swaps change the context.",
+      "operation": "verify_context",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-08"
+      ],
+      "input": {
+        "encoded_hex": "584e4e53010200090000017e000100000016586e6e5472616e736665722070616972696e672076310002000000010100030000000102000400000020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000500000020202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000600000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f000700000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010",
+        "expected_kind": 2,
+        "expected_sha256_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "CONTEXT_MISMATCH"
+      }
+    },
+    {
+      "id": "negotiation-downgrade",
+      "description": "Selecting v1.0 when both offers allow v1.1 is rejected.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-07",
+        "SEC-08"
+      ],
+      "input": {
+        "encoded_hex": "584e4e530101000d000000a2000100000001010002000000040100010100030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010100080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "DOWNGRADE_DETECTED"
+      }
+    },
+    {
+      "id": "transport-context-omitted-raw-transcript",
+      "description": "Raw negotiation cannot be omitted.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-05",
+        "SEC-08"
+      ],
+      "input": {
+        "encoded_hex": "584e4e530104000a00000196000100000018586e6e5472616e73666572207472616e73706f72742076310002000000010100030000000102000400000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000500000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f000600000020808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f000700000020a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010000b00000010f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "MISSING_FIELD"
+      }
+    },
+    {
+      "id": "transport-context-short-session-id",
+      "description": "A 15-byte session ID is rejected.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-06",
+        "SEC-08"
+      ],
+      "input": {
+        "encoded_hex": "584e4e530104000b000003a9000100000018586e6e5472616e73666572207472616e73706f72742076310002000000010100030000000102000400000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000500000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f000600000020808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f000700000020a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010000a0000020e0100000093584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a02010000000200200200000093584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000102000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400080000000903010000000402000000000a0201000000020010030000006a584e4e54001c0100000200000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010040000006a584e4e54001c0100000300000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010000b0000000ff0f1f2f3f4f5f6f7f8f9fafbfcfdfe"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_LENGTH"
+      }
+    },
+    {
+      "id": "transport-context-malformed-raw-order",
+      "description": "Raw records must retain fixed role order.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-08",
+        "SEC-19"
+      ],
+      "input": {
+        "encoded_hex": "584e4e530104000b000003aa000100000018586e6e5472616e73666572207472616e73706f72742076310002000000010100030000000102000400000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000500000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f000600000020808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f000700000020a0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010000a0000020e0200000093584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000101000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400100000000903010000000404000000000a02010000000200200200000093584e4e54001c0100000100000000000000000000000000010000007700010201000000020001000202010000000200000003020100000002000100040201000000020000000501010000000102000603010000000400010001000603010000000400020001000703010000000400010001000803010000000400080000000903010000000402000000000a0201000000020010030000006a584e4e54001c0100000200000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010040000006a584e4e54001c0100000300000000000000000000000000020000004e000102010000000200010002020100000002000000030301000000040001000100030301000000040002000100040301000000040008000000050301000000040200000000060201000000020010000b00000010f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_TRANSCRIPT"
+      }
+    },
+    {
+      "id": "sas-short-exporter",
+      "description": "SAS rejects 31-byte exporter material.",
+      "operation": "derive_sas",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-06",
+        "SEC-14"
+      ],
+      "input": {
+        "exporter_hex": "a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf",
+        "pair_context_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_LENGTH"
+      }
+    },
+    {
+      "id": "confirmation-swapped-role",
+      "description": "Responder confirmation cannot verify as initiator output.",
+      "operation": "verify_confirmation",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-03",
+        "SEC-18"
+      ],
+      "input": {
+        "key_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+        "message_hex": "14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f708820201",
+        "presented_hex": "f90a5ddbecbbafeb7e9a2c3287404f5c313aef51ac60049506e8c6f67d78bcfd",
+        "expected_role": 1
+      },
+      "expect": {
+        "result": "reject",
+        "error": "ROLE_MISMATCH"
+      }
+    },
+    {
+      "id": "confirmation-replay-fresh-attempt",
+      "description": "Captured confirmation fails for a fresh attempt.",
+      "operation": "verify_confirmation",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-06",
+        "SEC-09",
+        "SEC-18"
+      ],
+      "input": {
+        "key_hex": "c0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf",
+        "message_hex": "0cbf09930145270a7ccdd5323bf3055d0f84a2cd6071af60051724aa52aa401b0101",
+        "presented_hex": "f90a5ddbecbbafeb7e9a2c3287404f5c313aef51ac60049506e8c6f67d78bcfd",
+        "expected_role": 1
+      },
+      "expect": {
+        "result": "reject",
+        "error": "CONFIRMATION_MISMATCH"
+      }
+    },
+    {
+      "id": "transport-finished-swapped-role",
+      "description": "Responder finished input cannot verify as initiator output.",
+      "operation": "verify_transport_finished",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-05",
+        "SEC-08"
+      ],
+      "input": {
+        "key_hex": "e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+        "message_hex": "deaf1569d495b3182b41fa24d874bb64254c9c99b76b1b258510fab69ffa4b4302",
+        "presented_hex": "b391d04249f6a3ebbcaa1b467e397cf01fa4c0b6bb2f2f881259b949fe3ed98c",
+        "expected_role": 1
+      },
+      "expect": {
+        "result": "reject",
+        "error": "ROLE_MISMATCH"
+      }
+    },
+    {
+      "id": "transport-finished-replay",
+      "description": "Captured finished value fails on a fresh connection.",
+      "operation": "verify_transport_finished",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-05",
+        "SEC-06",
+        "SEC-09"
+      ],
+      "input": {
+        "key_hex": "e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+        "message_hex": "78aa2e43f868c18c773d2d378e85588f641e081a05bbbcbf827f22090c7af04301",
+        "presented_hex": "b391d04249f6a3ebbcaa1b467e397cf01fa4c0b6bb2f2f881259b949fe3ed98c",
+        "expected_role": 1
+      },
+      "expect": {
+        "result": "reject",
+        "error": "TRANSPORT_FINISHED_MISMATCH"
+      }
+    },
+    {
+      "id": "rotation-counter-replay",
+      "description": "Repeated rotation counter is stale.",
+      "operation": "validate_rotation_counter",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-09",
+        "SEC-11"
+      ],
+      "input": {
+        "previous": 7,
+        "current": 7
+      },
+      "expect": {
+        "result": "reject",
+        "error": "REPLAY_DETECTED"
+      }
+    },
+    {
+      "id": "rotation-same-old-new-key",
+      "description": "Rotation requires a distinct new key.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-11"
+      ],
+      "input": {
+        "encoded_hex": "584e4e5301050006000000c3000100000017586e6e5472616e7366657220726f746174696f6e207631000200000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000300000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f0004000000080000000000000007000500000020303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f000600000020deaf1569d495b3182b41fa24d874bb64254c9c99b76b1b258510fab69ffa4b43"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_ROTATION"
+      }
+    },
+    {
+      "id": "rotation-invalid-signer",
+      "description": "Rotation proof accepts only old/new signer domains.",
+      "operation": "decode_canonical",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-11",
+        "SEC-19"
+      ],
+      "input": {
+        "encoded_hex": "584e4e53010600030000005000010000001d586e6e5472616e7366657220726f746174696f6e2070726f6f6620763100020000002092491f75fa6855de192b5fd110481b54381c351bfe9a0647a9848624466d9ac700030000000103"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "ROLE_MISMATCH"
+      }
+    },
+    {
+      "id": "expected-output-mismatch",
+      "description": "Tampered expected output is detected.",
+      "operation": "verify_output",
+      "input_encoding": "Exact hexadecimal octets; no host-native encoding.",
+      "invariants": [
+        "SEC-14",
+        "SEC-19"
+      ],
+      "input": {
+        "value_hex": "584e4e53010200090000017e000100000016586e6e5472616e736665722070616972696e672076310002000000010100030000000102000400000020000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f000500000020202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f000600000020404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f000700000020606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f00080000000200010009000000ae584e4e530101000d000000a2000100000001010002000000040100010000030000000a0002000100010002000100040000000600010001000100050000000a00100000040000000020000600000001020007000000040100010000080000000a00020001000100020001000900000006000100010001000a0000000a00080000020000000010000b000000020100000c0000000a00020001000100020001000d0000000a00080000020000000010",
+        "expected_sha256_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "OUTPUT_MISMATCH"
+      }
+    }
+  ]
+}

@@ -55,6 +55,165 @@ profile. Adding a weaker profile or changing a primitive requires a new ADR,
 new interoperability vectors, and an explicit compatibility rule. There is no
 plaintext or TLS 1.2 fallback.
 
+### Byte-exact profile definition
+
+This section makes the proposed profile deterministic for independent golden
+vector review. It remains test evidence for a `proposed` ADR and does not claim
+that TLS, pairing, or rotation is implemented.
+
+All integers use unsigned big-endian encoding. All labels are the exact ASCII
+octets shown below, without a terminator. A role is one octet: initiator is
+`01` and responder is `02`. A confirmation decision is one octet: reject is
+`00` and confirm is `01`. Ed25519 public keys, nonces, SHA-256 values, exporter
+outputs, and HMAC-SHA256 values are exactly 32 octets. A transfer session
+identifier is exactly 16 octets. Within this proposed profile,
+`security_profile` is the two-octet value `00 01`; production use remains
+blocked on ADR acceptance and wire registration.
+
+Canonical security objects use this envelope:
+
+| Field | Encoding |
+| --- | --- |
+| `magic` | four ASCII octets `XNNS` |
+| `canonical_version` | `U8`, exactly `01` |
+| `object_kind` | `U8`, defined below |
+| `field_count` | `U16` |
+| `body_length` | `U32`, octets following the envelope |
+| fields | exactly `field_count` field records |
+
+Each field record is `field_id:U16 || value_length:U32 || value`. Field IDs
+are strictly increasing and every field listed for an object kind occurs
+exactly once. Unknown, duplicate, omitted, out-of-order, truncated, or trailing
+data is invalid. The encoded body is limited to 1,048,576 octets and 32 fields.
+No text normalization, host struct layout, host byte order, or locale operation
+participates in encoding.
+
+Object kind `01`, normalized negotiation, has these fields:
+
+| ID | Value |
+| ---: | --- |
+| 1 | initiator role, `U8` |
+| 2 | initiator version range |
+| 3 | initiator offered capabilities |
+| 4 | initiator required capabilities |
+| 5 | initiator receive limits |
+| 6 | responder role, `U8` |
+| 7 | responder version range |
+| 8 | responder offered capabilities |
+| 9 | responder required capabilities |
+| 10 | responder receive limits |
+| 11 | selected version |
+| 12 | selected capabilities |
+| 13 | effective receive limits |
+
+A version range is
+`min_major:U8 || min_minor:U8 || max_major:U8 || max_minor:U8`.
+A selected version is `major:U8 || minor:U8`. A capability list is
+`count:U16 || count * capability:U32`; values are unique and numerically
+sorted, and one capability ID cannot occur at multiple versions. Receive
+limits are `max_body:U32 || max_in_flight:U32 || max_streams:U16`.
+Selection must be the highest common version, the exact sorted capability
+intersection satisfying both required sets, and the component-wise minimum
+receive limits. This is the byte-exact representation of
+`normalized_negotiation` required by `protocol/spec/v1.md`.
+
+Object kind `02`, pairing context input, has:
+
+| ID | Value |
+| ---: | --- |
+| 1 | ASCII `XnnTransfer pairing v1` |
+| 2, 3 | initiator role, responder role |
+| 4, 5 | initiator nonce, responder nonce |
+| 6, 7 | initiator Ed25519 key, responder Ed25519 key |
+| 8 | `security_profile:U16` |
+| 9 | complete encoded normalized-negotiation object |
+
+`pair_context` is SHA-256 over the complete kind-`02` object. The pairing TLS
+exporter API tuple is:
+
+```text
+label   = ASCII "EXPORTER-XnnTransfer-Pairing-v1"
+context = pair_context
+length  = 32
+```
+
+The returned 32-octet exporter output is the HKDF-SHA256 pseudorandom key for
+SAS derivation. HKDF performs Expand only. Its `info` is a complete canonical
+kind-`03` object with field 1 equal to ASCII
+`XnnTransfer SAS words v1` and field 2 equal to `pair_context`; output length
+is seven octets. The first 55 bits are the five consecutive 11-bit,
+most-significant-bit-first indices. The unused least-significant bit of the
+seventh octet is ignored.
+
+Indices select zero-based entries from the 2,048-entry BIP39 English word list
+stored at `protocol/testdata/security/v1/wordlist.txt`. BIP39 checksum and seed
+semantics are not used. Implementations display the five selected lowercase
+ASCII words in index order and do not translate, normalize, substitute, or
+accept prefixes.
+
+The peer-confirmation exporter API tuple is:
+
+```text
+label   = ASCII "EXPORTER-XnnTransfer-Pairing-Confirmation-v1"
+context = pair_context
+length  = 32
+```
+
+For sender role `role` and decision `decision`:
+
+```text
+PAIR_CONFIRMATION(role, decision) =
+  HMAC-SHA256(confirmation_exporter,
+              pair_context || role:U8 || decision:U8)
+```
+
+Object kind `04`, transport context input, has:
+
+| ID | Value |
+| ---: | --- |
+| 1 | ASCII `XnnTransfer transport v1` |
+| 2, 3 | initiator role, responder role |
+| 4, 5 | initiator Ed25519 key, responder Ed25519 key |
+| 6, 7 | initiator session nonce, responder session nonce |
+| 8 | `security_profile:U16` |
+| 9 | complete encoded normalized-negotiation object |
+| 10 | exact `raw_negotiation_transcript` from v1 section 6.2 |
+| 11 | transfer session identifier |
+
+`transport_context` is SHA-256 over the complete kind-`04` object. The
+transport TLS exporter API tuple and finished values are:
+
+```text
+label   = ASCII "EXPORTER-XnnTransfer-Transport-v1"
+context = transport_context
+length  = 32
+
+TRANSPORT_FINISHED(role) =
+  HMAC-SHA256(transport_exporter, transport_context || role:U8)
+```
+
+Object kind `05`, rotation context input, has:
+
+| ID | Value |
+| ---: | --- |
+| 1 | ASCII `XnnTransfer rotation v1` |
+| 2, 3 | old Ed25519 key, distinct new Ed25519 key |
+| 4 | nonzero monotonic rotation counter, `U64` |
+| 5 | fresh rotation nonce, 32 octets |
+| 6 | current `transport_context`, 32 octets |
+
+`rotation_context` is SHA-256 over the complete kind-`05` object. The exact
+message submitted independently to each Ed25519 signer is a kind-`06` object:
+field 1 is ASCII `XnnTransfer rotation proof v1`, field 2 is
+`rotation_context`, and field 3 is `01` for the old key or `02` for the new
+key. The signatures themselves and Ed25519 implementation are deliberately
+outside these exporter-input fixtures.
+
+The normative fixtures are under `protocol/testdata/security/v1/`. Exporter
+material in those files is fixed test input, not output from a TLS
+implementation. Any encoding or cryptographic output mismatch fails closed;
+there is no alternate decoding or fallback derivation.
+
 ### Device identity
 
 Each installation has one device-local identity key. The stable device
@@ -137,23 +296,15 @@ After TLS authentication, peers bind the application negotiation to this
 specific transport:
 
 ```text
-transport_context = SHA-256(canonical(
-  "XnnTransfer transport v1",
-  initiator role, responder role,
-  both identity keys,
-  both fresh 256-bit session nonces,
-  security profile,
-  offered versions and capabilities,
-  selected version and capabilities,
-  transfer session identifier))
+transport_context = SHA-256(canonical kind-04 object above)
 
-bind_key = TLS-Exporter(
+transport_exporter = TLS-Exporter(
   "EXPORTER-XnnTransfer-Transport-v1",
   transport_context,
   32)
 
 TRANSPORT_FINISHED(role) =
-  HMAC-SHA256(bind_key, transport_context || role)
+  HMAC-SHA256(transport_exporter, transport_context || role:U8)
 ```
 
 File offers, paths, sizes, hashes, contents, resume state, and transfer
