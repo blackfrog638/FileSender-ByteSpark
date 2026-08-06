@@ -34,10 +34,10 @@ workflow introduced by XT-007.
 
 ## Acceptance criteria
 
-- [ ] A task can reach review with its own record and handoff.
-- [ ] Another task's record or handoff remains outside ownership.
-- [ ] The isolated governance lifecycle exercises the exception.
-- [ ] `make verify` passes.
+- [x] A task can reach review with its own record and handoff.
+- [x] Another task's record or handoff remains outside ownership.
+- [x] The isolated governance lifecycle exercises the exception.
+- [x] `make verify` passes.
 
 ## Verification
 
