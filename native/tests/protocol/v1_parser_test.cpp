@@ -531,10 +531,8 @@ void TestNegotiatedBodyLimitPrecedesBodyParsing() {
 
   constexpr std::size_t kNegotiatedMaxBody = 524'288;
   const Bytes malformed_oversized_body(kNegotiatedMaxBody + 1, 0xffU);
-  const Bytes frame =
-      MakeFrame(MessageType::kPing, 0, 4, malformed_oversized_body);
-  const Error error =
-      parser.Process(Direction::kInitiatorToResponder, frame);
+  const Bytes frame = MakeFrame(MessageType::kPing, 0, 4, malformed_oversized_body);
+  const Error error = parser.Process(Direction::kInitiatorToResponder, frame);
   Expect(error.code == ErrorCode::kLimitExceeded,
          "negotiated body limit is enforced before malformed body parsing");
 }

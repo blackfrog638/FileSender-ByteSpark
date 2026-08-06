@@ -9,3 +9,19 @@ if(XNN_TRANSFER_ENABLE_ASAN_UBSAN)
 endif()
 
 add_test(NAME xnn_transfer_protocol_tests COMMAND xnn_transfer_protocol_tests)
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+add_test(
+  NAME xnn_transfer_protocol_vector_oracle
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${PROJECT_SOURCE_DIR}/protocol/testdata/v1/validate_vectors.py"
+)
+add_test(
+  NAME xnn_transfer_protocol_vector_drift
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${PROJECT_SOURCE_DIR}/protocol/testdata/v1/generate_native_vectors.py"
+    --check
+)

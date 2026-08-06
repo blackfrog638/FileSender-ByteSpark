@@ -5,6 +5,8 @@ add_library(
   src/core/engine.cpp
 )
 
+find_package(Threads REQUIRED)
+
 function(xnn_transfer_enable_sanitizers target)
   if(MSVC)
     message(FATAL_ERROR "ASan/UBSan preset currently requires Clang or GCC")
@@ -24,12 +26,15 @@ function(xnn_transfer_enable_sanitizers target)
   )
 endfunction()
 
+add_subdirectory(src/protocol)
+
 target_include_directories(
   xnn_transfer_core
   PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include>"
 )
+target_link_libraries(xnn_transfer_core PRIVATE Threads::Threads)
 
 target_compile_definitions(xnn_transfer_core PRIVATE XNN_TRANSFER_BUILDING_LIBRARY)
 set_target_properties(
@@ -59,6 +64,8 @@ if(XNN_TRANSFER_ENABLE_ASAN_UBSAN OR XNN_TRANSFER_BUILD_FUZZERS)
 endif()
 
 if(XNN_TRANSFER_BUILD_TESTS)
+  add_subdirectory(tests/protocol)
+
   add_executable(
     xnn_transfer_native_tests
     tests/native_tests.cpp
@@ -74,7 +81,12 @@ if(XNN_TRANSFER_BUILD_TESTS)
     xnn_transfer_bridge_event_tests
     tests/bridge/c_api_event_test.cpp
   )
-  target_link_libraries(xnn_transfer_bridge_event_tests PRIVATE xnn_transfer_core)
+  target_link_libraries(
+    xnn_transfer_bridge_event_tests
+    PRIVATE
+      Threads::Threads
+      xnn_transfer_core
+  )
   if(XNN_TRANSFER_ENABLE_ASAN_UBSAN)
     xnn_transfer_enable_sanitizers(xnn_transfer_bridge_event_tests)
   endif()
@@ -97,6 +109,8 @@ if(XNN_TRANSFER_BUILD_FUZZERS)
   if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     message(FATAL_ERROR "XNN_TRANSFER_BUILD_FUZZERS requires Clang")
   endif()
+
+  add_subdirectory(fuzz/protocol)
 
   add_executable(
     xnn_transfer_c_api_fuzzer

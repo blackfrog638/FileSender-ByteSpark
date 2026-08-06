@@ -39,3 +39,31 @@ printf 'Running native fallback build with %s.\n' "$cxx"
   -o "$output_dir/xnn_transfer_native_tests"
 
 "$output_dir/xnn_transfer_native_tests"
+
+"$cxx" \
+  -std=c++20 \
+  -Wall \
+  -Wextra \
+  -Wpedantic \
+  -pthread \
+  -I"$root/native/include" \
+  "$root/native/src/bridge/c_api.cpp" \
+  "$root/native/src/core/engine.cpp" \
+  "$root/native/tests/bridge/c_api_event_test.cpp" \
+  -o "$output_dir/xnn_transfer_bridge_event_tests"
+
+"$output_dir/xnn_transfer_bridge_event_tests"
+
+"$cxx" \
+  -std=c++20 \
+  -Wall \
+  -Wextra \
+  -Wpedantic \
+  -I"$root/native/src" \
+  "$root/native/src/protocol/v1_parser.cpp" \
+  "$root/native/tests/protocol/v1_parser_test.cpp" \
+  -o "$output_dir/xnn_transfer_protocol_tests"
+
+"$output_dir/xnn_transfer_protocol_tests"
+python3 "$root/protocol/testdata/v1/validate_vectors.py"
+python3 "$root/protocol/testdata/v1/generate_native_vectors.py" --check
