@@ -14,17 +14,17 @@
       "references": [
         "docs/adr/0002-pairing-and-transport-security.md"
       ],
-      "rationale": "Independent review found release-blocking confirmation and device-identifier contract gaps, so ADR 0002 remains proposed."
+      "rationale": "Post-XT-013 review closed BR-01 and confirmed the byte-exact device-ID derivation, but BR-03 found that the required wrong-key vector is not a valid RFC 8032 public key, so ADR 0002 remains proposed."
     },
     "architecture": {
       "status": "not_required",
       "references": [],
-      "rationale": "The blocked review does not change the current architecture or its unimplemented security boundary."
+      "rationale": "The blocked review changes no runtime architecture; architecture synchronization remains an integration-owner action after ADR acceptance."
     },
     "roadmap": {
       "status": "not_required",
       "references": [],
-      "rationale": "The P0 milestone must remain open while ADR 0002 is proposed and XT-010 is blocked."
+      "rationale": "The P0 milestone remains open while BR-03 blocks ADR 0002 acceptance; roadmap synchronization belongs to the integration owner."
     }
   },
   "integration": {
