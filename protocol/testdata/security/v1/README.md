@@ -41,9 +41,60 @@ The identity and rotation public keys are published Ed25519 keys from
 The validator implements RFC 8032 section 5.1.3 compressed-point decoding
 using only Python integer arithmetic. It requires `y < 2^255 - 19`, recovers
 `x` from `(y^2 - 1) / (d*y^2 + 1)`, rejects a missing square root, and rejects
-the noncanonical `x = 0` encoding with the sign bit set. Length alone is not a
-validity check. An independent reviewer can compare the three keys with the
-RFC and apply the same decoding rules without importing this fixture oracle.
+the noncanonical `x = 0` encoding with the sign bit set. It then performs
+Edwards25519 scalar multiplication in extended coordinates and accepts only
+when the decoded point `P` is not the identity and `[L]P` is the identity,
+where
+`L = 2^252 + 27742317777372353535851937790883648493`. This is a real
+prime-order subgroup test, not a small-order blacklist or a cofactor-only
+check. An independent reviewer can compare the three keys with the RFC and
+apply the same decoding and subgroup rules without importing this fixture
+oracle.
+
+## XT-015 subgroup and forgery evidence
+
+The hostile encodings from XT-010 finding BR-04 distinguish the required
+prime-subgroup predicate from weaker checks:
+
+| Input | Non-identity | `[L]P = identity` | Expected result |
+| --- | --- | --- | --- |
+| RFC 8032 TEST 1/2/3 | yes | yes | accept with all existing outputs unchanged |
+| identity `01 00..00` | no | yes | `INVALID_PUBLIC_KEY` |
+| order-2 `ec ff..ff 7f` | yes | no | `INVALID_PUBLIC_KEY` |
+| TEST 1 plus order-2 `16a567fe...08f8aee5` | yes | no | `INVALID_PUBLIC_KEY` |
+
+The mixed-order point has `[8]P != identity`, so it is not stopped by a
+small-order blacklist or by requiring only `[8]P != identity`.
+
+BR-04 also recorded a universal identity-key forgery. For public key
+`A = (0,1)`, `R = B`, and `S = 1`, the following signature satisfies the
+cofactored verification equation for every message without a corresponding
+private key:
+
+```text
+public_key =
+0100000000000000000000000000000000000000000000000000000000000000
+
+signature =
+5866666666666666666666666666666666666666666666666666666666666666
+0100000000000000000000000000000000000000000000000000000000000000
+
+[8]B = [8]B + [8]k(0,1)
+```
+
+The independent review observed the following backend divergence:
+
+| Backend | Recorded behavior |
+| --- | --- |
+| OpenSSL 3.6.3 | imported identity, order-2, and order-4 keys; accepted the identity signature |
+| Node/OpenSSL | accepted the identity signature for three different messages |
+| Apple CryptoKit | accepted the identity signature |
+| libsodium | rejects small-order and non-main-subgroup points |
+
+`vectors.json` pins these exact bytes and observations under
+`ed25519_subgroup_evidence`. They are review evidence motivating a
+backend-independent pre-use subgroup check, not live TLS conformance evidence
+or a claim that production pairing exists.
 
 ## XT-014 golden drift
 
@@ -90,7 +141,8 @@ contexts, authenticated rejection where confirmation is required, invalid and
 substituted confirmation decisions, device-identifier label/key/output
 alternates and wrong-key verification, negotiation downgrade, malformed raw
 transcript order, wrong fixed lengths, stale rotation counters, invalid
-rotation domains, invalid and noncanonical Ed25519 points, and output mismatch.
+rotation domains, invalid and noncanonical Ed25519 points, identity and
+non-identity low-order keys, a mixed-order key, and output mismatch.
 
 ## Word list
 

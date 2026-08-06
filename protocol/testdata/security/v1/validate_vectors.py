@@ -28,6 +28,11 @@ ED25519_D = (
 ED25519_SQRT_M1 = pow(
     2, (ED25519_FIELD_PRIME - 1) // 4, ED25519_FIELD_PRIME
 )
+ED25519_SUBGROUP_ORDER = (
+    2**252 + 27742317777372353535851937790883648493
+)
+EdwardsPoint = Tuple[int, int, int, int]
+ED25519_IDENTITY: EdwardsPoint = (0, 1, 1, 0)
 
 SECURITY_PROFILE_ID = 1
 ROLE_INITIATOR = 1
@@ -76,12 +81,35 @@ EXPECTED_PROFILE_METADATA = {
     "sas_wordlist": "BIP39-English-index-order",
     "exporter_material": "fixture-input-only",
     "ed25519_public_key_validation": (
-        "RFC-8032-section-5.1.3-canonical-point-decoding"
+        "RFC-8032-section-5.1.3-canonical-decode-"
+        "nonidentity-prime-order-subgroup"
     ),
+    "ed25519_subgroup_order_decimal": str(ED25519_SUBGROUP_ORDER),
     "device_identifier_label_hex": DEVICE_IDENTIFIER_LABEL.hex(),
     "device_identifier_input": "XNNS-canonical-kind-07",
     "device_identifier_hash": "SHA-256",
     "device_identifier_text": "lowercase-hex-no-prefix",
+}
+
+EXPECTED_SUBGROUP_EVIDENCE = {
+    "source": "XT-010-independent-review-BR-04",
+    "identity_public_key_hex": "01" + "00" * 31,
+    "identity_forgery_signature_hex": (
+        "5866666666666666666666666666666666666666666666666666666666666666"
+        "01"
+        + "00" * 31
+    ),
+    "identity_forgery_equation": "[8]B = [8]B + [8]k(0,1)",
+    "identity_forgery_scope": "every-message-without-a-private-key",
+    "backend_observations": {
+        "OpenSSL-3.6.3": (
+            "identity-order2-order4-public-key-import-accepted;"
+            "identity-signature-accepted"
+        ),
+        "Node-OpenSSL": "identity-signature-accepted-for-three-messages",
+        "Apple-CryptoKit": "identity-signature-accepted",
+        "libsodium": "small-order-and-non-main-subgroup-points-rejected",
+    },
 }
 
 
@@ -163,7 +191,54 @@ def decode_hex(value: Any, name: str, length: Optional[int] = None) -> bytes:
     return decoded
 
 
-def validate_ed25519_public_key(public_key: bytes, name: str) -> None:
+def edwards_add(
+    left: EdwardsPoint,
+    right: EdwardsPoint,
+) -> EdwardsPoint:
+    # Complete extended-coordinate addition keeps the subgroup check inversion-free.
+    x1, y1, z1, t1 = left
+    x2, y2, z2, t2 = right
+    a = (y1 - x1) * (y2 - x2) % ED25519_FIELD_PRIME
+    b = (y1 + x1) * (y2 + x2) % ED25519_FIELD_PRIME
+    c = 2 * ED25519_D * t1 * t2 % ED25519_FIELD_PRIME
+    d = 2 * z1 * z2 % ED25519_FIELD_PRIME
+    e = (b - a) % ED25519_FIELD_PRIME
+    f = (d - c) % ED25519_FIELD_PRIME
+    g = (d + c) % ED25519_FIELD_PRIME
+    h = (b + a) % ED25519_FIELD_PRIME
+    return (
+        e * f % ED25519_FIELD_PRIME,
+        g * h % ED25519_FIELD_PRIME,
+        f * g % ED25519_FIELD_PRIME,
+        e * h % ED25519_FIELD_PRIME,
+    )
+
+
+def edwards_scalar_multiply(
+    scalar: int,
+    point: EdwardsPoint,
+) -> EdwardsPoint:
+    result = ED25519_IDENTITY
+    addend = point
+    while scalar:
+        if scalar & 1:
+            result = edwards_add(result, addend)
+        addend = edwards_add(addend, addend)
+        scalar >>= 1
+    return result
+
+
+def edwards_is_identity(point: EdwardsPoint) -> bool:
+    x, y, z, _ = point
+    return (
+        x % ED25519_FIELD_PRIME == 0
+        and (y - z) % ED25519_FIELD_PRIME == 0
+    )
+
+
+def decode_ed25519_public_key(
+    public_key: bytes, name: str
+) -> EdwardsPoint:
     if len(public_key) != 32:
         fail("INVALID_LENGTH", f"{name} must contain 32 octets")
 
@@ -211,6 +286,20 @@ def validate_ed25519_public_key(public_key: bytes, name: str) -> None:
         - ED25519_D * x * x * y_squared
     ) % ED25519_FIELD_PRIME != 0:
         fail("INVALID_PUBLIC_KEY", f"{name} is not an Edwards25519 point")
+    return (x, y, 1, x * y % ED25519_FIELD_PRIME)
+
+
+def validate_ed25519_public_key(public_key: bytes, name: str) -> None:
+    point = decode_ed25519_public_key(public_key, name)
+    if edwards_is_identity(point):
+        fail("INVALID_PUBLIC_KEY", f"{name} is the Edwards25519 identity")
+    if not edwards_is_identity(
+        edwards_scalar_multiply(ED25519_SUBGROUP_ORDER, point)
+    ):
+        fail(
+            "INVALID_PUBLIC_KEY",
+            f"{name} is not in the Ed25519 prime-order subgroup",
+        )
 
 
 def field_schema(kind: int) -> Dict[int, Optional[int]]:
@@ -1162,6 +1251,15 @@ def require_trust_commit(
 def execute_negative(
     operation: str, inputs: Mapping[str, Any], wordlist: Sequence[str]
 ) -> None:
+    if operation == "validate_ed25519_public_key":
+        validate_ed25519_public_key(
+            decode_hex(
+                inputs.get("public_key_hex"),
+                "input.public_key_hex",
+            ),
+            "input.public_key_hex",
+        )
+        return
     if operation == "decode_canonical":
         parse_object(decode_hex(inputs.get("encoded_hex"), "input.encoded_hex"))
         return
@@ -1394,6 +1492,16 @@ def validate_manifest(manifest: Mapping[str, Any], manifest_path: Path) -> int:
                 "INVALID_MANIFEST",
                 f"profile.{key} must equal {expected!r}",
             )
+    subgroup_evidence = require_mapping(
+        manifest.get("ed25519_subgroup_evidence"),
+        "ed25519_subgroup_evidence",
+    )
+    if subgroup_evidence != EXPECTED_SUBGROUP_EVIDENCE:
+        fail(
+            "INVALID_MANIFEST",
+            "ed25519_subgroup_evidence does not match the reviewed BR-04 "
+            "evidence",
+        )
     expected_wordlist_sha = require_string(
         profile.get("wordlist_sha256"), "profile.wordlist_sha256"
     )

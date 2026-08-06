@@ -14,11 +14,25 @@
     "sas_wordlist": "BIP39-English-index-order",
     "wordlist_sha256": "2f5eed53a4727b4bf8880d8f3f199efc90e58503646d9ff8eff3a2ed3b24dbda",
     "exporter_material": "fixture-input-only",
+    "ed25519_public_key_validation": "RFC-8032-section-5.1.3-canonical-decode-nonidentity-prime-order-subgroup",
+    "ed25519_subgroup_order_decimal": "7237005577332262213973186563042994240857116359379907606001950938285454250989",
     "device_identifier_label_hex": "586e6e5472616e7366657220646576696365206964656e746966696572207631",
     "device_identifier_input": "XNNS-canonical-kind-07",
     "device_identifier_hash": "SHA-256",
-    "device_identifier_text": "lowercase-hex-no-prefix",
-    "ed25519_public_key_validation": "RFC-8032-section-5.1.3-canonical-point-decoding"
+    "device_identifier_text": "lowercase-hex-no-prefix"
+  },
+  "ed25519_subgroup_evidence": {
+    "source": "XT-010-independent-review-BR-04",
+    "identity_public_key_hex": "0100000000000000000000000000000000000000000000000000000000000000",
+    "identity_forgery_signature_hex": "58666666666666666666666666666666666666666666666666666666666666660100000000000000000000000000000000000000000000000000000000000000",
+    "identity_forgery_equation": "[8]B = [8]B + [8]k(0,1)",
+    "identity_forgery_scope": "every-message-without-a-private-key",
+    "backend_observations": {
+      "OpenSSL-3.6.3": "identity-order2-order4-public-key-import-accepted;identity-signature-accepted",
+      "Node-OpenSSL": "identity-signature-accepted-for-three-messages",
+      "Apple-CryptoKit": "identity-signature-accepted",
+      "libsodium": "small-order-and-non-main-subgroup-points-rejected"
+    }
   },
   "fixtures": {
     "baseline": {
@@ -975,6 +989,60 @@
       "expect": {
         "result": "reject",
         "error": "NON_CANONICAL_ENCODING"
+      }
+    },
+    {
+      "id": "ed25519-identity-public-key",
+      "description": "The Edwards25519 identity has no unique private-key possessor and is rejected before key use.",
+      "operation": "validate_ed25519_public_key",
+      "input_encoding": "Exact 32-octet RFC 8032 compressed Edwards-y encoding.",
+      "invariants": [
+        "P-13",
+        "SEC-04",
+        "SEC-14"
+      ],
+      "input": {
+        "public_key_hex": "0100000000000000000000000000000000000000000000000000000000000000"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_PUBLIC_KEY"
+      }
+    },
+    {
+      "id": "ed25519-order-2-public-key",
+      "description": "A canonical non-identity order-2 point is outside the prime-order subgroup and is rejected before key use.",
+      "operation": "validate_ed25519_public_key",
+      "input_encoding": "Exact 32-octet RFC 8032 compressed Edwards-y encoding.",
+      "invariants": [
+        "P-13",
+        "SEC-04",
+        "SEC-14"
+      ],
+      "input": {
+        "public_key_hex": "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_PUBLIC_KEY"
+      }
+    },
+    {
+      "id": "ed25519-mixed-order-public-key",
+      "description": "RFC TEST 1 plus an order-2 point defeats small-order blacklists and cofactor-only checks but fails prime-subgroup membership.",
+      "operation": "validate_ed25519_public_key",
+      "input_encoding": "Exact 32-octet RFC 8032 compressed Edwards-y encoding.",
+      "invariants": [
+        "P-13",
+        "SEC-04",
+        "SEC-14"
+      ],
+      "input": {
+        "public_key_hex": "16a567fe7d4ef5482ab4012c369bf8c5f11e8d0c2559dcda50fde59708f8aee5"
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_PUBLIC_KEY"
       }
     },
     {

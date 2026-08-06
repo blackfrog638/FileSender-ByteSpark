@@ -70,6 +70,24 @@ identifier is exactly 16 octets. Within this proposed profile,
 `security_profile` is the two-octet value `00 01`; production use remains
 blocked on ADR acceptance and wire registration.
 
+An accepted Ed25519 identity or rotation public key must satisfy all of the
+following before use:
+
+1. It is exactly 32 octets and canonically decodes as the compressed
+   Edwards25519 point `P` under RFC 8032 section 5.1.3.
+2. `P` is not the Edwards25519 identity `(0,1)`.
+3. `[L]P` is the identity, where the prime subgroup order is
+   `L = 2^252 + 27742317777372353535851937790883648493`.
+
+The implementation must perform the subgroup-membership computation. A
+small-order blacklist, point decompression alone, or a cofactor-only check
+such as `[8]P != identity` does not satisfy this rule. The check applies before
+a key enters TLS identity acceptance or private-key-possession verification,
+and before pairing or transport transcript hashing, pin comparison, device-ID
+derivation, rotation processing, or durable trust. The exact accepted 32
+octets must be the same bytes used for possession verification, transcript
+fields, pinning, and device-ID derivation.
+
 Canonical security objects use this envelope:
 
 | Field | Encoding |
@@ -267,6 +285,17 @@ The normative fixtures are under `protocol/testdata/security/v1/`. Exporter
 material in those files is fixed test input, not output from a TLS
 implementation. Any encoding or cryptographic output mismatch fails closed;
 there is no alternate decoding or fallback derivation.
+
+The fixtures record the BR-04 identity-key forgery with public key `(0,1)`,
+`R = B`, and `S = 1`, for which the cofactored verification equation reduces
+to `[8]B = [8]B + [8]k(0,1)` for every message without a corresponding private
+key. They also record the independent-review observation that OpenSSL 3.6.3,
+Node/OpenSSL, and Apple CryptoKit accepted the identity signature while
+libsodium rejects small-order and non-main-subgroup points. Identity,
+non-identity low-order, and mixed-order fixture keys must all fail the
+backend-independent rule above. These observations are proposed-profile test
+evidence, not a claim of production Ed25519, TLS, pairing, or platform
+conformance implementation.
 
 ### Device identity
 
