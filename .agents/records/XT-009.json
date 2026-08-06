@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-009",
   "task_type": "decision",
-  "state": "claimed",
+  "state": "in_progress",
   "owner": "security-vectors-agent",
   "base_sha": "fe87661dcb2a6101e02390b202adb53180eddc87",
   "head_sha": "",
