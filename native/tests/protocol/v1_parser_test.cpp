@@ -21,6 +21,8 @@ using xnn_transfer::protocol::v1::kMaxBodyLength;
 using xnn_transfer::protocol::v1::kMaxHeaderLength;
 using xnn_transfer::protocol::v1::MessageType;
 using xnn_transfer::protocol::v1::ParseFrame;
+using xnn_transfer::protocol::v1::ParseFrameBody;
+using xnn_transfer::protocol::v1::ParseFrameEnvelope;
 using xnn_transfer::protocol::v1::TranscriptParser;
 using xnn_transfer::protocol::v1::Version;
 using xnn_transfer::protocol::v1::WireType;
@@ -302,6 +304,8 @@ void TestHeaderExtensionsAndMaximumBody() {
   const auto maximum_header =
       ParseFrame(MakeFrame(MessageType::kPing, 0, 1, ping_body, maximum_extension));
   Expect(maximum_header.ok(), "maximum legal header length is accepted");
+  Expect(maximum_header.frame.header_fields.count == 0,
+         "unknown noncritical header fields are not exposed");
 
   Bytes maximum_body;
   maximum_body.reserve(kMaxBodyLength);
@@ -311,10 +315,22 @@ void TestHeaderExtensionsAndMaximumBody() {
   const auto maximum_body_result =
       ParseFrame(MakeFrame(MessageType::kPing, 0, 1, maximum_body));
   Expect(maximum_body_result.ok(), "maximum legal body length is accepted");
+  Expect(maximum_body_result.frame.body_fields.count == 1 &&
+             maximum_body_result.frame.body_fields.Count(100) == 0,
+         "unknown noncritical body fields are validated but not exposed");
 }
 
 void TestTlvHostileInputs() {
   Bytes body;
+  AppendIntegerTlv(body, 1, WireType::kU64, 7, 8);
+  const std::array<std::uint8_t, 3> future_value{1, 2, 3};
+  AppendTlv(body, 100, WireType::kBytes, 0, future_value);
+  const auto skipped_unknown = ParseFrame(MakeFrame(MessageType::kPing, 0, 1, body));
+  Expect(skipped_unknown.ok() && skipped_unknown.frame.body_fields.count == 1 &&
+             skipped_unknown.frame.body_fields.Count(100) == 0,
+         "unknown noncritical TLV is skipped from the public collection");
+
+  body.clear();
   AppendIntegerTlv(body, 1, WireType::kU64, 7, 8);
   for (std::size_t index = 0; index < xnn_transfer::protocol::v1::kMaxFields; ++index) {
     AppendTlv(body, 100, WireType::kBytes, 0, {});
@@ -423,6 +439,28 @@ void TestScopeAndSchemaOrdering() {
                    ErrorCode::kMalformedMessage, "missing required transfer fields");
 }
 
+void TestPreBindingBodyGate() {
+  const Bytes malformed_body{0xffU};
+  const Bytes transfer = MakeFrame(MessageType::kTransferOffer, 1, 1, malformed_body);
+
+  auto envelope = ParseFrameEnvelope(transfer);
+  Expect(envelope.ok() && envelope.frame.body_fields.count == 0,
+         "transfer envelope is valid without parsing its malformed body");
+  if (envelope.ok()) {
+    const Error body_error = ParseFrameBody(envelope.frame);
+    Expect(body_error.code == ErrorCode::kMalformedMessage,
+           "explicit body parsing detects malformed transfer TLV");
+  }
+  ExpectFrameError(transfer, ErrorCode::kMalformedMessage,
+                   "full frame parsing still validates transfer body");
+
+  TranscriptParser parser;
+  const Error transcript_error =
+      parser.Process(Direction::kInitiatorToResponder, transfer);
+  Expect(transcript_error.code == ErrorCode::kStateViolation,
+         "pre-binding transfer is rejected before malformed body parsing");
+}
+
 }  // namespace
 
 int main() {
@@ -432,6 +470,7 @@ int main() {
   TestTlvHostileInputs();
   TestUtf8HostileInputs();
   TestScopeAndSchemaOrdering();
+  TestPreBindingBodyGate();
 
   if (failures != 0) {
     std::cerr << failures << " protocol parser test(s) failed\n";

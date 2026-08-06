@@ -110,6 +110,8 @@ struct FieldView {
   }
 };
 
+// A collection exposes only fields known to the applicable v1 schema. Unknown
+// noncritical fields remain in the raw frame bytes but are not materialized.
 struct FieldCollection {
   std::array<FieldView, kMaxFields> fields{};
   std::size_t count{};
@@ -138,6 +140,15 @@ struct ParseResult {
 
 [[nodiscard]] ParseResult ParseFrame(std::span<const std::uint8_t> encoded,
                                      Version expected_version = Version{}) noexcept;
+
+// Envelope parsing validates the complete encoded length, fixed header, header
+// extensions, and stream scope without parsing message body TLVs. This allows
+// a state machine to reject disallowed messages before inspecting metadata.
+[[nodiscard]] ParseResult ParseFrameEnvelope(
+    std::span<const std::uint8_t> encoded,
+    Version expected_version = Version{}) noexcept;
+
+[[nodiscard]] Error ParseFrameBody(ParsedFrame& frame) noexcept;
 
 [[nodiscard]] std::uint64_t DecodeUnsigned(const FieldView& field) noexcept;
 
@@ -190,6 +201,8 @@ class TranscriptParser final {
                                   const ParsedFrame& frame) noexcept;
   [[nodiscard]] Error ProcessPong(Direction direction,
                                   const ParsedFrame& frame) noexcept;
+  [[nodiscard]] Error ValidateEnvelopeState(Direction direction,
+                                            const ParsedFrame& frame) const noexcept;
 
   std::array<std::uint64_t, 2> next_message_id_{1, 1};
   std::array<bool, 2> message_id_exhausted_{};

@@ -449,14 +449,16 @@ constexpr FieldRule kResumeEndSchema[] = {
                               const std::span<const FieldRule> schema,
                               FieldCollection& output) noexcept {
   std::size_t offset = 0;
+  std::size_t field_count = 0;
   bool has_previous_id = false;
   std::uint16_t previous_id = 0;
 
   while (offset < data.size()) {
-    if (output.count == kMaxFields) {
+    if (field_count == kMaxFields) {
       return MakeError(ErrorCode::kLimitExceeded,
                        "TLV field count exceeds the hard limit");
     }
+    ++field_count;
     if (data.size() - offset < 8) {
       return MakeError(ErrorCode::kMalformedMessage, "trailing partial TLV header");
     }
@@ -520,8 +522,10 @@ constexpr FieldRule kResumeEndSchema[] = {
       return value_error;
     }
 
-    output.fields[output.count] = FieldView{id, wire_type, flags, value};
-    ++output.count;
+    if (rule != nullptr) {
+      output.fields[output.count] = FieldView{id, wire_type, flags, value};
+      ++output.count;
+    }
     previous_id = id;
     has_previous_id = true;
   }
@@ -639,8 +643,8 @@ std::uint64_t DecodeUnsigned(const FieldView& field) noexcept {
   return result;
 }
 
-ParseResult ParseFrame(const std::span<const std::uint8_t> encoded,
-                       const Version expected_version) noexcept {
+ParseResult ParseFrameEnvelope(const std::span<const std::uint8_t> encoded,
+                               const Version expected_version) noexcept {
   ParseResult result{};
   if (encoded.size() < kFixedHeaderLength) {
     result.error = MakeError(ErrorCode::kMalformedFrame, "fixed header is truncated");
@@ -731,9 +735,25 @@ ParseResult ParseFrame(const std::span<const std::uint8_t> encoded,
         MakeError(ErrorCode::kStateViolation, "transfer message uses stream zero");
     return result;
   }
+  return result;
+}
 
-  result.error =
-      ParseTlvs(result.frame.body, SchemaFor(message_type), result.frame.body_fields);
+Error ParseFrameBody(ParsedFrame& frame) noexcept {
+  if (frame.body.size() != frame.header.body_length) {
+    return MakeError(ErrorCode::kMalformedFrame,
+                     "body view differs from the declared length");
+  }
+  frame.body_fields = {};
+  return ParseTlvs(frame.body, SchemaFor(frame.header.message_type), frame.body_fields);
+}
+
+ParseResult ParseFrame(const std::span<const std::uint8_t> encoded,
+                       const Version expected_version) noexcept {
+  ParseResult result = ParseFrameEnvelope(encoded, expected_version);
+  if (!result.ok()) {
+    return result;
+  }
+  result.error = ParseFrameBody(result.frame);
   return result;
 }
 
@@ -746,7 +766,7 @@ Error TranscriptParser::Process(const Direction direction,
 
   const Version expected_version =
       negotiation_acknowledged_ ? negotiation_.selected_version : Version{};
-  const ParseResult parsed = ParseFrame(encoded, expected_version);
+  ParseResult parsed = ParseFrameEnvelope(encoded, expected_version);
   if (!parsed.ok()) {
     return parsed.error;
   }
@@ -760,6 +780,15 @@ Error TranscriptParser::Process(const Direction direction,
     message_id_exhausted_[direction_index] = true;
   } else {
     ++next_message_id_[direction_index];
+  }
+
+  const Error state_error = ValidateEnvelopeState(direction, parsed.frame);
+  if (!state_error.ok()) {
+    return state_error;
+  }
+  const Error body_error = ParseFrameBody(parsed.frame);
+  if (!body_error.ok()) {
+    return body_error;
   }
 
   switch (parsed.frame.header.message_type) {
@@ -785,6 +814,77 @@ Error TranscriptParser::Process(const Direction direction,
       if (!binding_frames_complete_) {
         return MakeError(ErrorCode::kStateViolation,
                          "message is not allowed before transport binding completes");
+      }
+      return {};
+  }
+}
+
+Error TranscriptParser::ValidateEnvelopeState(const Direction direction,
+                                              const ParsedFrame& frame) const noexcept {
+  std::size_t direction_index = 0;
+  if (!DirectionIndex(direction, direction_index)) {
+    return MakeError(ErrorCode::kStateViolation, "invalid transport direction");
+  }
+
+  switch (frame.header.message_type) {
+    case MessageType::kHello:
+      if (hellos_[direction_index].present || negotiation_.present ||
+          negotiation_acknowledged_ || binding_frames_complete_) {
+        return MakeError(ErrorCode::kStateViolation, "HELLO is repeated or late");
+      }
+      return {};
+    case MessageType::kNegotiate:
+      if (direction != Direction::kInitiatorToResponder) {
+        return MakeError(ErrorCode::kStateViolation, "responder cannot send NEGOTIATE");
+      }
+      if (!hellos_[0].present || !hellos_[1].present) {
+        return MakeError(ErrorCode::kStateViolation,
+                         "NEGOTIATE arrived before both HELLO messages");
+      }
+      if (negotiation_.present) {
+        return MakeError(ErrorCode::kStateViolation, "NEGOTIATE is repeated");
+      }
+      return {};
+    case MessageType::kNegotiateAck:
+      if (direction != Direction::kResponderToInitiator) {
+        return MakeError(ErrorCode::kStateViolation,
+                         "initiator cannot send NEGOTIATE_ACK");
+      }
+      if (!negotiation_.present) {
+        return MakeError(ErrorCode::kStateViolation,
+                         "NEGOTIATE_ACK arrived before NEGOTIATE");
+      }
+      if (negotiation_acknowledged_) {
+        return MakeError(ErrorCode::kStateViolation, "NEGOTIATE_ACK is repeated");
+      }
+      return {};
+    case MessageType::kTransportFinished:
+      if (!negotiation_acknowledged_) {
+        return MakeError(ErrorCode::kStateViolation,
+                         "TRANSPORT_FINISHED arrived before negotiation ACK");
+      }
+      if (transport_finished_[direction_index]) {
+        return MakeError(ErrorCode::kStateViolation, "TRANSPORT_FINISHED is repeated");
+      }
+      return {};
+    case MessageType::kError:
+      if (!binding_frames_complete_ && frame.header.stream_id != 0U) {
+        return MakeError(ErrorCode::kStateViolation,
+                         "pre-binding ERROR is not connection scoped");
+      }
+      return {};
+    case MessageType::kPing:
+    case MessageType::kPong:
+    case MessageType::kGoAway:
+      if (!binding_frames_complete_) {
+        return MakeError(ErrorCode::kStateViolation,
+                         "control message arrived before both binding frames");
+      }
+      return {};
+    default:
+      if (!binding_frames_complete_) {
+        return MakeError(ErrorCode::kStateViolation,
+                         "transfer message arrived before both binding frames");
       }
       return {};
   }
