@@ -2,9 +2,9 @@
   "schema_version": 1,
   "id": "XT-011",
   "task_type": "test",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
+  "state": "claimed",
+  "owner": "manifest-fixtures-agent",
+  "base_sha": "fe87661dcb2a6101e02390b202adb53180eddc87",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-011.md",
   "impacts": {
