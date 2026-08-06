@@ -23,6 +23,7 @@ using xnn_transfer::protocol::v1::MessageType;
 using xnn_transfer::protocol::v1::ParseFrame;
 using xnn_transfer::protocol::v1::ParseFrameBody;
 using xnn_transfer::protocol::v1::ParseFrameEnvelope;
+using xnn_transfer::protocol::v1::ParseFrameHeader;
 using xnn_transfer::protocol::v1::TranscriptParser;
 using xnn_transfer::protocol::v1::Version;
 using xnn_transfer::protocol::v1::WireType;
@@ -288,6 +289,49 @@ void TestHeaderAndLengthFailures() {
   ExpectFrameError(frame, ErrorCode::kUnsupportedVersion, "unexpected minor version");
 }
 
+void TestHeaderPreflight() {
+  const Bytes complete = MakePingFrame();
+  const Bytes fixed_header(
+      complete.begin(),
+      complete.begin() + static_cast<std::ptrdiff_t>(kFixedHeaderLength));
+  const auto preflight = ParseFrameHeader(fixed_header);
+  Expect(preflight.ok(), "fixed-header-only input passes header preflight");
+  Expect(preflight.frame.header.body_length == 16 &&
+             preflight.frame.declared_total_length == complete.size() &&
+             preflight.frame.raw.size() == kFixedHeaderLength &&
+             preflight.frame.body.empty(),
+         "header preflight returns declared body and total without a body view");
+
+  Bytes oversized = fixed_header;
+  SetU32(oversized, 24, static_cast<std::uint32_t>(kMaxBodyLength + 1));
+  const auto oversized_result = ParseFrameHeader(oversized);
+  Expect(!oversized_result.ok() &&
+             oversized_result.error.code == ErrorCode::kFrameTooLarge,
+         "oversized body declaration fails preflight without body bytes");
+
+  Bytes extension;
+  const std::array<std::uint8_t, 1> extension_value{0x42U};
+  AppendTlv(extension, 100, WireType::kBytes, 0, extension_value);
+  const Bytes extended = MakeFrame(MessageType::kPing, 0, 1, {}, extension);
+  const std::size_t declared_header_length = kFixedHeaderLength + extension.size();
+  const Bytes truncated_extension(
+      extended.begin(),
+      extended.begin() + static_cast<std::ptrdiff_t>(declared_header_length - 1));
+  const auto truncated_result = ParseFrameHeader(truncated_extension);
+  Expect(!truncated_result.ok() &&
+             truncated_result.error.code == ErrorCode::kMalformedFrame,
+         "truncated declared header extension fails preflight");
+
+  const Bytes malformed_body{0xffU};
+  const Bytes malformed = MakeFrame(MessageType::kTransferOffer, 1, 1, malformed_body);
+  const auto body_ignored = ParseFrameHeader(malformed);
+  Expect(body_ignored.ok() && body_ignored.frame.body.empty() &&
+             body_ignored.frame.raw.size() == kFixedHeaderLength,
+         "header preflight ignores supplied body bytes");
+  ExpectFrameError(malformed, ErrorCode::kMalformedMessage,
+                   "full parsing still rejects body ignored by preflight");
+}
+
 void TestHeaderExtensionsAndMaximumBody() {
   Bytes ping_body;
   AppendIntegerTlv(ping_body, 1, WireType::kU64, 7, 8);
@@ -461,16 +505,52 @@ void TestPreBindingBodyGate() {
          "pre-binding transfer is rejected before malformed body parsing");
 }
 
+void TestNegotiatedBodyLimitPrecedesBodyParsing() {
+  constexpr std::array<std::string_view, 6> kBindingFrames{
+      "hello_initiator",
+      "hello_responder",
+      "negotiate",
+      "negotiate_ack",
+      "transport_finished_initiator",
+      "transport_finished_responder",
+  };
+  TranscriptParser parser;
+  for (const std::string_view name : kBindingFrames) {
+    const GoldenFrame* const frame = FindGoldenFrame(name);
+    Bytes encoded;
+    if (frame == nullptr || !DecodeHex(frame->hex, encoded)) {
+      Expect(false, "negotiated limit test fixture is valid");
+      return;
+    }
+    const Error error = parser.Process(frame->direction, encoded);
+    if (!error.ok()) {
+      Expect(false, "negotiated limit test reaches the established state");
+      return;
+    }
+  }
+
+  constexpr std::size_t kNegotiatedMaxBody = 524'288;
+  const Bytes malformed_oversized_body(kNegotiatedMaxBody + 1, 0xffU);
+  const Bytes frame =
+      MakeFrame(MessageType::kPing, 0, 4, malformed_oversized_body);
+  const Error error =
+      parser.Process(Direction::kInitiatorToResponder, frame);
+  Expect(error.code == ErrorCode::kLimitExceeded,
+         "negotiated body limit is enforced before malformed body parsing");
+}
+
 }  // namespace
 
 int main() {
   TestGoldenVectors();
   TestHeaderAndLengthFailures();
+  TestHeaderPreflight();
   TestHeaderExtensionsAndMaximumBody();
   TestTlvHostileInputs();
   TestUtf8HostileInputs();
   TestScopeAndSchemaOrdering();
   TestPreBindingBodyGate();
+  TestNegotiatedBodyLimitPrecedesBodyParsing();
 
   if (failures != 0) {
     std::cerr << failures << " protocol parser test(s) failed\n";

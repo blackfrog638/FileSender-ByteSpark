@@ -126,6 +126,7 @@ struct ParsedFrame {
   FrameHeader header{};
   FieldCollection header_fields{};
   FieldCollection body_fields{};
+  std::size_t declared_total_length{};
   std::span<const std::uint8_t> raw{};
   std::span<const std::uint8_t> header_extensions{};
   std::span<const std::uint8_t> body{};
@@ -140,6 +141,14 @@ struct ParseResult {
 
 [[nodiscard]] ParseResult ParseFrame(std::span<const std::uint8_t> encoded,
                                      Version expected_version = Version{}) noexcept;
+
+// Header preflight requires only the fixed header and declared header
+// extensions. It validates all framing declarations needed before waiting for
+// or allocating a body. The returned body view is empty; body_length and
+// declared_total_length describe the bytes a network caller may read next.
+[[nodiscard]] ParseResult ParseFrameHeader(
+    std::span<const std::uint8_t> encoded,
+    Version expected_version = Version{}) noexcept;
 
 // Envelope parsing validates the complete encoded length, fixed header, header
 // extensions, and stream scope without parsing message body TLVs. This allows

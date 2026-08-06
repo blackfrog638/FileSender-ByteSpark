@@ -643,8 +643,8 @@ std::uint64_t DecodeUnsigned(const FieldView& field) noexcept {
   return result;
 }
 
-ParseResult ParseFrameEnvelope(const std::span<const std::uint8_t> encoded,
-                               const Version expected_version) noexcept {
+ParseResult ParseFrameHeader(const std::span<const std::uint8_t> encoded,
+                             const Version expected_version) noexcept {
   ParseResult result{};
   if (encoded.size() < kFixedHeaderLength) {
     result.error = MakeError(ErrorCode::kMalformedFrame, "fixed header is truncated");
@@ -706,19 +706,19 @@ ParseResult ParseFrameEnvelope(const std::span<const std::uint8_t> encoded,
     return result;
   }
   const std::size_t total_size = header_size + body_size;
-  if (total_size != encoded.size()) {
-    result.error = MakeError(ErrorCode::kMalformedFrame,
-                             "encoded length differs from declared length");
+  if (encoded.size() < header_size) {
+    result.error =
+        MakeError(ErrorCode::kMalformedFrame, "header extensions are truncated");
     return result;
   }
 
   const MessageType message_type = static_cast<MessageType>(raw_message_type);
   result.frame.header = FrameHeader{header_length, version,    message_type, flags,
                                     stream_id,     message_id, body_length};
-  result.frame.raw = encoded;
+  result.frame.declared_total_length = total_size;
+  result.frame.raw = encoded.first(header_size);
   result.frame.header_extensions =
       encoded.subspan(kFixedHeaderLength, header_size - kFixedHeaderLength);
-  result.frame.body = encoded.subspan(header_size, body_size);
 
   result.error =
       ParseTlvs(result.frame.header_extensions, {}, result.frame.header_fields);
@@ -735,6 +735,27 @@ ParseResult ParseFrameEnvelope(const std::span<const std::uint8_t> encoded,
         MakeError(ErrorCode::kStateViolation, "transfer message uses stream zero");
     return result;
   }
+  return result;
+}
+
+ParseResult ParseFrameEnvelope(const std::span<const std::uint8_t> encoded,
+                               const Version expected_version) noexcept {
+  ParseResult result = ParseFrameHeader(encoded, expected_version);
+  if (!result.ok()) {
+    return result;
+  }
+  if (encoded.size() != result.frame.declared_total_length) {
+    result.error = MakeError(ErrorCode::kMalformedFrame,
+                             "encoded length differs from declared length");
+    return result;
+  }
+
+  const std::size_t header_size =
+      static_cast<std::size_t>(result.frame.header.header_length);
+  const std::size_t body_size =
+      static_cast<std::size_t>(result.frame.header.body_length);
+  result.frame.raw = encoded;
+  result.frame.body = encoded.subspan(header_size, body_size);
   return result;
 }
 
@@ -780,6 +801,12 @@ Error TranscriptParser::Process(const Direction direction,
     message_id_exhausted_[direction_index] = true;
   } else {
     ++next_message_id_[direction_index];
+  }
+
+  if (negotiation_acknowledged_ &&
+      parsed.frame.header.body_length > negotiation_.effective_max_body) {
+    return MakeError(ErrorCode::kLimitExceeded,
+                     "body length exceeds the negotiated limit");
   }
 
   const Error state_error = ValidateEnvelopeState(direction, parsed.frame);

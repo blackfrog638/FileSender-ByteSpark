@@ -9,6 +9,7 @@ namespace {
 using xnn_transfer::protocol::v1::Direction;
 using xnn_transfer::protocol::v1::kMaxEncodedFrameLength;
 using xnn_transfer::protocol::v1::ParseFrame;
+using xnn_transfer::protocol::v1::ParseFrameHeader;
 using xnn_transfer::protocol::v1::TranscriptParser;
 
 constexpr std::size_t kMaxFuzzInput = (2 * kMaxEncodedFrameLength) + 128;
@@ -63,16 +64,21 @@ extern "C" int LLVMFuzzerTestOneInput(const std::uint8_t* const data,
   }
 
   const std::span<const std::uint8_t> input(data, size);
-  switch (input[0] % 3U) {
+  switch (input[0] % 4U) {
     case 0:
+      if (input.size() - 1 <= kMaxEncodedFrameLength) {
+        static_cast<void>(ParseFrameHeader(input.subspan(1)));
+      }
+      break;
+    case 1:
       if (input.size() - 1 <= kMaxEncodedFrameLength) {
         static_cast<void>(ParseFrame(input.subspan(1)));
       }
       break;
-    case 1:
+    case 2:
       FuzzTranscript(input.subspan(1));
       break;
-    case 2: {
+    case 3: {
       if (input.size() - 1 > kMaxEncodedFrameLength) {
         break;
       }

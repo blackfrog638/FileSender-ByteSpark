@@ -14,15 +14,15 @@
   `native/fuzz/protocol/**`, `protocol/testdata/v1/**`
 - Observable behavior: parses bounded v1 frames and TLVs, validates the
   parser-level negotiation transcript without inspecting pre-binding transfer
-  bodies, and maps all 29 golden cases to accept or their stable expected
-  protocol error
+  bodies, preflights headers before waiting for a declared body, and maps all
+  29 golden cases to accept or their stable expected protocol error
 
 ## Contracts
 
 - Added or changed: internal C++20 `v1_parser` API, zero-copy frame/field
-  views, separate envelope/body parsing, known-only fixed-capacity TLV
-  collections, stable parser error codes, and a parser-level transcript
-  validator
+  views, separate header/envelope/body parsing, declared total length reporting,
+  known-only fixed-capacity TLV collections, stable parser error codes, and a
+  parser-level transcript validator
 - Compatibility impact: no C ABI, wire specification, security profile, or
   public cross-module contract changed
 - ADR or protocol reference: `protocol/spec/v1.md`; pairing, TLS, exporter,
@@ -41,7 +41,9 @@
   `/tmp/xnn_transfer_v1_parser_test_sanitized`
 - Result: warning-clean build; all 29 transcript cases and hostile parser tests
   passed under ASan/UBSan, including pre-binding body gating and unknown-field
-  non-exposure regressions
+  non-exposure regressions, header-only preflight, body oversize rejection
+  without body bytes, truncated header extensions, body non-inspection, and
+  negotiated body-limit enforcement before malformed body parsing
 - Command: Homebrew LLVM C++20 build with
   `-fsanitize=fuzzer,address,undefined`, followed by
   `/tmp/xnn_transfer_v1_parser_fuzzer -runs=20000 -max_len=2097792 -timeout=5`
@@ -104,10 +106,10 @@ the libFuzzer runtime. Apple Clang 21 on this host lacked
 
 - Files or invariants requiring close review: checked total/TLV length
   arithmetic, UTF-8 rejection, schema criticality/duplicate/order handling,
-  envelope-before-body state gating, unknown-field counting without public
-  materialization, independent directional message IDs, capability
-  intersection and exact negotiated minima, and the explicit non-security
-  boundary around binding frames
+  header preflight before body reads, envelope-before-body state gating,
+  unknown-field counting without public materialization, independent
+  directional message IDs, capability intersection and exact negotiated
+  minima, and the explicit non-security boundary around binding frames
 
 ## Acceptance
 
