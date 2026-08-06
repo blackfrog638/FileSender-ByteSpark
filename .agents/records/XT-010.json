@@ -10,25 +10,21 @@
   "impacts": {
     "adr": {
       "required": true,
-      "status": "accepted",
+      "status": "proposed",
       "references": [
         "docs/adr/0002-pairing-and-transport-security.md"
       ],
-      "rationale": "The task exists to independently accept or block the proposed security-profile decision."
+      "rationale": "Independent review found release-blocking confirmation and device-identifier contract gaps, so ADR 0002 remains proposed."
     },
     "architecture": {
-      "status": "updated",
-      "references": [
-        "docs/architecture.md"
-      ],
-      "rationale": "Acceptance changes the profile from proposed to accepted while preserving its unimplemented boundary."
+      "status": "not_required",
+      "references": [],
+      "rationale": "The blocked review does not change the current architecture or its unimplemented security boundary."
     },
     "roadmap": {
-      "status": "updated",
-      "references": [
-        "docs/roadmap.md"
-      ],
-      "rationale": "The integration owner closes the remaining security-ADR P0 milestone only after acceptance."
+      "status": "not_required",
+      "references": [],
+      "rationale": "The P0 milestone must remain open while ADR 0002 is proposed and XT-010 is blocked."
     }
   },
   "integration": {
