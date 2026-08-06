@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-011",
   "task_type": "test",
-  "state": "integrated",
+  "state": "done",
   "owner": "manifest-fixtures-agent",
   "base_sha": "3235a225722df4e7b06b8903f5eb49dd0852d2b0",
   "head_sha": "42dad3884d246e9e614dea9c19328757c10b67b0",
@@ -58,7 +58,7 @@
         "patch_id": "f9cf7737ff0932192f9d0ba982b7a64c185137dc"
       }
     ],
-    "verified_sha": ""
+    "verified_sha": "499bd98b09a59b6351bf03916b16efab26738329"
   },
   "verification": {
     "status": "passed",
@@ -66,11 +66,11 @@
       "python3 protocol/testdata/v1/manifest/validate_vectors.py",
       "make verify"
     ],
-    "reference": "local:42dad3884d246e9e614dea9c19328757c10b67b0:2026-08-06T15:46:54Z"
+    "reference": "local:499bd98b09a59b6351bf03916b16efab26738329:2026-08-06T15:51:41Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-06T23:51:41+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
