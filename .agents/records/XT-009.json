@@ -2,9 +2,9 @@
   "schema_version": 1,
   "id": "XT-009",
   "task_type": "decision",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
+  "state": "claimed",
+  "owner": "security-vectors-agent",
+  "base_sha": "fe87661dcb2a6101e02390b202adb53180eddc87",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-009.md",
   "impacts": {
