@@ -1,6 +1,0 @@
-syntax = "proto3";
-
-message MessageWrapper {
-    string type = 1;
-    bytes payload = 2;
-}
