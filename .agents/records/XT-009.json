@@ -2,10 +2,10 @@
   "schema_version": 1,
   "id": "XT-009",
   "task_type": "decision",
-  "state": "in_progress",
+  "state": "review",
   "owner": "security-vectors-agent",
   "base_sha": "3235a225722df4e7b06b8903f5eb49dd0852d2b0",
-  "head_sha": "",
+  "head_sha": "b167f4d8bfe4f8bb160e7de86e641a6c4c7deb45",
   "handoff": ".agents/handoffs/XT-009.md",
   "impacts": {
     "adr": {
@@ -33,12 +33,12 @@
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "python3 protocol/testdata/security/v1/validate_vectors.py",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:b167f4d8bfe4f8bb160e7de86e641a6c4c7deb45:2026-08-06T15:45:31Z"
   },
   "acceptance": {
     "accepted_by": "",
