@@ -2,10 +2,10 @@
   "schema_version": 1,
   "id": "XT-015",
   "task_type": "decision",
-  "state": "in_progress",
+  "state": "review",
   "owner": "ed25519-subgroup-agent",
   "base_sha": "b361412a3d1a5bf425044c55cb7ac984a43e2284",
-  "head_sha": "",
+  "head_sha": "18f6c9f029dc470f14e67639603d630dcb072d8c",
   "handoff": ".agents/handoffs/XT-015.md",
   "impacts": {
     "adr": {
@@ -33,12 +33,12 @@
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "python3 protocol/testdata/security/v1/validate_vectors.py",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:18f6c9f029dc470f14e67639603d630dcb072d8c:2026-08-06T17:22:56Z"
   },
   "acceptance": {
     "accepted_by": "",
