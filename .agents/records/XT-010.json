@@ -4,7 +4,7 @@
   "task_type": "decision",
   "state": "blocked",
   "owner": "security-review-agent",
-  "base_sha": "e070b5f8072eb2ae18a5f5b8c9939eae1aa33b44",
+  "base_sha": "dab54cce3ec411e3ddabae95e1ec4281d7bf29c3",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-010.md",
   "impacts": {
