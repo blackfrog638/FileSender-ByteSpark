@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "XT-011",
+  "task_type": "test",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-011.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [
+        "docs/adr/0004-v1-framing-and-negotiation.md"
+      ],
+      "rationale": "Fixtures exercise the accepted v1 rules; semantic changes must be escalated to a separate ADR."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task adds contract fixtures and no filesystem or storage implementation."
+    },
+    "roadmap": {
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "Integration closes the hostile path and manifest fixture P0 milestone after review."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "python3 protocol/testdata/v1/manifest/validate_vectors.py",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

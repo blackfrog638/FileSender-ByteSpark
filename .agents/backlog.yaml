@@ -109,6 +109,46 @@
         ".agents/**",
         "tool/harness/**"
       ]
+    },
+    {
+      "id": "XT-009",
+      "title": "Define security profile golden vectors",
+      "readiness": "ready",
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-001",
+        "XT-002"
+      ],
+      "owned_paths": [
+        "protocol/testdata/security/v1/**",
+        "docs/adr/0002-pairing-and-transport-security.md"
+      ]
+    },
+    {
+      "id": "XT-010",
+      "title": "Independently review pairing security ADR",
+      "readiness": "ready",
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-009"
+      ],
+      "owned_paths": [
+        "docs/adr/0002-pairing-and-transport-security.md",
+        "protocol/security/**"
+      ]
+    },
+    {
+      "id": "XT-011",
+      "title": "Define hostile path and manifest fixtures",
+      "readiness": "ready",
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-002"
+      ],
+      "owned_paths": [
+        "protocol/testdata/v1/manifest/**",
+        "protocol/spec/v1.md"
+      ]
     }
   ]
 }

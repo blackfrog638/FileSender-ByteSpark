@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "XT-010",
+  "task_type": "decision",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-010.md",
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "accepted",
+      "references": [
+        "docs/adr/0002-pairing-and-transport-security.md"
+      ],
+      "rationale": "The task exists to independently accept or block the proposed security-profile decision."
+    },
+    "architecture": {
+      "status": "updated",
+      "references": [
+        "docs/architecture.md"
+      ],
+      "rationale": "Acceptance changes the profile from proposed to accepted while preserving its unimplemented boundary."
+    },
+    "roadmap": {
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "The integration owner closes the remaining security-ADR P0 milestone only after acceptance."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "python3 protocol/testdata/security/v1/validate_vectors.py",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

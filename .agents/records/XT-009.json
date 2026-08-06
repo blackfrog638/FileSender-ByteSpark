@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "XT-009",
+  "task_type": "decision",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-009.md",
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0002-pairing-and-transport-security.md"
+      ],
+      "rationale": "Vectors make the proposed security profile byte-exact but do not accept or implement it."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task adds decision evidence without changing runtime architecture."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "ADR acceptance remains assigned to dependent task XT-010."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "python3 protocol/testdata/security/v1/validate_vectors.py",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
