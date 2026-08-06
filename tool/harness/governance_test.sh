@@ -106,6 +106,9 @@ git -C "$repository" add \
 git -C "$repository" commit -m "test: register governance fixture" >/dev/null
 
 "$repository/tool/harness/agent.sh" validate >/dev/null
+git -C "$repository" branch task/XT-998
+"$repository/tool/harness/agent.sh" validate >/dev/null
+git -C "$repository" branch -D task/XT-998 >/dev/null
 "$repository/tool/harness/agent.sh" \
   claim "$task_id" test-agent >/dev/null
 "$repository/tool/harness/agent.sh" \

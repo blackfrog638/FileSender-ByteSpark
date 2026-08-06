@@ -167,7 +167,9 @@ validate() {
   local branch task_id owner state record_json record_state
   while IFS= read -r branch; do
     task_id="${branch#task/}"
-    task_field "$task_id" title >/dev/null
+    if ! task_field "$task_id" title >/dev/null 2>&1; then
+      continue
+    fi
     owner="$(task_config "$task_id" xnnOwner)"
     state="$(task_config "$task_id" xnnState)"
     if [[ -z "$owner" && -z "$state" ]]; then

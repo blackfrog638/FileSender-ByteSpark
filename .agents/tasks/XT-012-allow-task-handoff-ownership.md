@@ -16,7 +16,8 @@ handoff: .agents/handoffs/XT-012.md
 ## Outcome
 
 Allow every task to commit its own durable record and handoff without adding
-those governance paths to each product task's owned-path list.
+those governance paths to each product task's owned-path list. Older worktrees
+also ignore task branches planned after their own backlog snapshot.
 
 ## Context
 
@@ -29,6 +30,8 @@ workflow introduced by XT-007.
 - The exception applies only to the current task ID's record and handoff.
 - It must not permit edits to another task's artifacts or arbitrary `.agents`
   paths.
+- A task branch unknown to the current checkout must not invalidate that older
+  checkout's local verification.
 - Add an isolated lifecycle regression where product owned paths exclude
   `.agents/**`.
 
@@ -37,6 +40,7 @@ workflow introduced by XT-007.
 - [x] A task can reach review with its own record and handoff.
 - [x] Another task's record or handoff remains outside ownership.
 - [x] The isolated governance lifecycle exercises the exception.
+- [x] An older checkout tolerates a later task branch absent from its backlog.
 - [x] `make verify` passes.
 
 ## Verification
