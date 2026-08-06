@@ -1,0 +1,1920 @@
+{
+  "format_version": 1,
+  "protocol": "XnnTransfer",
+  "wire_version": "1.0",
+  "description": "Host-independent protocol-object vectors for v1 relative paths and manifests. No vector names or inspects a local filesystem path.",
+  "defaults": {
+    "transfer_id_hex": "00112233445566778899aabbccddeeff",
+    "manifest_commitment_hex": "101112131415161718191a1b1c1d1e1f",
+    "file_commitment_hex": "202122232425262728292a2b2c2d2e2f"
+  },
+  "comparison_profiles": {
+    "posix_case_sensitive_nfc": {
+      "normalization": "NFC",
+      "case": "sensitive"
+    },
+    "windows_ascii_case_insensitive_nfc": {
+      "normalization": "NFC",
+      "case": "ascii_insensitive"
+    }
+  },
+  "cases": [
+    {
+      "name": "legal_files_directories_empty_and_nested",
+      "description": "Files, directories, an empty file, and directory ancestors form a legal manifest.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 4,
+          "total_file_bytes": 4
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "docs",
+            "file_size": 0
+          },
+          {
+            "entry_index": 1,
+            "kind": 1,
+            "relative_path": "docs/readme.txt",
+            "file_size": 4,
+            "file_commitment_hex": "202122232425262728292a2b2c2d2e2f"
+          },
+          {
+            "entry_index": 2,
+            "kind": 1,
+            "relative_path": "empty.bin",
+            "file_size": 0,
+            "file_commitment_hex": "303132333435363738393a3b3c3d3e3f"
+          },
+          {
+            "entry_index": 3,
+            "kind": 2,
+            "relative_path": "empty-dir",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 4,
+          "total_file_bytes": 4
+        }
+      },
+      "expect": {
+        "result": "accept",
+        "reason": "VALID"
+      }
+    },
+    {
+      "name": "legal_posix_case_distinct_paths",
+      "description": "The explicit POSIX fixture profile treats ASCII case variants as distinct.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "Readme",
+            "file_size": 0
+          },
+          {
+            "entry_index": 1,
+            "kind": 2,
+            "relative_path": "README",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "accept",
+        "reason": "VALID"
+      }
+    },
+    {
+      "name": "legal_nfc_compatibility_distinct_paths",
+      "description": "NFC does not apply compatibility folding: ASCII A and fullwidth A remain distinct.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "A",
+            "file_size": 0
+          },
+          {
+            "entry_index": 1,
+            "kind": 2,
+            "relative_path": "\uff21",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "accept",
+        "reason": "VALID"
+      }
+    },
+    {
+      "name": "legal_exact_path_and_component_byte_limits",
+      "description": "A generated 1024-byte path uses legal components including a 255-byte component.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "generated_entries": {
+          "type": "fixed_path_series",
+          "count": 1,
+          "path_bytes": 1024,
+          "index_width": 1,
+          "kind": 2
+        },
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "accept",
+        "reason": "VALID"
+      }
+    },
+    {
+      "name": "legal_exact_component_count_limit",
+      "description": "A relative path may contain exactly 32 nonempty components.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "accept",
+        "reason": "VALID"
+      }
+    },
+    {
+      "name": "legal_exact_file_total_and_commitment_limits",
+      "description": "One 16 TiB file and 64-byte commitments exercise exact maxima.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 17592186044416,
+          "manifest_commitment_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 1,
+            "relative_path": "maximum.bin",
+            "file_size": 17592186044416,
+            "file_commitment_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 17592186044416,
+          "manifest_commitment_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
+        }
+      },
+      "expect": {
+        "result": "accept",
+        "reason": "VALID"
+      }
+    },
+    {
+      "name": "legal_exact_manifest_entry_count_limit",
+      "description": "A deterministic generated series contains exactly 100000 directory entries.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 100000,
+          "total_file_bytes": 0
+        },
+        "generated_entries": {
+          "type": "fixed_path_series",
+          "count": 100000,
+          "path_bytes": 16,
+          "index_width": 5,
+          "kind": 2
+        },
+        "end": {
+          "entry_count": 100000,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "accept",
+        "reason": "VALID"
+      }
+    },
+    {
+      "name": "legal_exact_aggregate_path_bytes_limit",
+      "description": "32768 generated paths of 1024 bytes total exactly 33554432 encoded bytes.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 32768,
+          "total_file_bytes": 0
+        },
+        "generated_entries": {
+          "type": "fixed_path_series",
+          "count": 32768,
+          "path_bytes": 1024,
+          "index_width": 5,
+          "kind": 2
+        },
+        "end": {
+          "entry_count": 32768,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "accept",
+        "reason": "VALID"
+      }
+    },
+    {
+      "name": "hostile_empty_path",
+      "description": "An empty relative path is not a legal entry name.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_EMPTY"
+      }
+    },
+    {
+      "name": "hostile_posix_absolute_path",
+      "description": "A leading slash is an absolute path marker.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "/etc",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_ABSOLUTE"
+      }
+    },
+    {
+      "name": "hostile_slash_unc_path",
+      "description": "A slash-form UNC path is never a wire-relative path.",
+      "comparison_profile": "windows_ascii_case_insensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "//server/share",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_UNC"
+      }
+    },
+    {
+      "name": "hostile_backslash_unc_path",
+      "description": "A backslash-form UNC path is rejected without host path parsing.",
+      "comparison_profile": "windows_ascii_case_insensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "\\\\server\\share",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_UNC"
+      }
+    },
+    {
+      "name": "hostile_windows_drive_absolute_path",
+      "description": "A drive-rooted path is not relative.",
+      "comparison_profile": "windows_ascii_case_insensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "C:/Windows",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_DRIVE_ABSOLUTE"
+      }
+    },
+    {
+      "name": "hostile_windows_drive_qualified_path",
+      "description": "A drive-relative form is also drive-qualified and prohibited.",
+      "comparison_profile": "windows_ascii_case_insensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "C:temp",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_DRIVE_QUALIFIED"
+      }
+    },
+    {
+      "name": "hostile_leading_parent_traversal",
+      "description": "A parent component cannot escape a destination root.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "../escape",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_TRAVERSAL"
+      }
+    },
+    {
+      "name": "hostile_embedded_parent_traversal",
+      "description": "Traversal remains invalid when embedded below a component.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "safe/../escape",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_TRAVERSAL"
+      }
+    },
+    {
+      "name": "hostile_dot_component",
+      "description": "Dot components are not canonical wire paths.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "safe/./file",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_DOT_COMPONENT"
+      }
+    },
+    {
+      "name": "hostile_empty_component",
+      "description": "Repeated slash separators create an empty component.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "safe//file",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_EMPTY_COMPONENT"
+      }
+    },
+    {
+      "name": "hostile_trailing_separator",
+      "description": "A trailing slash is prohibited.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "safe/",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_TRAILING_SEPARATOR"
+      }
+    },
+    {
+      "name": "hostile_backslash_separator",
+      "description": "Backslash is data-hostile and never a v1 wire separator.",
+      "comparison_profile": "windows_ascii_case_insensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "safe\\file",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_BACKSLASH"
+      }
+    },
+    {
+      "name": "hostile_windows_alternate_data_stream",
+      "description": "Colon cannot encode a Windows alternate data stream.",
+      "comparison_profile": "windows_ascii_case_insensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "file.txt:stream",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_COLON_OR_ADS"
+      }
+    },
+    {
+      "name": "hostile_invalid_utf8_continuation",
+      "description": "Raw path bytes with an isolated continuation octet are malformed UTF-8.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path_hex": "736166652f80",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_MESSAGE",
+        "reason": "PATH_INVALID_UTF8"
+      }
+    },
+    {
+      "name": "hostile_overlong_utf8",
+      "description": "An overlong slash encoding is not shortest-form UTF-8.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path_hex": "73616665c0af66696c65",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_MESSAGE",
+        "reason": "PATH_INVALID_UTF8"
+      }
+    },
+    {
+      "name": "hostile_utf8_surrogate",
+      "description": "A UTF-8 encoding of a surrogate code point is invalid.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path_hex": "eda080",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_MESSAGE",
+        "reason": "PATH_INVALID_UTF8"
+      }
+    },
+    {
+      "name": "hostile_nul_path",
+      "description": "U+0000 is explicitly prohibited in UTF-8 paths.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "safe\u0000name",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_NUL"
+      }
+    },
+    {
+      "name": "hostile_c0_control",
+      "description": "C0 controls are prohibited in paths.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "safe\u001fname",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_C0_CONTROL"
+      }
+    },
+    {
+      "name": "hostile_c1_control",
+      "description": "C1 controls are prohibited in paths.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "safe\u0085name",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_C1_CONTROL"
+      }
+    },
+    {
+      "name": "hostile_unicode_noncharacter",
+      "description": "Unicode noncharacters cannot appear in path text.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "safe\ufdd0name",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_NONCHARACTER"
+      }
+    },
+    {
+      "name": "hostile_non_nfc_normalization_collision_attempt",
+      "description": "A decomposed spelling that would normalize onto an earlier path is rejected before collision comparison.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "caf\u00e9",
+            "file_size": 0
+          },
+          {
+            "entry_index": 1,
+            "kind": 2,
+            "relative_path": "cafe\u0301",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_NOT_NFC"
+      }
+    },
+    {
+      "name": "hostile_relative_path_byte_limit_plus_one",
+      "description": "A generated 1025-byte path exceeds the hard limit by one.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "generated_entries": {
+          "type": "fixed_path_series",
+          "count": 1,
+          "path_bytes": 1025,
+          "index_width": 1,
+          "kind": 2
+        },
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "LIMIT_EXCEEDED",
+        "reason": "PATH_BYTES_LIMIT"
+      }
+    },
+    {
+      "name": "hostile_component_byte_limit_plus_one",
+      "description": "One 256-byte component exceeds its hard limit by one.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path_repeat": {
+              "text": "a",
+              "count": 256
+            },
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "LIMIT_EXCEEDED",
+        "reason": "PATH_COMPONENT_BYTES_LIMIT"
+      }
+    },
+    {
+      "name": "hostile_component_count_limit_plus_one",
+      "description": "A path with 33 components exceeds the hard limit by one.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "LIMIT_EXCEEDED",
+        "reason": "PATH_COMPONENT_COUNT_LIMIT"
+      }
+    },
+    {
+      "name": "hostile_exact_duplicate_path",
+      "description": "Two entries cannot name the same canonical path.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "same",
+            "file_size": 0
+          },
+          {
+            "entry_index": 1,
+            "kind": 2,
+            "relative_path": "same",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_DUPLICATE"
+      }
+    },
+    {
+      "name": "hostile_windows_ascii_case_collision",
+      "description": "ASCII case variants collide under the explicit Windows fixture profile.",
+      "comparison_profile": "windows_ascii_case_insensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "Readme",
+            "file_size": 0
+          },
+          {
+            "entry_index": 1,
+            "kind": 2,
+            "relative_path": "README",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_COLLISION"
+      }
+    },
+    {
+      "name": "hostile_file_ancestor_before_descendant",
+      "description": "A file cannot already occupy an ancestor of a later entry.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 1,
+            "relative_path": "parent",
+            "file_size": 0,
+            "file_commitment_hex": "202122232425262728292a2b2c2d2e2f"
+          },
+          {
+            "entry_index": 1,
+            "kind": 2,
+            "relative_path": "parent/child",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "FILE_ANCESTOR_CONFLICT"
+      }
+    },
+    {
+      "name": "hostile_file_ancestor_after_descendant",
+      "description": "A later file cannot replace the ancestor directory implied by an earlier entry.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "parent/child",
+            "file_size": 0
+          },
+          {
+            "entry_index": 1,
+            "kind": 1,
+            "relative_path": "parent",
+            "file_size": 0,
+            "file_commitment_hex": "202122232425262728292a2b2c2d2e2f"
+          }
+        ],
+        "end": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "FILE_ANCESTOR_CONFLICT"
+      }
+    },
+    {
+      "name": "hostile_windows_casefolded_file_ancestor",
+      "description": "Ancestor checks use the same target comparison profile as duplicate checks.",
+      "comparison_profile": "windows_ascii_case_insensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 1,
+            "relative_path": "Parent",
+            "file_size": 0,
+            "file_commitment_hex": "202122232425262728292a2b2c2d2e2f"
+          },
+          {
+            "entry_index": 1,
+            "kind": 2,
+            "relative_path": "parent/child",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "FILE_ANCESTOR_CONFLICT"
+      }
+    },
+    {
+      "name": "hostile_offer_zero_entries",
+      "description": "A v1 transfer offer must advertise at least one entry.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 0,
+          "total_file_bytes": 0
+        },
+        "entries": [],
+        "end": {
+          "entry_count": 0,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_OFFER",
+        "reason": "OFFER_ENTRY_COUNT_LIMIT"
+      }
+    },
+    {
+      "name": "hostile_offer_entry_count_limit_plus_one",
+      "description": "An offer cannot advertise more than 100000 entries.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 100001,
+          "total_file_bytes": 0
+        },
+        "entries": [],
+        "end": {
+          "entry_count": 100001,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_OFFER",
+        "reason": "OFFER_ENTRY_COUNT_LIMIT"
+      }
+    },
+    {
+      "name": "hostile_offer_entry_count_u32_overflow",
+      "description": "A logical offer value outside U32 cannot represent the wire field.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 4294967296,
+          "total_file_bytes": 0
+        },
+        "entries": [],
+        "end": {
+          "entry_count": 0,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_OFFER",
+        "reason": "OFFER_ENTRY_COUNT_RANGE"
+      }
+    },
+    {
+      "name": "hostile_offer_total_file_bytes_limit_plus_one",
+      "description": "An offer total cannot exceed 16 TiB.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 17592186044417
+        },
+        "entries": [],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 17592186044417
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_OFFER",
+        "reason": "OFFER_TOTAL_FILE_BYTES_LIMIT"
+      }
+    },
+    {
+      "name": "hostile_offer_total_u64_overflow",
+      "description": "A logical offer total outside U64 cannot represent the wire field.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 18446744073709551616
+        },
+        "entries": [],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_OFFER",
+        "reason": "OFFER_TOTAL_RANGE"
+      }
+    },
+    {
+      "name": "hostile_offer_commitment_too_short",
+      "description": "A manifest commitment shorter than 16 bytes is invalid.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0,
+          "manifest_commitment_hex": "000102030405060708090a0b0c0d0e"
+        },
+        "entries": [],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_OFFER",
+        "reason": "OFFER_COMMITMENT_LENGTH"
+      }
+    },
+    {
+      "name": "hostile_symlink_kind_representation",
+      "description": "An attempted symlink kind is outside the file/directory registry.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 3,
+            "relative_path": "link",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "ENTRY_KIND_INVALID"
+      }
+    },
+    {
+      "name": "hostile_hard_link_kind_representation",
+      "description": "An attempted hard-link kind is outside the file/directory registry.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 4,
+            "relative_path": "hard-link",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "ENTRY_KIND_INVALID"
+      }
+    },
+    {
+      "name": "hostile_device_kind_representation",
+      "description": "An attempted device kind is outside the file/directory registry.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 5,
+            "relative_path": "device",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "ENTRY_KIND_INVALID"
+      }
+    },
+    {
+      "name": "hostile_socket_kind_representation",
+      "description": "An attempted socket kind is outside the file/directory registry.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 6,
+            "relative_path": "socket",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "ENTRY_KIND_INVALID"
+      }
+    },
+    {
+      "name": "hostile_file_without_commitment",
+      "description": "Every file entry requires a commitment.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 1,
+            "relative_path": "file",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "FILE_COMMITMENT_REQUIRED"
+      }
+    },
+    {
+      "name": "hostile_file_commitment_too_short",
+      "description": "A file commitment shorter than 16 bytes is invalid.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 1,
+            "relative_path": "file",
+            "file_size": 0,
+            "file_commitment_hex": "000102030405060708090a0b0c0d0e"
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "FILE_COMMITMENT_LENGTH"
+      }
+    },
+    {
+      "name": "hostile_directory_with_commitment",
+      "description": "A directory cannot carry a file commitment.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "directory",
+            "file_size": 0,
+            "file_commitment_hex": "202122232425262728292a2b2c2d2e2f"
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "DIRECTORY_COMMITMENT_PRESENT"
+      }
+    },
+    {
+      "name": "hostile_directory_with_nonzero_size",
+      "description": "A directory file_size must be zero.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "directory",
+            "file_size": 1
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "DIRECTORY_SIZE_NONZERO"
+      }
+    },
+    {
+      "name": "hostile_file_size_limit_plus_one",
+      "description": "One file cannot exceed 16 TiB.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 1,
+            "relative_path": "large",
+            "file_size": 17592186044417,
+            "file_commitment_hex": "202122232425262728292a2b2c2d2e2f"
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "LIMIT_EXCEEDED",
+        "reason": "FILE_SIZE_LIMIT"
+      }
+    },
+    {
+      "name": "hostile_file_size_u64_overflow",
+      "description": "A logical file size outside U64 cannot represent the wire field.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 1,
+            "relative_path": "large",
+            "file_size": 18446744073709551616,
+            "file_commitment_hex": "202122232425262728292a2b2c2d2e2f"
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "MALFORMED_MESSAGE",
+        "reason": "INTEGER_OUT_OF_RANGE"
+      }
+    },
+    {
+      "name": "hostile_noncontiguous_entry_index",
+      "description": "Manifest indexes must start at zero and remain contiguous.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 1,
+            "kind": 2,
+            "relative_path": "entry",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "ENTRY_INDEX_NONCONTIGUOUS"
+      }
+    },
+    {
+      "name": "hostile_duplicate_entry_index",
+      "description": "Repeating an earlier index violates contiguous ordering.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "first",
+            "file_size": 0
+          },
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "second",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "ENTRY_INDEX_NONCONTIGUOUS"
+      }
+    },
+    {
+      "name": "hostile_entry_transfer_id_mismatch",
+      "description": "Every entry remains bound to the offer transfer ID.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "transfer_id_hex": "ffeeddccbbaa99887766554433221100",
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "entry",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "ENTRY_TRANSFER_ID_MISMATCH"
+      }
+    },
+    {
+      "name": "hostile_incremental_manifest_entry_count_limit",
+      "description": "The receiver rejects the 100001st observed entry before MANIFEST_END.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 100000,
+          "total_file_bytes": 0
+        },
+        "generated_entries": {
+          "type": "fixed_path_series",
+          "count": 100001,
+          "path_bytes": 16,
+          "index_width": 6,
+          "kind": 2
+        },
+        "end": {
+          "entry_count": 100000,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "LIMIT_EXCEEDED",
+        "reason": "MANIFEST_ENTRY_COUNT_LIMIT"
+      }
+    },
+    {
+      "name": "hostile_incremental_aggregate_path_limit_plus_one",
+      "description": "A final one-byte path pushes the checked aggregate above 33554432.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 32769,
+          "total_file_bytes": 0
+        },
+        "generated_entries": {
+          "type": "fixed_path_series",
+          "count": 32768,
+          "path_bytes": 1024,
+          "index_width": 5,
+          "kind": 2
+        },
+        "entries": [
+          {
+            "entry_index": 32768,
+            "kind": 2,
+            "relative_path": "z",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 32769,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "LIMIT_EXCEEDED",
+        "reason": "AGGREGATE_PATH_BYTES_LIMIT"
+      }
+    },
+    {
+      "name": "hostile_incremental_total_file_bytes_limit_plus_one",
+      "description": "Two individually legal files produce a checked total one byte above 16 TiB.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 2,
+          "total_file_bytes": 17592186044416
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 1,
+            "relative_path": "large",
+            "file_size": 17592186044416,
+            "file_commitment_hex": "202122232425262728292a2b2c2d2e2f"
+          },
+          {
+            "entry_index": 1,
+            "kind": 1,
+            "relative_path": "one",
+            "file_size": 1,
+            "file_commitment_hex": "303132333435363738393a3b3c3d3e3f"
+          }
+        ],
+        "end": {
+          "entry_count": 2,
+          "total_file_bytes": 17592186044416
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "LIMIT_EXCEEDED",
+        "reason": "TOTAL_FILE_BYTES_LIMIT"
+      }
+    },
+    {
+      "name": "hostile_offer_entry_count_summary_mismatch",
+      "description": "The observed count must equal the offer count.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "only",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "OFFER_ENTRY_COUNT_MISMATCH"
+      }
+    },
+    {
+      "name": "hostile_end_entry_count_summary_mismatch",
+      "description": "MANIFEST_END must repeat the exact observed count.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "only",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 2,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "END_ENTRY_COUNT_MISMATCH"
+      }
+    },
+    {
+      "name": "hostile_offer_total_summary_mismatch",
+      "description": "The checked file byte sum must equal the offer total.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 1
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 1,
+            "relative_path": "empty",
+            "file_size": 0,
+            "file_commitment_hex": "202122232425262728292a2b2c2d2e2f"
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "OFFER_TOTAL_FILE_BYTES_MISMATCH"
+      }
+    },
+    {
+      "name": "hostile_end_total_summary_mismatch",
+      "description": "MANIFEST_END must repeat the exact checked file byte sum.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 1,
+            "relative_path": "empty",
+            "file_size": 0,
+            "file_commitment_hex": "202122232425262728292a2b2c2d2e2f"
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 1
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "END_TOTAL_FILE_BYTES_MISMATCH"
+      }
+    },
+    {
+      "name": "hostile_manifest_commitment_summary_mismatch",
+      "description": "MANIFEST_END commitment must exactly equal the offer commitment.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "entry",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0,
+          "manifest_commitment_hex": "303132333435363738393a3b3c3d3e3f"
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "MANIFEST_COMMITMENT_MISMATCH"
+      }
+    },
+    {
+      "name": "hostile_end_transfer_id_mismatch",
+      "description": "MANIFEST_END remains bound to the offer transfer ID.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "entry",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "transfer_id_hex": "ffeeddccbbaa99887766554433221100",
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "END_TRANSFER_ID_MISMATCH"
+      }
+    },
+    {
+      "name": "hostile_missing_manifest_end",
+      "description": "The manifest object must terminate with MANIFEST_END.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "entry",
+            "file_size": 0
+          }
+        ]
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "MANIFEST_END_MISSING"
+      }
+    }
+  ]
+}
