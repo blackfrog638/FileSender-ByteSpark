@@ -35,7 +35,6 @@
   "verification": {
     "status": "passed",
     "commands": [
-      "independent inline Python affine Edwards25519, OpenSSL seed derivation, and manifest contract comparison",
       "python3 protocol/testdata/security/v1/validate_vectors.py",
       "make verify",
       "git diff --check"
