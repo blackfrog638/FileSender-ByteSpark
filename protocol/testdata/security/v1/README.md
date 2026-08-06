@@ -26,6 +26,50 @@ The command is deterministic, performs no network or filesystem writes, and
 does not depend on host byte order, locale, Unicode normalization, or
 third-party packages.
 
+## Ed25519 fixture keys
+
+The identity and rotation public keys are published Ed25519 keys from
+[RFC 8032 section 7.1](https://www.rfc-editor.org/rfc/rfc8032#section-7.1):
+
+- initiator and rotation-old: TEST 1 public key
+  `d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a`;
+- responder and device-ID wrong-key: TEST 2 public key
+  `3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c`;
+- rotation-new: TEST 3 public key
+  `fc51cd8e6218a1a38da47ed00230f0580816ed13ba3303ac5deb911548908025`.
+
+The validator implements RFC 8032 section 5.1.3 compressed-point decoding
+using only Python integer arithmetic. It requires `y < 2^255 - 19`, recovers
+`x` from `(y^2 - 1) / (d*y^2 + 1)`, rejects a missing square root, and rejects
+the noncanonical `x = 0` encoding with the sign bit set. Length alone is not a
+validity check. An independent reviewer can compare the three keys with the
+RFC and apply the same decoding rules without importing this fixture oracle.
+
+## XT-014 golden drift
+
+Replacing the unsourced identity bytes with the published keys necessarily
+changes every key-bound context and its downstream derivations. The principal
+digest changes are:
+
+| Value | Previous | XT-014 |
+| --- | --- | --- |
+| Pair context | `14faa5b3b80123935e5627f96afea5ea0cc4f527f727af62b615174c67f70882` | `f8ccd258387e2b0347934c4a909055865db87a95e182b0372de01d0fb1c0fa50` |
+| Initiator device ID | `c0a74fca4f0e4dd1fc6d7c7ad7e8478b6096d35ec8fab8566234abfd4f5c00f3` | `c503a982b3cc915bd6366c4f6e9e37b08df30a150bf061f4a91693c6f9c44c89` |
+| Responder wrong-key device ID | invalid key input | `b67b9e0fd28553c53f952dfb2c0eb9e219667ec6d8168d43335c0124c3377c89` |
+| Transport context | `deaf1569d495b3182b41fa24d874bb64254c9c99b76b1b258510fab69ffa4b43` | `7fcb0313518a55ff34783e3ec2984fb28b1de235f9e7cccb6746c79dee88ed51` |
+| Rotation context | `92491f75fa6855de192b5fd110481b54381c351bfe9a0647a9848624466d9ac7` | `28a0cb64af46756fe2828eebf3859edfca0585abfd352a7cebb62f754ad03acb` |
+
+`normalized-negotiation` is the only positive output that remains byte-exact.
+The other 16 positive outputs were recomputed, including pair/SAS/confirmation,
+device-ID, transport/finished, and rotation/proof values. Negative vectors
+containing those bytes were recomputed while preserving their existing failure
+codes. Two additional negatives distinguish a non-decodable point from a
+noncanonical `y >= p` encoding.
+
+This is fixture-evidence drift only. It does not change algorithms, labels,
+role ordering, confirmation/rejection semantics, or the proposed status of
+ADR 0002.
+
 ## Coverage
 
 Positive vectors cover:
@@ -46,7 +90,7 @@ contexts, authenticated rejection where confirmation is required, invalid and
 substituted confirmation decisions, device-identifier label/key/output
 alternates and wrong-key verification, negotiation downgrade, malformed raw
 transcript order, wrong fixed lengths, stale rotation counters, invalid
-rotation domains, and output mismatch.
+rotation domains, invalid and noncanonical Ed25519 points, and output mismatch.
 
 ## Word list
 

@@ -21,6 +21,14 @@ MAX_CANONICAL_LENGTH = 1_048_576
 MAX_FIELDS = 32
 WORD_COUNT = 2_048
 
+ED25519_FIELD_PRIME = 2**255 - 19
+ED25519_D = (
+    -121665 * pow(121666, ED25519_FIELD_PRIME - 2, ED25519_FIELD_PRIME)
+) % ED25519_FIELD_PRIME
+ED25519_SQRT_M1 = pow(
+    2, (ED25519_FIELD_PRIME - 1) // 4, ED25519_FIELD_PRIME
+)
+
 SECURITY_PROFILE_ID = 1
 ROLE_INITIATOR = 1
 ROLE_RESPONDER = 2
@@ -67,6 +75,9 @@ EXPECTED_PROFILE_METADATA = {
     "sas_word_count": 5,
     "sas_wordlist": "BIP39-English-index-order",
     "exporter_material": "fixture-input-only",
+    "ed25519_public_key_validation": (
+        "RFC-8032-section-5.1.3-canonical-point-decoding"
+    ),
     "device_identifier_label_hex": DEVICE_IDENTIFIER_LABEL.hex(),
     "device_identifier_input": "XNNS-canonical-kind-07",
     "device_identifier_hash": "SHA-256",
@@ -150,6 +161,56 @@ def decode_hex(value: Any, name: str, length: Optional[int] = None) -> bytes:
             f"{name} must contain {length} octets, got {len(decoded)}",
         )
     return decoded
+
+
+def validate_ed25519_public_key(public_key: bytes, name: str) -> None:
+    if len(public_key) != 32:
+        fail("INVALID_LENGTH", f"{name} must contain 32 octets")
+
+    encoded = int.from_bytes(public_key, "little")
+    x_sign = encoded >> 255
+    y = encoded & ((1 << 255) - 1)
+    if y >= ED25519_FIELD_PRIME:
+        fail(
+            "NON_CANONICAL_ENCODING",
+            f"{name} has a noncanonical Edwards25519 y-coordinate",
+        )
+
+    y_squared = y * y % ED25519_FIELD_PRIME
+    numerator = (y_squared - 1) % ED25519_FIELD_PRIME
+    denominator = (ED25519_D * y_squared + 1) % ED25519_FIELD_PRIME
+    if denominator == 0:
+        fail("INVALID_PUBLIC_KEY", f"{name} is not an Edwards25519 point")
+
+    # Recover x and select the encoded sign exactly as RFC 8032 section 5.1.3.
+    x_squared = (
+        numerator
+        * pow(denominator, ED25519_FIELD_PRIME - 2, ED25519_FIELD_PRIME)
+    ) % ED25519_FIELD_PRIME
+    x = pow(
+        x_squared,
+        (ED25519_FIELD_PRIME + 3) // 8,
+        ED25519_FIELD_PRIME,
+    )
+    if x * x % ED25519_FIELD_PRIME != x_squared:
+        x = x * ED25519_SQRT_M1 % ED25519_FIELD_PRIME
+    if x * x % ED25519_FIELD_PRIME != x_squared:
+        fail("INVALID_PUBLIC_KEY", f"{name} is not an Edwards25519 point")
+    if x == 0 and x_sign == 1:
+        fail(
+            "NON_CANONICAL_ENCODING",
+            f"{name} sets the sign bit for x=0",
+        )
+    if (x & 1) != x_sign:
+        x = ED25519_FIELD_PRIME - x
+
+    if (
+        -x * x
+        + y_squared
+        - 1
+        - ED25519_D * x * x * y_squared
+    ) % ED25519_FIELD_PRIME != 0:
+        fail("INVALID_PUBLIC_KEY", f"{name} is not an Edwards25519 point")
 
 
 def field_schema(kind: int) -> Dict[int, Optional[int]]:
@@ -583,6 +644,8 @@ def validate_object(value: CanonicalObject) -> None:
         if struct.unpack(">H", fields[8])[0] != SECURITY_PROFILE_ID:
             fail("UNSUPPORTED_PROFILE", "security profile identifier is invalid")
         parse_object(fields[9], KIND_NEGOTIATION)
+        validate_ed25519_public_key(fields[6], "pairing initiator public key")
+        validate_ed25519_public_key(fields[7], "pairing responder public key")
     elif value.kind == KIND_SAS_INFO:
         if fields[1] != SAS_INFO_LABEL:
             fail("DOMAIN_MISMATCH", "SAS HKDF label is invalid")
@@ -595,6 +658,8 @@ def validate_object(value: CanonicalObject) -> None:
             fail("UNSUPPORTED_PROFILE", "security profile identifier is invalid")
         parse_object(fields[9], KIND_NEGOTIATION)
         validate_raw_transcript(fields[10])
+        validate_ed25519_public_key(fields[4], "transport initiator public key")
+        validate_ed25519_public_key(fields[5], "transport responder public key")
     elif value.kind == KIND_ROTATION_CONTEXT:
         if fields[1] != ROTATION_CONTEXT_LABEL:
             fail("DOMAIN_MISMATCH", "rotation context label is invalid")
@@ -602,6 +667,8 @@ def validate_object(value: CanonicalObject) -> None:
             fail("INVALID_ROTATION", "old and new identity keys are identical")
         if struct.unpack(">Q", fields[4])[0] == 0:
             fail("INVALID_ROTATION", "rotation counter zero is invalid")
+        validate_ed25519_public_key(fields[2], "rotation old public key")
+        validate_ed25519_public_key(fields[3], "rotation new public key")
     elif value.kind == KIND_ROTATION_PROOF:
         if fields[1] != ROTATION_PROOF_LABEL:
             fail("DOMAIN_MISMATCH", "rotation proof label is invalid")
@@ -613,6 +680,7 @@ def validate_object(value: CanonicalObject) -> None:
     elif value.kind == KIND_DEVICE_IDENTIFIER:
         if fields[1] != DEVICE_IDENTIFIER_LABEL:
             fail("DOMAIN_MISMATCH", "device identifier label is invalid")
+        validate_ed25519_public_key(fields[2], "device identifier public key")
 
 
 def canonical_digest(encoded: bytes, expected_kind: int) -> bytes:
@@ -625,6 +693,14 @@ def fixture_hex(
 ) -> bytes:
     values = require_mapping(fixture.get(section), f"fixture.{section}")
     return decode_hex(values.get(name), f"fixture.{section}.{name}", length)
+
+
+def fixture_public_key(
+    fixture: Mapping[str, Any], section: str, name: str
+) -> bytes:
+    public_key = fixture_hex(fixture, section, name, 32)
+    validate_ed25519_public_key(public_key, f"fixture.{section}.{name}")
+    return public_key
 
 
 def profile_identifier(fixture: Mapping[str, Any]) -> bytes:
@@ -649,8 +725,8 @@ def build_pair_context(fixture: Mapping[str, Any]) -> bytes:
             (3, bytes([ROLE_RESPONDER])),
             (4, fixture_hex(fixture, "pairing", "initiator_nonce_hex", 32)),
             (5, fixture_hex(fixture, "pairing", "responder_nonce_hex", 32)),
-            (6, fixture_hex(fixture, "identity", "initiator_key_hex", 32)),
-            (7, fixture_hex(fixture, "identity", "responder_key_hex", 32)),
+            (6, fixture_public_key(fixture, "identity", "initiator_key_hex")),
+            (7, fixture_public_key(fixture, "identity", "responder_key_hex")),
             (8, profile_identifier(fixture)),
             (9, negotiation),
         ],
@@ -671,8 +747,8 @@ def build_transport_context(fixture: Mapping[str, Any]) -> bytes:
             (1, TRANSPORT_CONTEXT_LABEL),
             (2, bytes([ROLE_INITIATOR])),
             (3, bytes([ROLE_RESPONDER])),
-            (4, fixture_hex(fixture, "identity", "initiator_key_hex", 32)),
-            (5, fixture_hex(fixture, "identity", "responder_key_hex", 32)),
+            (4, fixture_public_key(fixture, "identity", "initiator_key_hex")),
+            (5, fixture_public_key(fixture, "identity", "responder_key_hex")),
             (
                 6,
                 fixture_hex(
@@ -708,8 +784,8 @@ def build_rotation_context(fixture: Mapping[str, Any]) -> bytes:
         KIND_ROTATION_CONTEXT,
         [
             (1, ROTATION_CONTEXT_LABEL),
-            (2, fixture_hex(fixture, "rotation", "old_key_hex", 32)),
-            (3, fixture_hex(fixture, "rotation", "new_key_hex", 32)),
+            (2, fixture_public_key(fixture, "rotation", "old_key_hex")),
+            (3, fixture_public_key(fixture, "rotation", "new_key_hex")),
             (4, struct.pack(">Q", counter)),
             (5, fixture_hex(fixture, "rotation", "nonce_hex", 32)),
             (6, transport_context),
@@ -732,11 +808,7 @@ def build_rotation_proof(fixture: Mapping[str, Any], signer: int) -> bytes:
 
 
 def build_device_identifier(public_key: bytes) -> bytes:
-    if len(public_key) != 32:
-        fail(
-            "INVALID_LENGTH",
-            "device identifier public key must contain 32 octets",
-        )
+    validate_ed25519_public_key(public_key, "device identifier public key")
     encoded = encode_object(
         KIND_DEVICE_IDENTIFIER,
         [
@@ -940,8 +1012,8 @@ def positive_output(
             "trust_commit_permitted": result.trust_commit_permitted,
         }
     if operation == "device_identifier_initiator":
-        public_key = fixture_hex(
-            fixture, "identity", "initiator_key_hex", 32
+        public_key = fixture_public_key(
+            fixture, "identity", "initiator_key_hex"
         )
         return derive_device_identifier(public_key)
     if operation == "transport_context":
@@ -1163,13 +1235,46 @@ def execute_negative(
         public_key = decode_hex(
             inputs.get("public_key_hex"), "input.public_key_hex", 32
         )
+        identifier_public_key = decode_hex(
+            inputs.get("identifier_public_key_hex"),
+            "input.identifier_public_key_hex",
+            32,
+        )
+        validate_ed25519_public_key(public_key, "input.public_key_hex")
+        validate_ed25519_public_key(
+            identifier_public_key,
+            "input.identifier_public_key_hex",
+        )
+        if hmac.compare_digest(public_key, identifier_public_key):
+            fail(
+                "INVALID_MANIFEST",
+                "wrong-key vector must use two distinct public keys",
+            )
+        expected_public_key_identifier = decode_hex(
+            inputs.get("public_key_sha256_hex"),
+            "input.public_key_sha256_hex",
+            32,
+        )
         expected = decode_hex(
             inputs.get("expected_sha256_hex"),
             "input.expected_sha256_hex",
             32,
         )
+        identifier = hashlib.sha256(
+            build_device_identifier(identifier_public_key)
+        ).digest()
+        if not hmac.compare_digest(identifier, expected):
+            fail(
+                "OUTPUT_MISMATCH",
+                "expected device identifier does not match its public key",
+            )
         encoded = build_device_identifier(public_key)
         actual = hashlib.sha256(encoded).digest()
+        if not hmac.compare_digest(actual, expected_public_key_identifier):
+            fail(
+                "OUTPUT_MISMATCH",
+                "wrong-key device identifier does not match its public key",
+            )
         if not hmac.compare_digest(actual, expected):
             fail(
                 "DEVICE_IDENTIFIER_MISMATCH",
@@ -1297,6 +1402,28 @@ def validate_manifest(manifest: Mapping[str, Any], manifest_path: Path) -> int:
     )
 
     fixtures = require_mapping(manifest.get("fixtures"), "fixtures")
+    for fixture_name, raw_fixture in fixtures.items():
+        fixture = require_mapping(raw_fixture, f"fixtures.{fixture_name}")
+        provenance = require_mapping(
+            fixture.get("key_provenance"),
+            f"fixtures.{fixture_name}.key_provenance",
+        )
+        for field in (
+            "source",
+            "source_url",
+            "identity_initiator",
+            "identity_responder",
+            "rotation_old",
+            "rotation_new",
+        ):
+            require_string(
+                provenance.get(field),
+                f"fixtures.{fixture_name}.key_provenance.{field}",
+            )
+        fixture_public_key(fixture, "identity", "initiator_key_hex")
+        fixture_public_key(fixture, "identity", "responder_key_hex")
+        fixture_public_key(fixture, "rotation", "old_key_hex")
+        fixture_public_key(fixture, "rotation", "new_key_hex")
     positive = require_sequence(manifest.get("vectors"), "vectors")
     negative = require_sequence(
         manifest.get("negative_vectors"), "negative_vectors"
