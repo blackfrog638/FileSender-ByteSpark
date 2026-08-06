@@ -187,6 +187,19 @@
       "owned_paths": [
         "protocol/testdata/security/v1/**"
       ]
+    },
+    {
+      "id": "XT-015",
+      "title": "Enforce ed25519 subgroup validation",
+      "readiness": "ready",
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-014"
+      ],
+      "owned_paths": [
+        "protocol/testdata/security/v1/**",
+        "docs/adr/0002-pairing-and-transport-security.md"
+      ]
     }
   ]
 }
