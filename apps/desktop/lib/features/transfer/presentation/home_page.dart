@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:xnn_transfer/features/transfer/application/transfer_controller.dart';
+import 'package:xnn_transfer/features/transfer/application/engine_lifecycle_controller.dart';
 import 'package:xnn_transfer/features/transfer/domain/engine_gateway.dart';
 
 class TransferHomePage extends StatefulWidget {
-  const TransferHomePage({
-    required this.gatewayFactory,
-    super.key,
-  });
+  const TransferHomePage({required this.gatewayFactory, super.key});
 
   final EngineGatewayFactory gatewayFactory;
 
@@ -15,12 +12,12 @@ class TransferHomePage extends StatefulWidget {
 }
 
 class _TransferHomePageState extends State<TransferHomePage> {
-  late final TransferController _controller;
+  late final EngineLifecycleController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = TransferController(widget.gatewayFactory());
+    _controller = EngineLifecycleController(widget.gatewayFactory());
     WidgetsBinding.instance.addPostFrameCallback((Duration _) {
       if (mounted) {
         _controller.initialize();
