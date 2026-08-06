@@ -11,7 +11,10 @@ class TransferController extends ChangeNotifier {
   TransferController(this._gateway);
 
   final TransferGateway _gateway;
+  final List<TransferGatewayEvent> _initializationEvents =
+      <TransferGatewayEvent>[];
   final Set<String> _pendingOfferCommands = <String>{};
+  final Set<String> _deferredOfferWithdrawals = <String>{};
   final Set<String> _pendingTransferCommands = <String>{};
 
   TransferState _state = const TransferInitializing();
@@ -36,7 +39,7 @@ class TransferController extends ChangeNotifier {
       );
       await _gateway.initialize();
       if (_state is TransferInitializing) {
-        _setState(TransferReady());
+        _completeInitialization();
       }
     } on Object catch (error) {
       _markUnavailable(error.toString());
@@ -75,6 +78,7 @@ class TransferController extends ChangeNotifier {
       return TransferCommandOutcome.gatewayError;
     } finally {
       _pendingOfferCommands.remove(offerId);
+      _applyDeferredOfferWithdrawal(offerId);
     }
   }
 
@@ -104,6 +108,7 @@ class TransferController extends ChangeNotifier {
       return TransferCommandOutcome.gatewayError;
     } finally {
       _pendingOfferCommands.remove(offerId);
+      _applyDeferredOfferWithdrawal(offerId);
     }
   }
 
@@ -192,6 +197,35 @@ class TransferController extends ChangeNotifier {
   }
 
   void _onGatewayEvent(TransferGatewayEvent event) {
+    if (_disposed) {
+      return;
+    }
+    if (_state is TransferInitializing) {
+      if (event case TransferGatewayUnavailable()) {
+        _markUnavailable(event.reason);
+      } else {
+        _initializationEvents.add(event);
+      }
+      return;
+    }
+    _applyGatewayEvent(event);
+  }
+
+  void _completeInitialization() {
+    final List<TransferGatewayEvent> bufferedEvents =
+        List<TransferGatewayEvent>.of(_initializationEvents);
+    _initializationEvents.clear();
+    _setState(TransferReady());
+
+    for (final TransferGatewayEvent event in bufferedEvents) {
+      if (_disposed || _state is TransferUnavailable) {
+        return;
+      }
+      _applyGatewayEvent(event);
+    }
+  }
+
+  void _applyGatewayEvent(TransferGatewayEvent event) {
     final TransferReady? ready = _readyState;
     switch (event) {
       case IncomingOfferReceived():
@@ -207,16 +241,14 @@ class TransferController extends ChangeNotifier {
           ),
         );
       case IncomingOfferWithdrawn():
+        if (_pendingOfferCommands.contains(event.offerId)) {
+          _deferredOfferWithdrawals.add(event.offerId);
+          return;
+        }
         if (ready == null || ready.offerById(event.offerId) == null) {
           return;
         }
-        _setState(
-          ready.copyWith(
-            incomingOffers: ready.incomingOffers.where(
-              (IncomingTransferOffer offer) => offer.id != event.offerId,
-            ),
-          ),
-        );
+        _removeOffer(ready, event.offerId);
       case TransferUpdated():
         if (ready == null) {
           return;
@@ -229,6 +261,26 @@ class TransferController extends ChangeNotifier {
       case TransferGatewayUnavailable():
         _markUnavailable(event.reason);
     }
+  }
+
+  void _applyDeferredOfferWithdrawal(String offerId) {
+    if (!_deferredOfferWithdrawals.remove(offerId) || _disposed) {
+      return;
+    }
+    final TransferReady? ready = _readyState;
+    if (ready?.offerById(offerId) != null) {
+      _removeOffer(ready!, offerId);
+    }
+  }
+
+  void _removeOffer(TransferReady ready, String offerId) {
+    _setState(
+      ready.copyWith(
+        incomingOffers: ready.incomingOffers.where(
+          (IncomingTransferOffer offer) => offer.id != offerId,
+        ),
+      ),
+    );
   }
 
   void _replaceTransfer(TransferReady ready, TransferEntry replacement) {
@@ -308,6 +360,8 @@ class TransferController extends ChangeNotifier {
     if (_disposed || _state is TransferUnavailable) {
       return;
     }
+    _initializationEvents.clear();
+    _deferredOfferWithdrawals.clear();
     _setState(TransferUnavailable(reason));
   }
 
@@ -322,6 +376,8 @@ class TransferController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _initializationEvents.clear();
+    _deferredOfferWithdrawals.clear();
     unawaited(_eventSubscription?.cancel());
     try {
       _gateway.dispose();

@@ -13,6 +13,13 @@ const IncomingTransferOffer _offer = IncomingTransferOffer(
   totalBytes: 100,
 );
 
+const IncomingTransferOffer _secondOffer = IncomingTransferOffer(
+  id: 'offer-2',
+  peerName: 'Desktop',
+  fileCount: 1,
+  totalBytes: 50,
+);
+
 TransferEntry _transfer({
   String id = 'transfer-1',
   int transferredBytes = 0,
@@ -94,6 +101,87 @@ void main() {
 
       final TransferUnavailable state = controller.state as TransferUnavailable;
       expect(state.reason, 'adapter disconnected');
+    });
+
+    test('replays synchronous initialization events in order', () async {
+      final _FakeTransferGateway gateway = _FakeTransferGateway()
+        ..initializationEvents.addAll(<TransferGatewayEvent>[
+          const IncomingOfferReceived(_offer),
+          IncomingOfferWithdrawn(_offer.id),
+          const IncomingOfferReceived(_secondOffer),
+        ]);
+      final TransferController controller = TransferController(gateway);
+      addTearDown(controller.dispose);
+
+      await controller.initialize();
+
+      final TransferReady state = _readyState(controller);
+      expect(
+        state.incomingOffers.map((IncomingTransferOffer offer) => offer.id),
+        <String>[_secondOffer.id],
+      );
+    });
+
+    test('replays events emitted while asynchronous initialization is pending',
+        () async {
+      final Completer<void> initialization = Completer<void>();
+      final _FakeTransferGateway gateway = _FakeTransferGateway()
+        ..initializationCompleter = initialization;
+      final TransferController controller = TransferController(gateway);
+      addTearDown(controller.dispose);
+
+      final Future<void> initializeFuture = controller.initialize();
+      gateway.emit(const IncomingOfferReceived(_offer));
+      expect(controller.state, isA<TransferInitializing>());
+
+      initialization.complete();
+      await initializeFuture;
+
+      expect(_readyState(controller).incomingOffers, <IncomingTransferOffer>[
+        _offer,
+      ]);
+    });
+
+    test('fails closed on unavailable while initialization is pending',
+        () async {
+      final Completer<void> initialization = Completer<void>();
+      final _FakeTransferGateway gateway = _FakeTransferGateway()
+        ..initializationCompleter = initialization;
+      final TransferController controller = TransferController(gateway);
+      addTearDown(controller.dispose);
+
+      final Future<void> initializeFuture = controller.initialize();
+      gateway.emit(const IncomingOfferReceived(_offer));
+      gateway.emit(
+        const TransferGatewayUnavailable('adapter stopped during startup'),
+      );
+      gateway.emit(const IncomingOfferReceived(_secondOffer));
+      initialization.complete();
+      await initializeFuture;
+
+      final TransferUnavailable state = controller.state as TransferUnavailable;
+      expect(state.reason, 'adapter stopped during startup');
+    });
+
+    test('does not replay buffered events after dispose', () async {
+      final Completer<void> initialization = Completer<void>();
+      final _FakeTransferGateway gateway = _FakeTransferGateway()
+        ..initializationCompleter = initialization;
+      final TransferController controller = TransferController(gateway);
+      int notifications = 0;
+      controller.addListener(() {
+        notifications += 1;
+      });
+
+      final Future<void> initializeFuture = controller.initialize();
+      gateway.emit(const IncomingOfferReceived(_offer));
+      controller.dispose();
+      initialization.complete();
+      await initializeFuture;
+
+      expect(controller.state, isA<TransferInitializing>());
+      expect(notifications, 0);
+      expect(gateway.disposed, isTrue);
     });
   });
 
@@ -200,6 +288,68 @@ void main() {
 
       expect(outcome, TransferCommandOutcome.gatewayError);
       expect(controller.state, isA<TransferUnavailable>());
+    });
+
+    test('tracks an accepted offer withdrawn while command is pending',
+        () async {
+      final Completer<TransferEntry> acceptance = Completer<TransferEntry>();
+      final _FakeTransferGateway gateway = _FakeTransferGateway()
+        ..acceptCompleter = acceptance;
+      final TransferController controller =
+          await _initializedController(gateway);
+      gateway.emit(const IncomingOfferReceived(_offer));
+
+      final Future<TransferCommandOutcome> acceptFuture =
+          controller.acceptOffer(_offer.id);
+      gateway.emit(IncomingOfferWithdrawn(_offer.id));
+
+      expect(_readyState(controller).incomingOffers, <IncomingTransferOffer>[
+        _offer,
+      ]);
+      acceptance.complete(_transfer());
+      expect(await acceptFuture, TransferCommandOutcome.applied);
+
+      final TransferReady state = _readyState(controller);
+      expect(state.incomingOffers, isEmpty);
+      expect(state.transfers.single.id, 'transfer-1');
+    });
+
+    test('removes a rejected offer withdrawn while command is pending',
+        () async {
+      final Completer<void> rejection = Completer<void>();
+      final _FakeTransferGateway gateway = _FakeTransferGateway()
+        ..rejectCompleter = rejection;
+      final TransferController controller =
+          await _initializedController(gateway);
+      gateway.emit(const IncomingOfferReceived(_offer));
+
+      final Future<TransferCommandOutcome> rejectFuture =
+          controller.rejectOffer(_offer.id);
+      gateway.emit(IncomingOfferWithdrawn(_offer.id));
+
+      expect(_readyState(controller).incomingOffers, <IncomingTransferOffer>[
+        _offer,
+      ]);
+      rejection.complete();
+      expect(await rejectFuture, TransferCommandOutcome.applied);
+      expect(_readyState(controller).incomingOffers, isEmpty);
+    });
+
+    test('applies deferred withdrawal after a command failure', () async {
+      final Completer<void> rejection = Completer<void>();
+      final _FakeTransferGateway gateway = _FakeTransferGateway()
+        ..rejectCompleter = rejection;
+      final TransferController controller =
+          await _initializedController(gateway);
+      gateway.emit(const IncomingOfferReceived(_offer));
+
+      final Future<TransferCommandOutcome> rejectFuture =
+          controller.rejectOffer(_offer.id);
+      gateway.emit(IncomingOfferWithdrawn(_offer.id));
+      rejection.completeError(StateError('offer already withdrawn'));
+
+      expect(await rejectFuture, TransferCommandOutcome.gatewayError);
+      expect(_readyState(controller).incomingOffers, isEmpty);
     });
   });
 
@@ -465,6 +615,11 @@ final class _FakeTransferGateway implements TransferGateway {
   Object? initializeError;
   Object? commandError;
   TransferEntry? acceptedTransfer;
+  Completer<void>? initializationCompleter;
+  Completer<TransferEntry>? acceptCompleter;
+  Completer<void>? rejectCompleter;
+  final List<TransferGatewayEvent> initializationEvents =
+      <TransferGatewayEvent>[];
   int initializeCalls = 0;
   bool disposed = false;
 
@@ -478,6 +633,13 @@ final class _FakeTransferGateway implements TransferGateway {
   @override
   Future<void> initialize() async {
     initializeCalls += 1;
+    for (final TransferGatewayEvent event in initializationEvents) {
+      emit(event);
+    }
+    final Completer<void>? completer = initializationCompleter;
+    if (completer != null) {
+      await completer.future;
+    }
     final Object? error = initializeError;
     if (error != null) {
       throw error;
@@ -488,6 +650,10 @@ final class _FakeTransferGateway implements TransferGateway {
   Future<TransferEntry> acceptOffer(String offerId) async {
     acceptedOffers.add(offerId);
     _throwCommandError();
+    final Completer<TransferEntry>? completer = acceptCompleter;
+    if (completer != null) {
+      return completer.future;
+    }
     return acceptedTransfer ??
         (throw StateError('No accepted transfer configured'));
   }
@@ -496,6 +662,10 @@ final class _FakeTransferGateway implements TransferGateway {
   Future<void> rejectOffer(String offerId) async {
     rejectedOffers.add(offerId);
     _throwCommandError();
+    final Completer<void>? completer = rejectCompleter;
+    if (completer != null) {
+      await completer.future;
+    }
   }
 
   @override

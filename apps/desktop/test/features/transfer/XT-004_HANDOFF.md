@@ -16,6 +16,8 @@
   initializing, unavailable, ready, incoming offers, and queued, running,
   paused, cancelled, failed, and completed transfers. Controller commands
   implement accept, reject, pause, resume, and cancel transitions.
+  Initialization events are buffered and replayed in order; offer withdrawal
+  is deterministic while accept or reject is in flight.
 
 ## Contracts
 
@@ -33,12 +35,12 @@
 
 - Command: `fvm flutter test
   test/features/transfer/application/transfer_controller_test.dart`
-- Result: 16 tests passed after correcting one test-only constant-expression
-  compilation error.
+- Result: 23 tests passed, including initialization-event buffering,
+  unavailable/dispose behavior, and accept/reject withdrawal races.
 - Command: `fvm flutter analyze`
 - Result: No issues found.
 - Command: `fvm flutter test`
-- Result: 17 tests passed, including the existing app smoke test.
+- Result: 24 tests passed, including the existing app smoke test.
 - Command: `make verify`
 - Result: All repository verification gates passed; native CTest 1/1 and
   Flutter tests 17/17.
