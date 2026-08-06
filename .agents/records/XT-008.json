@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "XT-008",
+  "task_type": "integration",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-008.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The fix preserves the accepted governance contract and only corrects remote validation behavior."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "No product or harness architecture boundary changes."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "This is a CI regression fix for the completed governance milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

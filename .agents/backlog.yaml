@@ -96,6 +96,19 @@
         "docs/testing.md",
         "docs/adr/**"
       ]
+    },
+    {
+      "id": "XT-008",
+      "title": "Make governance validation remote-safe",
+      "readiness": "ready",
+      "workstream": "integration",
+      "depends_on": [
+        "XT-007"
+      ],
+      "owned_paths": [
+        ".agents/**",
+        "tool/harness/**"
+      ]
     }
   ]
 }
