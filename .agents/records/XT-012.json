@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "id": "XT-012",
+  "task_type": "integration",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-012.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The fix changes internal harness validation, not a product or public cross-workstream contract."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The durable record and handoff architecture remains unchanged."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "This is a governance regression fix, not a delivery milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

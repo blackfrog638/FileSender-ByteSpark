@@ -149,6 +149,19 @@
         "protocol/testdata/v1/manifest/**",
         "protocol/spec/v1.md"
       ]
+    },
+    {
+      "id": "XT-012",
+      "title": "Allow task handoff ownership",
+      "readiness": "ready",
+      "workstream": "integration",
+      "depends_on": [
+        "XT-008"
+      ],
+      "owned_paths": [
+        ".agents/**",
+        "tool/harness/**"
+      ]
     }
   ]
 }
