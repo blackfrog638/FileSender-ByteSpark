@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-008",
   "task_type": "integration",
-  "state": "claimed",
+  "state": "in_progress",
   "owner": "governance-ci-agent",
   "base_sha": "c6b63dc7a297b86392178b22b03f59959f80ada3",
   "head_sha": "",
