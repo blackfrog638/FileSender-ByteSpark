@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-016",
   "task_type": "implementation",
-  "state": "claimed",
+  "state": "in_progress",
   "owner": "windows-ci-agent",
   "base_sha": "87566460e044a012d065fb2699bd2a3ee1408475",
   "head_sha": "",
