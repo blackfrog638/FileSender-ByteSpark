@@ -22,6 +22,10 @@ extern "C" {
 #define XNN_TRANSFER_EVENT_PAYLOAD_MAX_SIZE 256u
 #define XNN_TRANSFER_EVENT_QUEUE_CAPACITY 64u
 #define XNN_TRANSFER_ENGINE_STATE_EVENT_PAYLOAD_VERSION 1u
+#define XNN_TRANSFER_DISCOVERY_PEER_EVENT_PAYLOAD_VERSION 1u
+#define XNN_TRANSFER_DISCOVERY_DISPLAY_LABEL_MAX_SIZE 96u
+#define XNN_TRANSFER_DISCOVERY_ADDRESS_MAX_SIZE 16u
+#define XNN_TRANSFER_DISCOVERY_SNAPSHOT_PAGE_CAPACITY 8u
 
 typedef struct xnn_transfer_engine xnn_transfer_engine;
 
@@ -31,7 +35,8 @@ typedef enum xnn_transfer_status {
   XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI = 2,
   XNN_TRANSFER_STATUS_INVALID_STATE = 3,
   XNN_TRANSFER_STATUS_INTERNAL_ERROR = 4,
-  XNN_TRANSFER_STATUS_EVENT_QUEUE_EMPTY = 5
+  XNN_TRANSFER_STATUS_EVENT_QUEUE_EMPTY = 5,
+  XNN_TRANSFER_STATUS_STALE_SNAPSHOT = 6
 } xnn_transfer_status;
 
 typedef enum xnn_transfer_engine_state {
@@ -42,7 +47,8 @@ typedef enum xnn_transfer_engine_state {
 } xnn_transfer_engine_state;
 
 typedef enum xnn_transfer_event_type {
-  XNN_TRANSFER_EVENT_TYPE_ENGINE_STATE_CHANGED = 1
+  XNN_TRANSFER_EVENT_TYPE_ENGINE_STATE_CHANGED = 1,
+  XNN_TRANSFER_EVENT_TYPE_DISCOVERY_PEER_CHANGED = 2
 } xnn_transfer_event_type;
 
 typedef enum xnn_transfer_event_flags {
@@ -109,6 +115,80 @@ typedef struct xnn_transfer_engine_state_event_payload {
   uint32_t reserved;
 } xnn_transfer_engine_state_event_payload;
 
+typedef enum xnn_transfer_discovery_address_family {
+  XNN_TRANSFER_DISCOVERY_ADDRESS_FAMILY_IPV4 = 4,
+  XNN_TRANSFER_DISCOVERY_ADDRESS_FAMILY_IPV6 = 6
+} xnn_transfer_discovery_address_family;
+
+typedef enum xnn_transfer_discovery_peer_change {
+  XNN_TRANSFER_DISCOVERY_PEER_APPEARED = 1,
+  XNN_TRANSFER_DISCOVERY_PEER_UPDATED = 2,
+  XNN_TRANSFER_DISCOVERY_PEER_EXPIRED = 3
+} xnn_transfer_discovery_peer_change;
+
+typedef enum xnn_transfer_discovery_expiry_reason {
+  XNN_TRANSFER_DISCOVERY_EXPIRY_NONE = 0,
+  XNN_TRANSFER_DISCOVERY_EXPIRY_TTL = 1,
+  XNN_TRANSFER_DISCOVERY_EXPIRY_WITHDRAWN = 2,
+  XNN_TRANSFER_DISCOVERY_EXPIRY_INTERFACE_REMOVED = 3,
+  XNN_TRANSFER_DISCOVERY_EXPIRY_WAKE = 4,
+  XNN_TRANSFER_DISCOVERY_EXPIRY_DISCOVERY_STOPPED = 5
+} xnn_transfer_discovery_expiry_reason;
+
+typedef struct xnn_transfer_discovery_config {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint16_t service_port;
+  uint16_t reserved;
+  uint32_t display_label_size;
+  uint8_t display_label[XNN_TRANSFER_DISCOVERY_DISPLAY_LABEL_MAX_SIZE];
+} xnn_transfer_discovery_config;
+
+/*
+ * peer_id is an opaque, process-local identifier for one observed candidate.
+ * It is not a device identity or trust decision. Address and label bytes are
+ * copied from untrusted discovery state and are bounded by this struct.
+ */
+typedef struct xnn_transfer_discovery_peer {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t reserved;
+  uint64_t peer_id;
+  uint16_t service_port;
+  uint8_t address_family;
+  uint8_t address_size;
+  uint32_t display_label_size;
+  uint8_t address[XNN_TRANSFER_DISCOVERY_ADDRESS_MAX_SIZE];
+  uint8_t display_label[XNN_TRANSFER_DISCOVERY_DISPLAY_LABEL_MAX_SIZE];
+} xnn_transfer_discovery_peer;
+
+typedef struct xnn_transfer_discovery_peer_event_payload {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t change;
+  uint64_t snapshot_revision;
+  uint32_t expiry_reason;
+  uint32_t reserved;
+  xnn_transfer_discovery_peer peer;
+} xnn_transfer_discovery_peer_event_payload;
+
+/*
+ * Pass expected_revision=0 to begin a snapshot. Continue with the returned
+ * revision and offset+count. A concurrent peer change returns STALE_SNAPSHOT,
+ * requiring the caller to restart at revision 0 and offset 0.
+ */
+typedef struct xnn_transfer_discovery_snapshot_page {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t reserved;
+  uint64_t snapshot_revision;
+  uint32_t offset;
+  uint32_t count;
+  uint32_t total_count;
+  uint32_t reserved2;
+  xnn_transfer_discovery_peer peers[XNN_TRANSFER_DISCOVERY_SNAPSHOT_PAGE_CAPACITY];
+} xnn_transfer_discovery_snapshot_page;
+
 XNN_TRANSFER_API uint32_t xnn_transfer_abi_version(void);
 
 XNN_TRANSFER_API xnn_transfer_status xnn_transfer_engine_create(
@@ -145,6 +225,16 @@ XNN_TRANSFER_API xnn_transfer_status xnn_transfer_engine_set_event_callback(
 
 XNN_TRANSFER_API xnn_transfer_status xnn_transfer_engine_poll_event(
     xnn_transfer_engine* engine, xnn_transfer_event* out_event);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_discovery_start(
+    xnn_transfer_engine* engine, const xnn_transfer_discovery_config* config);
+
+XNN_TRANSFER_API xnn_transfer_status
+xnn_transfer_discovery_stop(xnn_transfer_engine* engine);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_discovery_get_snapshot(
+    xnn_transfer_engine* engine, uint64_t expected_revision, uint32_t offset,
+    xnn_transfer_discovery_snapshot_page* out_page);
 
 #ifdef __cplusplus
 }  // extern "C"

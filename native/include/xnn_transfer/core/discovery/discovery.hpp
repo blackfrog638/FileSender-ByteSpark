@@ -352,6 +352,31 @@ class DiscoveryService final {
   std::unique_ptr<Impl> impl_;
 };
 
+/*
+ * Production composition for one discovery service and its private Asio
+ * executor. Infrastructure types remain hidden behind this PImpl boundary.
+ */
+class SystemDiscoveryRuntime final {
+ public:
+  SystemDiscoveryRuntime(DiscoveryConfig config,
+                         DiscoveryService::EventHandler event_handler);
+  ~SystemDiscoveryRuntime();
+
+  SystemDiscoveryRuntime(const SystemDiscoveryRuntime&) = delete;
+  SystemDiscoveryRuntime& operator=(const SystemDiscoveryRuntime&) = delete;
+  SystemDiscoveryRuntime(SystemDiscoveryRuntime&&) = delete;
+  SystemDiscoveryRuntime& operator=(SystemDiscoveryRuntime&&) = delete;
+
+  [[nodiscard]] bool Start();
+  void Stop();
+  [[nodiscard]] bool Wake();
+  [[nodiscard]] bool running() const;
+
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
 }  // namespace xnn_transfer::core::discovery
 
 #endif  // XNN_TRANSFER_CORE_DISCOVERY_DISCOVERY_HPP_

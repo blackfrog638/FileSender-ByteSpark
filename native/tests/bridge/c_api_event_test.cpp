@@ -6,14 +6,28 @@
 #include <cstring>
 #include <iostream>
 #include <mutex>
+#include <optional>
+#include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
+#include "../../src/bridge/discovery_bridge.hpp"
+#include "../../src/bridge/event_channel.hpp"
 #include "xnn_transfer/c_api.h"
+#include "xnn_transfer/core/discovery/discovery.hpp"
 
 namespace {
 
 using namespace std::chrono_literals;
+
+static_assert(sizeof(std::size_t) == 8);
+static_assert(sizeof(xnn_transfer_discovery_config) == 120);
+static_assert(sizeof(xnn_transfer_discovery_peer) == 144);
+static_assert(sizeof(xnn_transfer_discovery_peer_event_payload) == 176);
+static_assert(sizeof(xnn_transfer_discovery_snapshot_page) == 1'192);
+static_assert(sizeof(xnn_transfer_discovery_peer_event_payload) <=
+              XNN_TRANSFER_EVENT_PAYLOAD_MAX_SIZE);
 
 int failures = 0;
 
@@ -63,6 +77,41 @@ bool ReadStateEvent(const xnn_transfer_event& event,
 
   *out_state = static_cast<xnn_transfer_engine_state>(payload.state);
   return true;
+}
+
+xnn_transfer_discovery_config DiscoveryConfig() {
+  return xnn_transfer_discovery_config{
+      .struct_size = sizeof(xnn_transfer_discovery_config),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+      .service_port = 45'879,
+  };
+}
+
+xnn_transfer_discovery_snapshot_page EmptySnapshotPage() {
+  return xnn_transfer_discovery_snapshot_page{
+      .struct_size = sizeof(xnn_transfer_discovery_snapshot_page),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+  };
+}
+
+xnn_transfer::core::discovery::CandidateEvent MakeCandidateEvent(
+    const std::uint8_t suffix, const xnn_transfer::core::discovery::EventKind kind) {
+  using xnn_transfer::core::discovery::AddressFamily;
+  using xnn_transfer::core::discovery::Candidate;
+  using xnn_transfer::core::discovery::IpAddress;
+
+  Candidate candidate;
+  candidate.key.observer.generation = 11;
+  candidate.key.observer.family = AddressFamily::kIpv4;
+  candidate.key.source = IpAddress::V4({192, 0, 2, suffix});
+  candidate.key.token.fill(suffix);
+  candidate.service_port = static_cast<std::uint16_t>(50'000U + suffix);
+  candidate.display_label = "peer-" + std::to_string(suffix);
+  candidate.highest_sequence = suffix;
+  return xnn_transfer::core::discovery::CandidateEvent{
+      .kind = kind,
+      .candidate = std::move(candidate),
+  };
 }
 
 struct DrainingCallbackContext {
@@ -476,6 +525,9 @@ struct ReentrantUnregisterContext {
   xnn_transfer_status poll_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   xnn_transfer_status start_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   xnn_transfer_status stop_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status discovery_start_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status discovery_stop_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status snapshot_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   xnn_transfer_status unregister_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   int calls = 0;
 };
@@ -487,6 +539,13 @@ void PollAndUnregister(void* const user_data) {
   context->poll_status = xnn_transfer_engine_poll_event(context->engine, &event);
   context->start_status = xnn_transfer_engine_start(context->engine);
   context->stop_status = xnn_transfer_engine_stop(context->engine);
+  xnn_transfer_discovery_config config = DiscoveryConfig();
+  context->discovery_start_status =
+      xnn_transfer_discovery_start(context->engine, &config);
+  context->discovery_stop_status = xnn_transfer_discovery_stop(context->engine);
+  xnn_transfer_discovery_snapshot_page page = EmptySnapshotPage();
+  context->snapshot_status =
+      xnn_transfer_discovery_get_snapshot(context->engine, 0, 0, &page);
   context->unregister_status =
       xnn_transfer_engine_set_event_callback(context->engine, nullptr);
 }
@@ -496,6 +555,8 @@ void TestDocumentedCallbackReentrancy() {
   if (engine == nullptr) {
     return;
   }
+  Expect(xnn_transfer_engine_start(engine) == XNN_TRANSFER_STATUS_OK,
+         "engine starts before reentrant operation checks");
 
   ReentrantUnregisterContext context{.engine = engine};
   xnn_transfer_event_callback_config callback_config{
@@ -513,14 +574,248 @@ void TestDocumentedCallbackReentrancy() {
          "callback may not reenter start");
   Expect(context.stop_status == XNN_TRANSFER_STATUS_INVALID_STATE,
          "callback may not reenter stop");
+  Expect(context.discovery_start_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter discovery start");
+  Expect(context.discovery_stop_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter discovery stop");
+  Expect(context.snapshot_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter discovery snapshot");
   Expect(context.unregister_status == XNN_TRANSFER_STATUS_OK,
          "reentrant unregister does not deadlock");
 
   Expect(xnn_transfer_engine_start(engine) == XNN_TRANSFER_STATUS_OK,
-         "start succeeds after unregister");
+         "idempotent start succeeds after unregister");
   Expect(context.calls == 1, "unregistered callback is not invoked again");
   Expect(xnn_transfer_engine_stop(engine) == XNN_TRANSFER_STATUS_OK,
          "stop succeeds without a callback");
+  xnn_transfer_engine_destroy(engine);
+}
+
+void TestDiscoveryStructsAndLifecycleStates() {
+  xnn_transfer_engine* const engine = CreateEngine();
+  if (engine == nullptr) {
+    return;
+  }
+
+  xnn_transfer_discovery_config config = DiscoveryConfig();
+  Expect(xnn_transfer_discovery_start(engine, &config) ==
+             XNN_TRANSFER_STATUS_INVALID_STATE,
+         "discovery cannot start before the engine");
+
+  config.struct_size = offsetof(xnn_transfer_discovery_config, display_label);
+  Expect(xnn_transfer_discovery_start(engine, &config) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "discovery rejects a short config");
+
+  config = DiscoveryConfig();
+  config.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_discovery_start(engine, &config) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "discovery rejects an unsupported config ABI");
+
+  config = DiscoveryConfig();
+  config.display_label_size = XNN_TRANSFER_DISCOVERY_DISPLAY_LABEL_MAX_SIZE + 1;
+  Expect(xnn_transfer_discovery_start(engine, &config) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "discovery rejects an oversized display label");
+  config = DiscoveryConfig();
+  config.display_label_size = 1;
+  config.display_label[0] = 0xff;
+  Expect(xnn_transfer_discovery_start(engine, &config) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "discovery rejects a malformed UTF-8 display label");
+  config = DiscoveryConfig();
+  config.reserved = 1;
+  Expect(xnn_transfer_discovery_start(engine, &config) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "discovery rejects nonzero reserved input");
+
+  Expect(xnn_transfer_engine_start(engine) == XNN_TRANSFER_STATUS_OK,
+         "engine starts before discovery");
+  config = DiscoveryConfig();
+  Expect(xnn_transfer_discovery_start(engine, &config) == XNN_TRANSFER_STATUS_OK,
+         "discovery starts with a valid copied config");
+  Expect(xnn_transfer_discovery_start(engine, &config) ==
+             XNN_TRANSFER_STATUS_INVALID_STATE,
+         "discovery rejects a duplicate start");
+
+  xnn_transfer_discovery_snapshot_page page = EmptySnapshotPage();
+  page.struct_size = offsetof(xnn_transfer_discovery_snapshot_page, peers);
+  Expect(xnn_transfer_discovery_get_snapshot(engine, 0, 0, &page) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "snapshot rejects a short output page");
+
+  page = EmptySnapshotPage();
+  page.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_discovery_get_snapshot(engine, 0, 0, &page) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "snapshot rejects an unsupported ABI");
+
+  page = EmptySnapshotPage();
+  Expect(xnn_transfer_discovery_get_snapshot(engine, 0, 0, &page) ==
+             XNN_TRANSFER_STATUS_OK,
+         "snapshot returns an empty bounded page");
+  Expect(page.snapshot_revision != 0, "snapshot revision is nonzero");
+  Expect(page.count == 0 && page.total_count == 0,
+         "initial discovery snapshot is empty");
+
+  Expect(xnn_transfer_discovery_stop(engine) == XNN_TRANSFER_STATUS_OK,
+         "discovery stop succeeds");
+  Expect(xnn_transfer_discovery_stop(engine) == XNN_TRANSFER_STATUS_OK,
+         "discovery stop is idempotent");
+  Expect(xnn_transfer_engine_stop(engine) == XNN_TRANSFER_STATUS_OK,
+         "engine stops after discovery");
+  config = DiscoveryConfig();
+  Expect(xnn_transfer_discovery_start(engine, &config) ==
+             XNN_TRANSFER_STATUS_INVALID_STATE,
+         "discovery cannot restart after engine shutdown");
+  page = EmptySnapshotPage();
+  Expect(xnn_transfer_discovery_get_snapshot(engine, 0, 0, &page) ==
+             XNN_TRANSFER_STATUS_OK,
+         "stopped engine retains bounded empty snapshot recovery");
+  Expect(page.count == 0 && page.total_count == 0,
+         "stopped discovery snapshot is empty");
+  xnn_transfer_engine_destroy(engine);
+}
+
+void TestDiscoveryRegistryPaginationAndStaleRevision() {
+  using xnn_transfer::bridge::DiscoveryPeerRegistry;
+  using xnn_transfer::core::discovery::EventKind;
+
+  DiscoveryPeerRegistry registry;
+  std::vector<xnn_transfer_discovery_peer_event_payload> events;
+  for (std::uint8_t suffix = 1;
+       suffix <= XNN_TRANSFER_DISCOVERY_SNAPSHOT_PAGE_CAPACITY + 2; ++suffix) {
+    std::optional<xnn_transfer_discovery_peer_event_payload> event =
+        registry.Apply(MakeCandidateEvent(suffix, EventKind::kAppeared));
+    Expect(event.has_value(), "appeared candidate produces an ABI event");
+    if (event.has_value()) {
+      events.push_back(*event);
+    }
+  }
+
+  Expect(events.size() == XNN_TRANSFER_DISCOVERY_SNAPSHOT_PAGE_CAPACITY + 2,
+         "registry retains all bounded candidates");
+  if (!events.empty()) {
+    Expect(events.front().peer.peer_id != 0, "peer IDs are opaque and nonzero");
+    Expect(events.front().peer.address_size == 4,
+           "IPv4 peers copy exactly four address bytes");
+    Expect(events.front().peer.display_label_size == 6,
+           "peer labels carry an explicit bounded length");
+  }
+
+  xnn_transfer_discovery_snapshot_page first = EmptySnapshotPage();
+  Expect(registry.Snapshot(0, 0, &first) == XNN_TRANSFER_STATUS_OK,
+         "first snapshot page succeeds");
+  Expect(first.count == XNN_TRANSFER_DISCOVERY_SNAPSHOT_PAGE_CAPACITY,
+         "first snapshot page is capacity bounded");
+  Expect(first.total_count == events.size(),
+         "snapshot reports total peer count separately from page count");
+
+  const std::uint64_t first_revision = first.snapshot_revision;
+  auto updated = MakeCandidateEvent(1, EventKind::kUpdated);
+  updated.candidate.display_label = "updated";
+  Expect(registry.Apply(updated).has_value(), "updated candidate produces an event");
+
+  xnn_transfer_discovery_snapshot_page stale = EmptySnapshotPage();
+  Expect(
+      registry.Snapshot(first_revision, XNN_TRANSFER_DISCOVERY_SNAPSHOT_PAGE_CAPACITY,
+                        &stale) == XNN_TRANSFER_STATUS_STALE_SNAPSHOT,
+      "pagination rejects a revision changed between pages");
+
+  xnn_transfer_discovery_snapshot_page refreshed_first = EmptySnapshotPage();
+  Expect(registry.Snapshot(0, 0, &refreshed_first) == XNN_TRANSFER_STATUS_OK,
+         "snapshot recovery restarts at offset zero");
+  xnn_transfer_discovery_snapshot_page refreshed = EmptySnapshotPage();
+  Expect(registry.Snapshot(refreshed_first.snapshot_revision,
+                           XNN_TRANSFER_DISCOVERY_SNAPSHOT_PAGE_CAPACITY,
+                           &refreshed) == XNN_TRANSFER_STATUS_OK,
+         "snapshot recovery continues with the current revision");
+  Expect(refreshed.count == 2, "final snapshot page contains the remaining peers");
+
+  std::optional<xnn_transfer_discovery_peer_event_payload> expired =
+      registry.Apply(MakeCandidateEvent(1, EventKind::kExpired));
+  Expect(expired.has_value(), "expiry produces a final copied peer payload");
+  if (expired.has_value()) {
+    Expect(expired->change == XNN_TRANSFER_DISCOVERY_PEER_EXPIRED,
+           "expiry event has the expired change kind");
+    Expect(expired->peer.peer_id == events.front().peer.peer_id,
+           "expiry retains the appeared peer ID");
+  }
+}
+
+void TestDiscoveryQueueOverflowIsObservable() {
+  using xnn_transfer::bridge::DiscoveryPeerRegistry;
+  using xnn_transfer::bridge::EventChannel;
+  using xnn_transfer::core::discovery::EventKind;
+
+  EventChannel channel;
+  DiscoveryPeerRegistry registry;
+  for (std::uint8_t suffix = 1; suffix <= XNN_TRANSFER_EVENT_QUEUE_CAPACITY + 1;
+       ++suffix) {
+    std::optional<xnn_transfer_discovery_peer_event_payload> payload =
+        registry.Apply(MakeCandidateEvent(suffix, EventKind::kAppeared));
+    Expect(payload.has_value(), "overflow fixture produces a peer payload");
+    if (payload.has_value()) {
+      channel.EnqueueDiscovery(*payload);
+    }
+  }
+
+  std::size_t count = 0;
+  bool observed_drop = false;
+  std::uint64_t first_sequence = 0;
+  for (;;) {
+    xnn_transfer_event event = EmptyEvent();
+    const xnn_transfer_status status = channel.Poll(&event);
+    if (status == XNN_TRANSFER_STATUS_EVENT_QUEUE_EMPTY) {
+      break;
+    }
+    Expect(status == XNN_TRANSFER_STATUS_OK, "overflow queue remains pollable");
+    if (count == 0) {
+      first_sequence = event.sequence;
+    }
+    observed_drop = observed_drop ||
+                    (event.flags & XNN_TRANSFER_EVENT_FLAG_EVENTS_DROPPED_BEFORE) != 0;
+    ++count;
+  }
+
+  Expect(count == XNN_TRANSFER_EVENT_QUEUE_CAPACITY,
+         "event queue retains exactly its fixed capacity");
+  Expect(first_sequence == 2, "event queue drops the oldest event");
+  Expect(observed_drop, "event queue exposes overflow to the caller");
+}
+
+void TestDiscoveryShutdownRaceIsBounded() {
+  xnn_transfer_engine* const engine = CreateEngine();
+  if (engine == nullptr) {
+    return;
+  }
+  Expect(xnn_transfer_engine_start(engine) == XNN_TRANSFER_STATUS_OK,
+         "engine starts for discovery shutdown race");
+  xnn_transfer_discovery_config config = DiscoveryConfig();
+  Expect(xnn_transfer_discovery_start(engine, &config) == XNN_TRANSFER_STATUS_OK,
+         "discovery starts for shutdown race");
+
+  std::atomic<bool> stop{false};
+  std::atomic<int> unexpected{0};
+  std::thread snapshot_thread([engine, &stop, &unexpected] {
+    while (!stop.load()) {
+      xnn_transfer_discovery_snapshot_page page = EmptySnapshotPage();
+      const xnn_transfer_status status =
+          xnn_transfer_discovery_get_snapshot(engine, 0, 0, &page);
+      if (status != XNN_TRANSFER_STATUS_OK &&
+          status != XNN_TRANSFER_STATUS_INVALID_STATE) {
+        unexpected.fetch_add(1);
+      }
+    }
+  });
+
+  Expect(xnn_transfer_engine_stop(engine) == XNN_TRANSFER_STATUS_OK,
+         "engine stop is a discovery callback barrier");
+  stop.store(true);
+  snapshot_thread.join();
+  Expect(unexpected.load() == 0,
+         "snapshot race has only documented success or stopped outcomes");
   xnn_transfer_engine_destroy(engine);
 }
 
@@ -533,6 +828,10 @@ int main() {
   TestEnqueueAfterDrainBeforeCallbackReturnWakesAgain();
   TestStopDispatchesPendingWakeupBeforeBarrier();
   TestDocumentedCallbackReentrancy();
+  TestDiscoveryStructsAndLifecycleStates();
+  TestDiscoveryRegistryPaginationAndStaleRevision();
+  TestDiscoveryQueueOverflowIsObservable();
+  TestDiscoveryShutdownRaceIsBounded();
 
   if (failures != 0) {
     std::cerr << failures << " bridge event test(s) failed\n";

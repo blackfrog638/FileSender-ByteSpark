@@ -2,41 +2,60 @@
   "schema_version": 2,
   "id": "XT-021",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "p1-discovery-abi-agent",
+  "base_sha": "ed1ba4479f97fee9fa5c4006a5ab24180c3d1a81",
+  "head_sha": "e93f3f181eabdc0819f5218d10fab2f1a2970a1b",
   "handoff": ".agents/handoffs/XT-021.md",
   "risks": {
     "functionality": {
       "level": "high",
       "rationale": "Incorrect discovery commands or peer events would desynchronize native and Flutter peer state.",
-      "gates": ["make native-test", "make flutter-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make flutter-test",
+        "make verify"
+      ]
     },
     "security": {
       "level": "high",
       "rationale": "Untrusted peer names and endpoints must cross the ABI as bounded caller-owned copies.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "performance": {
       "level": "medium",
       "rationale": "Peer event bursts and snapshot recovery must remain bounded without blocking the UI thread.",
-      "gates": ["make native-test", "make flutter-test"]
+      "gates": [
+        "make native-test",
+        "make flutter-test"
+      ]
     },
     "compatibility": {
       "level": "high",
       "rationale": "The additive discovery ABI must preserve existing symbols, struct negotiation, and Dart decoding.",
-      "gates": ["make native-test", "make flutter-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make flutter-test",
+        "make verify"
+      ]
     },
     "concurrency": {
       "level": "high",
       "rationale": "Event overflow, callback wakeups, snapshots, and shutdown can race across the FFI boundary.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "platform": {
       "level": "high",
       "rationale": "The dynamic library and Dart adapter must behave consistently on all three desktop platforms.",
-      "gates": ["make verify"]
+      "gates": [
+        "make verify"
+      ]
     },
     "persistence": {
       "level": "none",
@@ -47,7 +66,7 @@
   "impacts": {
     "adr": {
       "required": true,
-      "status": "proposed",
+      "status": "accepted",
       "references": [
         "docs/adr/0008-p1-operation-c-abi.md"
       ],
@@ -65,19 +84,32 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "ed1ba4479f97fee9fa5c4006a5ab24180c3d1a81",
+    "source_head": "a3f9683698d580e755c75e3a68b5be8115d05629",
+    "source_commits": [
+      "7c9f0929331ee36769a8ab819a87e9700ca45e3f",
+      "c76c1d572d5de5903f9a547da1029f678f4637f9",
+      "d14cfcfce694622602b6910d9ece154c1207b9b6",
+      "90ce20ec220c1f9c70b50c81af33753973b1f97e",
+      "e93f3f181eabdc0819f5218d10fab2f1a2970a1b",
+      "a3f9683698d580e755c75e3a68b5be8115d05629"
+    ],
+    "source_commits_sha256": "907cbd0e2b6602b3b7edf7c4fd0514ed1cda6a364d91104118c771865fdcd8f1",
+    "source_patch_id": "c8a4c9bbe8460ee1b01d4b5b5d033d95ab0e0f54",
+    "result": "",
+    "result_patch_id": "c8a4c9bbe8460ee1b01d4b5b5d033d95ab0e0f54",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make native-test",
       "make flutter-test",
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:e93f3f181eabdc0819f5218d10fab2f1a2970a1b:2026-08-07T18:27:38Z"
   },
   "acceptance": {
     "accepted_by": "",
