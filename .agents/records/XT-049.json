@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-049",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "protocol-boundary-agent",
   "base_sha": "dd22c443e21cfa1c1d9a2ec4fd2d108a2c732169",
   "head_sha": "aea6c790eac3fd824fead5bedcad4e373a147cfa",
@@ -106,9 +106,9 @@
     ],
     "source_commits_sha256": "cc1737d54f18d1e782158d1908a803bba5aa22f94213c1d68321e694ded1ce07",
     "source_patch_id": "84ca55f436541f9ce4c3de9a76fdf183440207e4",
-    "result": "",
+    "result": "d299748bf03a49fb19f6696bc9d22c9dd9aa42bb",
     "result_patch_id": "84ca55f436541f9ce4c3de9a76fdf183440207e4",
-    "verified_sha": ""
+    "verified_sha": "d299748bf03a49fb19f6696bc9d22c9dd9aa42bb"
   },
   "verification": {
     "status": "passed",
@@ -117,11 +117,11 @@
       "make native-test",
       "make verify"
     ],
-    "reference": "local:aea6c790eac3fd824fead5bedcad4e373a147cfa:2026-08-07T17:58:55Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31204865903"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-08T02:15:10+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
