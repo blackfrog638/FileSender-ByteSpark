@@ -149,8 +149,11 @@ non-identity low-order keys, a mixed-order key, and output mismatch.
 `wordlist.txt` is the English word list from BIP 39, used only as a fixed
 zero-based mapping from an 11-bit index to an ASCII display word. XnnTransfer
 does not use BIP39 mnemonic checksums, seed derivation, or wallet semantics.
-The exact file SHA-256 is pinned in `vectors.json` and checked before any vector
-is evaluated.
+The SHA-256 of the canonical LF-delimited ASCII bytes is pinned in
+`vectors.json` and checked before any vector is evaluated. A Git checkout that
+converts every LF to CRLF is normalized back to LF before hashing and parsing;
+a bare carriage return is invalid. This keeps the logical word-list fixture
+byte-exact without making its digest depend on the host checkout policy.
 
 Source:
 `https://github.com/bitcoin/bips/blob/master/bip-0039/english.txt`

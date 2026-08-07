@@ -37,3 +37,9 @@ add_test(
     "${Python3_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/protocol/testdata/security/v1/validate_vectors.py"
 )
+add_test(
+  NAME xnn_transfer_security_wordlist_line_endings
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${PROJECT_SOURCE_DIR}/protocol/testdata/security/v1/test_wordlist_line_endings.py"
+)

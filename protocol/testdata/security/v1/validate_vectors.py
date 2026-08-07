@@ -1461,8 +1461,15 @@ def validate_case_metadata(case: Mapping[str, Any], names: set) -> str:
     return name
 
 
+def canonical_wordlist_bytes(encoded: bytes) -> bytes:
+    canonical = encoded.replace(b"\r\n", b"\n")
+    if b"\r" in canonical:
+        fail("WORDLIST_MISMATCH", "word list contains a bare carriage return")
+    return canonical
+
+
 def load_wordlist(path: Path, expected_sha256: str) -> List[str]:
-    encoded = path.read_bytes()
+    encoded = canonical_wordlist_bytes(path.read_bytes())
     if hashlib.sha256(encoded).hexdigest() != expected_sha256:
         fail("WORDLIST_MISMATCH", "word-list SHA-256 does not match the manifest")
     try:
