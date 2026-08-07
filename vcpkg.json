@@ -9,6 +9,11 @@
       "default-features": false
     },
     {
+      "name": "libsecret",
+      "default-features": false,
+      "platform": "linux"
+    },
+    {
       "name": "openssl",
       "default-features": false
     },
@@ -21,6 +26,10 @@
     {
       "name": "asio",
       "version": "1.38.2"
+    },
+    {
+      "name": "libsecret",
+      "version": "0.21.7"
     },
     {
       "name": "openssl",

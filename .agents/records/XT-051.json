@@ -2,10 +2,10 @@
   "schema_version": 2,
   "id": "XT-051",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "linux-secret-dependency-agent",
+  "base_sha": "670262c4eac472a33948393092790a406528eedd",
+  "head_sha": "3d779520aca2989acd6db6e830f7778ffed10a7a",
   "handoff": ".agents/handoffs/XT-051.md",
   "commit": {
     "type": "build",
@@ -79,7 +79,7 @@
   "impacts": {
     "adr": {
       "required": true,
-      "status": "proposed",
+      "status": "accepted",
       "references": [
         "docs/adr/0006-p1-native-runtime.md"
       ],
@@ -99,18 +99,32 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "670262c4eac472a33948393092790a406528eedd",
+    "source_head": "0b1ed1f5709c73d09ff49d71a5bde09a6eacd483",
+    "source_commits": [
+      "5398c51cd2e3f425644252b7ec2aeebcb38d538d",
+      "b73ada6faf2a50f811d30f9ffffe481dd32209d4",
+      "12794c9ff55324efe5554d44e614b5d710706d83",
+      "0dcd8a93e31819014fb065a1e8a56a9da939df56",
+      "4071a31c25bee26ec81e114e49ea96b472d45a12",
+      "3d779520aca2989acd6db6e830f7778ffed10a7a",
+      "0b1ed1f5709c73d09ff49d71a5bde09a6eacd483"
+    ],
+    "source_commits_sha256": "b2331858ce27ae3d5e0d4c2a457726df5d90a81c35effff7bcfe4a5de79b97c5",
+    "source_patch_id": "69772f45072dece9e5463c84bbb46f6e345299a6",
+    "result": "",
+    "result_patch_id": "69772f45072dece9e5463c84bbb46f6e345299a6",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make dependency-test",
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:3d779520aca2989acd6db6e830f7778ffed10a7a:2026-08-07T22:55:50Z"
   },
   "acceptance": {
     "accepted_by": "",
