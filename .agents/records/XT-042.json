@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-042",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "architecture-gate-agent",
   "base_sha": "e05f7f80ab860c739a8291a65ecbd1fcaddc8ad3",
   "head_sha": "b116cad18fd7a7499df8aa29bd4897e71c17f013",
@@ -91,9 +91,9 @@
     ],
     "source_commits_sha256": "27034fe57860b93c138c676b36e020d01795d6ab3987fc4ba402fd9dc3157306",
     "source_patch_id": "d58ccf4617a13da9f512607ba5366ad0b10d00c2",
-    "result": "",
+    "result": "780f79455b036ca06f6e06f0aa230811d909ae8b",
     "result_patch_id": "d58ccf4617a13da9f512607ba5366ad0b10d00c2",
-    "verified_sha": ""
+    "verified_sha": "780f79455b036ca06f6e06f0aa230811d909ae8b"
   },
   "verification": {
     "status": "passed",
@@ -101,11 +101,11 @@
       "make architecture-test",
       "make verify"
     ],
-    "reference": "local:b116cad18fd7a7499df8aa29bd4897e71c17f013:2026-08-07T06:55:08Z"
+    "reference": "local:780f79455b036ca06f6e06f0aa230811d909ae8b:2026-08-07T07:00:28Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-07T15:00:28+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
