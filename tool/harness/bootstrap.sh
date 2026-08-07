@@ -4,6 +4,8 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
+git -C "$root" config --local core.hooksPath .githooks
+
 if [[ "$(uname -s)" == "Darwin" ]] &&
   command -v brew >/dev/null 2>&1 &&
   [[ "${XNN_TRANSFER_INSTALL_TOOLS:-0}" == "1" ]]; then
@@ -53,4 +55,6 @@ else
   printf '[skip] CMake configure: CMake or Ninja unavailable\n'
 fi
 
-printf 'Bootstrap completed with the available toolchain.\n'
+printf '%s\n' \
+  'Installed the repository commit-msg hook through core.hooksPath.' \
+  'Bootstrap completed with the available toolchain.'

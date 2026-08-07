@@ -7,6 +7,8 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 if [[ "$#" -lt 5 ]]; then
   printf '%s\n' \
     "Usage: $0 XT-008 task-slug workstream \\" \
+    "  --commit-type feat --commit-scope native \\" \
+    "  --commit-summary 'implement concrete outcome' \\" \
     "  --owned 'path/**' [--owned path] [--depends-on XT-001]" >&2
   exit 2
 fi
@@ -18,6 +20,9 @@ shift 3
 
 owned_paths=()
 dependencies=()
+commit_type=""
+commit_scope=""
+commit_summary=""
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --owned)
@@ -36,6 +41,30 @@ while [[ "$#" -gt 0 ]]; do
       dependencies+=("$2")
       shift 2
       ;;
+    --commit-type)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires a Conventional Commit type.\n' "$1" >&2
+        exit 2
+      }
+      commit_type="$2"
+      shift 2
+      ;;
+    --commit-scope)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires a lowercase scope.\n' "$1" >&2
+        exit 2
+      }
+      commit_scope="$2"
+      shift 2
+      ;;
+    --commit-summary)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires an imperative summary.\n' "$1" >&2
+        exit 2
+      }
+      commit_summary="$2"
+      shift 2
+      ;;
     *)
       printf 'Unknown argument: %s\n' "$1" >&2
       exit 2
@@ -49,6 +78,41 @@ if [[ ! "$task_id" =~ ^XT-[0-9]{3,}$ ]]; then
 fi
 if [[ ! "$slug" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
   printf 'Task slug must use lowercase kebab-case.\n' >&2
+  exit 2
+fi
+case "$commit_type" in
+  feat | fix | docs | style | refactor | perf | test | build | ci | chore | revert) ;;
+  *)
+    printf 'Invalid or missing Conventional Commit type.\n' >&2
+    exit 2
+    ;;
+esac
+if [[ ! "$commit_scope" =~ ^[a-z0-9][a-z0-9.-]*$ ]]; then
+  printf 'Commit scope must be lowercase and URL-safe.\n' >&2
+  exit 2
+fi
+if [[ ! "$commit_summary" =~ ^[a-z] ]] ||
+  [[ "${#commit_summary}" -lt 12 ]] ||
+  [[ "$commit_summary" =~ [.!?]$ ]] ||
+  [[ "$commit_summary" =~ XT-[0-9]{3,} ]]; then
+  printf '%s\n' \
+    'Commit summary must start lowercase, contain at least 12 characters,' \
+    'omit final punctuation, and contain no XT task ID.' >&2
+  exit 2
+fi
+subject_length=$((
+  ${#commit_type} + ${#commit_scope} + ${#commit_summary} + 4
+))
+if [[ "$subject_length" -gt 72 ]]; then
+  printf 'Generated commit subject exceeds 72 characters.\n' >&2
+  exit 2
+fi
+title_summary="${slug//-/ }"
+review_subject_length=$((
+  ${#commit_scope} + ${#title_summary} + 27
+))
+if [[ "$review_subject_length" -gt 72 ]]; then
+  printf 'Task title produces a lifecycle subject over 72 characters.\n' >&2
   exit 2
 fi
 
@@ -86,6 +150,8 @@ if [[ "${#dependencies[@]}" -gt 0 ]]; then
 fi
 owned_paths_text="$(printf '%s\n' "${owned_paths[@]}")"
 DEPENDENCIES="$dependencies_text" OWNED_PATHS="$owned_paths_text" \
+  COMMIT_TYPE="$commit_type" COMMIT_SCOPE="$commit_scope" \
+  COMMIT_SUMMARY="$commit_summary" \
   python3 - \
     "$root" "$task_id" "$slug" "$workstream" "$destination" "$record" <<'PY'
 import json
@@ -104,6 +170,11 @@ dependencies = [
 owned_paths = [
     value for value in os.environ["OWNED_PATHS"].splitlines() if value
 ]
+commit = {
+    "type": os.environ["COMMIT_TYPE"],
+    "scope": os.environ["COMMIT_SCOPE"],
+    "summary": os.environ["COMMIT_SUMMARY"],
+}
 
 backlog_path = root / ".agents" / "backlog.yaml"
 with backlog_path.open(encoding="utf-8") as source:
@@ -120,6 +191,7 @@ backlog["tasks"].append(
         "title": title,
         "readiness": "ready",
         "risk_profile_required": True,
+        "commit_policy_required": True,
         "workstream": workstream,
         "depends_on": dependencies,
         "owned_paths": owned_paths,
@@ -189,6 +261,7 @@ record = {
     "base_sha": "",
     "head_sha": "",
     "handoff": f".agents/handoffs/{task_id}.md",
+    "commit": commit,
     "risks": {
         "functionality": {
             "level": "medium",

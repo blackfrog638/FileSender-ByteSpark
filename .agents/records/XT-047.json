@@ -2,10 +2,10 @@
   "schema_version": 2,
   "id": "XT-047",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "commit-governance-agent",
+  "base_sha": "6aa7b8ba8496ca19efaab5ad00a6957c1956d3c0",
+  "head_sha": "6f2c63b7ff3d5233c7f6fde22c9bd3e4c3bc870e",
   "handoff": ".agents/handoffs/XT-047.md",
   "commit": {
     "type": "ci",
@@ -81,17 +81,31 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "6aa7b8ba8496ca19efaab5ad00a6957c1956d3c0",
+    "source_head": "1c75a995afad57da7ad33f0d5680a83579940226",
+    "source_commits": [
+      "3f69ea2df7f70b53df1cae3abb6166cb26d45219",
+      "9a5c581ed87cd66c94b132936d2c2599a74f14a6",
+      "4ab9761265803bbf7de5bfa0fa68ccdade34a664",
+      "88713b5040b172a2559a0208e110ce79e896f6eb",
+      "353a63c81fc5a13f6b6fed67595a438a100a8d4b",
+      "6f2c63b7ff3d5233c7f6fde22c9bd3e4c3bc870e",
+      "1c75a995afad57da7ad33f0d5680a83579940226"
+    ],
+    "source_commits_sha256": "0b7895e1e13ca34b7d701c542bb8824d98200000706baa76a0f59d58634192f6",
+    "source_patch_id": "56baded3ce042fedcca828abc8e1790a65c73460",
+    "result": "",
+    "result_patch_id": "56baded3ce042fedcca828abc8e1790a65c73460",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make commit-message-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:6f2c63b7ff3d5233c7f6fde22c9bd3e4c3bc870e:2026-08-07T10:50:32Z"
   },
   "acceptance": {
     "accepted_by": "",

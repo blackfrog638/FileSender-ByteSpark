@@ -43,6 +43,22 @@ RISK_DIMENSIONS = (
     "persistence",
 )
 RISK_LEVELS = {"none", "low", "medium", "high", "critical"}
+COMMIT_TYPES = {
+    "feat",
+    "fix",
+    "docs",
+    "style",
+    "refactor",
+    "perf",
+    "test",
+    "build",
+    "ci",
+    "chore",
+    "revert",
+}
+COMMIT_SCOPE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
+COMMIT_SUMMARY_PATTERN = re.compile(r"^[a-z][^\t\r\n]{11,}$")
+TASK_ID_IN_TEXT_PATTERN = re.compile(r"\bXT-[0-9]{3,}\b", re.IGNORECASE)
 
 
 class GovernanceError(RuntimeError):
@@ -596,6 +612,65 @@ def validate_record(
         if not (ROOT / handoff).is_file():
             errors.append(f"{task_id}.handoff does not exist: {handoff}")
 
+    commit = record.get("commit")
+    if task.get("commit_policy_required") is True:
+        if not isinstance(commit, dict):
+            errors.append(f"{task_id}.commit must be an object")
+        else:
+            commit_type = require_string(
+                errors,
+                commit.get("type"),
+                f"{task_id}.commit.type",
+            )
+            scope = require_string(
+                errors,
+                commit.get("scope"),
+                f"{task_id}.commit.scope",
+            )
+            summary = require_string(
+                errors,
+                commit.get("summary"),
+                f"{task_id}.commit.summary",
+            )
+            if commit_type not in COMMIT_TYPES:
+                errors.append(
+                    f"{task_id}.commit.type must be one of "
+                    f"{sorted(COMMIT_TYPES)}"
+                )
+            if scope and not COMMIT_SCOPE_PATTERN.fullmatch(scope):
+                errors.append(
+                    f"{task_id}.commit.scope must be lowercase and URL-safe"
+                )
+            if summary and not COMMIT_SUMMARY_PATTERN.fullmatch(summary):
+                errors.append(
+                    f"{task_id}.commit.summary must start lowercase and "
+                    "contain at least 12 characters"
+                )
+            if summary.endswith((".", "!", "?")):
+                errors.append(
+                    f"{task_id}.commit.summary must not end with punctuation"
+                )
+            if TASK_ID_IN_TEXT_PATTERN.search(summary):
+                errors.append(
+                    f"{task_id}.commit.summary must not contain a task ID"
+                )
+            subject = f"{commit_type}({scope}): {summary}"
+            if len(subject) > 72:
+                errors.append(
+                    f"{task_id}.commit metadata produces a subject over "
+                    "72 characters"
+                )
+            title = task.get("title", "")
+            review_subject = (
+                f"chore({scope}): submit "
+                f"{title[:1].lower() + title[1:]} for review"
+            )
+            if len(review_subject) > 72:
+                errors.append(
+                    f"{task_id}.title produces a lifecycle subject over "
+                    "72 characters"
+                )
+
     impacts = record.get("impacts")
     if not isinstance(impacts, dict):
         errors.append(f"{task_id}.impacts must be an object")
@@ -720,6 +795,11 @@ def validate_repository(*, verify_git: bool = True) -> None:
             errors.append(
                 f"{task_id}.risk_profile_required must be true for new tasks"
             )
+        commit_policy_required = task.get("commit_policy_required")
+        if commit_policy_required is not None and not isinstance(
+            commit_policy_required, bool
+        ):
+            errors.append(f"{task_id}.commit_policy_required must be boolean")
         dependencies = task.get("depends_on")
         if not isinstance(dependencies, list):
             errors.append(f"{task_id}.depends_on must be an array")
@@ -859,6 +939,25 @@ def prepare_review(task_id: str) -> None:
             "Changed paths outside task ownership:\n"
             + "\n".join(f"- {path}" for path in outside)
         )
+
+    commit_check = subprocess.run(
+        [
+            sys.executable,
+            "-B",
+            str(worktree / "tool" / "harness" / "commit_message.py"),
+            "range",
+            "--root",
+            str(worktree),
+            base_sha,
+            head_sha,
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    if commit_check.returncode != 0:
+        raise GovernanceError(commit_check.stderr.strip())
 
     handoff = worktree / record["handoff"]
     if not handoff.is_file():
