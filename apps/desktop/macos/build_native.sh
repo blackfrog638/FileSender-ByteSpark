@@ -8,6 +8,7 @@ set -euo pipefail
 : "${FRAMEWORKS_FOLDER_PATH:?FRAMEWORKS_FOLDER_PATH is required}"
 
 repository_root="$(cd "$PROJECT_DIR/../../.." && pwd)"
+"$repository_root/tool/harness/vcpkg_bootstrap.sh"
 configuration="$(printf '%s' "$CONFIGURATION" | tr '[:upper:]' '[:lower:]')"
 architectures="${ARCHS:-$(uname -m)}"
 architecture_key="$(printf '%s' "$architectures" | tr ' ' '-')"

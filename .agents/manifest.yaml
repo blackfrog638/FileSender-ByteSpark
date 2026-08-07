@@ -24,6 +24,8 @@ commands:
   flutter_test: make flutter-test
   security_test: make security-test
   benchmark: make benchmark
+  dependency_test: make dependency-test
+  vcpkg_bootstrap: make vcpkg-bootstrap
   agent_list: tool/harness/agent.sh list
   governance_test: tool/harness/governance_test.sh
 

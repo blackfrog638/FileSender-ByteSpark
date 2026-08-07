@@ -19,8 +19,14 @@ required=(
   "tool/harness/architecture_test.py"
   "tool/harness/architecture_test_test.py"
   "tool/harness/architecture_test.sh"
+  "tool/harness/dependency_manifest_test.py"
+  "tool/harness/dependency_manifest_test_test.py"
+  "tool/harness/dependency_test.sh"
   "tool/harness/governance.py"
   "tool/harness/governance_test.sh"
+  "tool/harness/vcpkg_bootstrap.sh"
+  "vcpkg-configuration.json"
+  "vcpkg.json"
 )
 
 for path in "${required[@]}"; do

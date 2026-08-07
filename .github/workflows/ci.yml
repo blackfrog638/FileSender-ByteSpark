@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+env:
+  VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/out/vcpkg-cache
+  VCPKG_DISABLE_METRICS: "1"
+
 jobs:
   native:
     name: Native (${{ matrix.os }})
@@ -22,29 +26,79 @@ jobs:
         os:
           - ubuntu-latest
           - macos-latest
-          - windows-latest
+          - windows-2022
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure
+      - name: Dependency build tools
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y pkg-config
+          else
+            brew install pkgconf
+          fi
+
+      - name: Dependency cache identity
+        id: dependency-key
+        shell: bash
+        run: |
+          identity="${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}"
+          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: out/vcpkg-cache
+          key: >-
+            vcpkg-${{ matrix.os }}-${{ runner.arch }}-
+            ${{ steps.dependency-key.outputs.identity }}-
+            ${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json',
+            'cmake/dependencies/versions.json', 'cmake/vcpkg-overlay/**',
+            'cmake/triplets/**') }}
+
+      - name: Bootstrap pinned vcpkg
+        shell: bash
+        run: tool/harness/vcpkg_bootstrap.sh
+
+      - name: Configure (Unix)
+        if: runner.os != 'Windows'
         run: >-
           cmake -S . -B out/build/ci -G Ninja
           -DCMAKE_BUILD_TYPE=Debug
           -DXNN_TRANSFER_BUILD_TESTS=ON
 
+      - name: Configure (Windows MSVC)
+        if: runner.os == 'Windows'
+        run: >-
+          cmake -S . -B out/build/ci
+          -G "Visual Studio 17 2022" -A x64
+          -DXNN_TRANSFER_BUILD_TESTS=ON
+
       - name: Build
-        run: cmake --build out/build/ci
+        run: cmake --build out/build/ci --config Debug
 
       - name: ABI v1 compatibility
         run: >-
           ctest --test-dir out/build/ci
+          -C Debug
           --output-on-failure
           --no-tests=error
           -R '^xnn_transfer_abi_'
 
+      - name: Pinned dependency probe
+        run: >-
+          ctest --test-dir out/build/ci
+          -C Debug
+          --output-on-failure
+          --no-tests=error
+          -R '^xnn_transfer_dependency_probe$'
+
       - name: Test
         run: >-
           ctest --test-dir out/build/ci
+          -C Debug
           --output-on-failure
           --no-tests=error
 
@@ -92,6 +146,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Dependency build tools
+        if: runner.os == 'macOS'
+        run: brew install pkgconf
+
+      - name: Dependency cache identity
+        id: dependency-key
+        shell: bash
+        run: |
+          identity="${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}"
+          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: out/vcpkg-cache
+          key: >-
+            vcpkg-desktop-${{ matrix.os }}-${{ runner.arch }}-
+            ${{ steps.dependency-key.outputs.identity }}-
+            ${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json',
+            'cmake/dependencies/versions.json', 'cmake/vcpkg-overlay/**',
+            'cmake/triplets/**') }}
+
+      - name: Bootstrap pinned vcpkg
+        shell: bash
+        run: tool/harness/vcpkg_bootstrap.sh
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.32.8
@@ -126,6 +205,27 @@ jobs:
         ${{ github.event_name == 'schedule' && '300' || '15' }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Dependency cache identity
+        id: dependency-key
+        shell: bash
+        run: |
+          identity="${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}"
+          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: out/vcpkg-cache
+          key: >-
+            vcpkg-security-${{ runner.os }}-${{ runner.arch }}-
+            ${{ steps.dependency-key.outputs.identity }}-
+            ${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json',
+            'cmake/dependencies/versions.json', 'cmake/vcpkg-overlay/**',
+            'cmake/triplets/**') }}
+
+      - name: Bootstrap pinned vcpkg
+        shell: bash
+        run: tool/harness/vcpkg_bootstrap.sh
 
       - name: Security tests
         run: make security-test

@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
+include(cmake/XnnVcpkg.cmake)
+
 project(
   XnnTransfer
   VERSION 0.1.0
@@ -24,5 +26,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(XNN_TRANSFER_BUILD_TESTS)
   enable_testing()
 endif()
+
+include(cmake/XnnDependencies.cmake)
 
 add_subdirectory(native)

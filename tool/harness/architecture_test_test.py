@@ -179,6 +179,11 @@ class NativeIncludeTests(unittest.TestCase):
                 "must not expose infrastructure",
             ),
             (
+                "native/include/xnn_transfer/core/discovery.hpp",
+                "#include <utf8proc.h>",
+                "must not expose infrastructure",
+            ),
+            (
                 "native/include/xnn_transfer/core/storage.hpp",
                 "#include <filesystem>",
                 "must not expose infrastructure",

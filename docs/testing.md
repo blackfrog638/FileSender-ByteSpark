@@ -13,6 +13,8 @@ The harness phase has real checks for:
 - host-independent path and manifest contract vectors for legal limits,
   traversal, collisions, invalid entries, and inconsistent summaries;
 - C++ compiler warnings;
+- pinned dependency provenance, exact linked versions, static triplets, and
+  absence of dependency dynamic libraries;
 - ASan and UBSan over the native test suite;
 - short libFuzzer runs over C ABI lifecycle and protocol parser inputs;
 - an informational native lifecycle microbenchmark;
@@ -29,6 +31,7 @@ not implemented yet and therefore are not currently tested.
 
 ```bash
 make verify          # required local completion gate
+make dependency-test # pinned vcpkg provenance, versions, and static linkage
 make security-test   # ASan, UBSan, and bounded libFuzzer run
 make benchmark       # informational native benchmark
 make macos-bundle-test # build app, verify signing, and load bundled dylib
@@ -78,8 +81,8 @@ only after variance is known, using a reviewed relative threshold.
 ## CI policy
 
 - Pull requests: governance contracts, native tests on three platforms,
-  Flutter checks, packaging on three platforms, ASan/UBSan, and a short fuzz
-  smoke test.
+  pinned dependency probes, Flutter checks, packaging on three platforms,
+  ASan/UBSan, and a short fuzz smoke test.
 - Scheduled builds: longer fuzz campaigns. Performance trend collection starts
   when transfer I/O benchmarks exist.
 - Before release: cross-platform interoperability, low-space, sleep/wake,

@@ -8,6 +8,7 @@ depends_on:
   - XT-045
 owned_paths:
   - .agents/**
+  - .gitattributes
   - vcpkg.json
   - vcpkg-configuration.json
   - cmake/**

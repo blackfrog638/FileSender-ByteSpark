@@ -1,0 +1,34 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "xnn-transfer",
+  "version-string": "0.1.0",
+  "builtin-baseline": "17f35ad2418007a895ced8a4cece4ab34068a58d",
+  "dependencies": [
+    {
+      "name": "asio",
+      "default-features": false
+    },
+    {
+      "name": "openssl",
+      "default-features": false
+    },
+    {
+      "name": "utf8proc",
+      "default-features": false
+    }
+  ],
+  "overrides": [
+    {
+      "name": "asio",
+      "version": "1.38.2"
+    },
+    {
+      "name": "openssl",
+      "version": "3.5.7"
+    },
+    {
+      "name": "utf8proc",
+      "version": "2.11.3"
+    }
+  ]
+}

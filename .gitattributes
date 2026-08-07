@@ -1,0 +1,2 @@
+cmake/vcpkg-overlay/**/*.patch -whitespace
+cmake/vcpkg-overlay/**/*.diff -whitespace

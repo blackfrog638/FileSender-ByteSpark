@@ -56,8 +56,10 @@ not depend on a concrete socket, crypto, filesystem, or Flutter type.
 
 ADR 0006 selects standalone Asio 1.38.2 for asynchronous sockets, timers, and
 cancellation, and OpenSSL 3.5.7 LTS as the sole TLS and general cryptographic
-provider. These dependencies are infrastructure details and must not appear in
-domain interfaces, C ABI structs, or Flutter types.
+provider. utf8proc 2.11.3 supplies complete UTF-8, NFC, scalar, and Unicode
+category validation at native trust boundaries. These dependencies are
+infrastructure details and must not appear in domain interfaces, C ABI structs,
+or Flutter types.
 
 One engine owns one Asio `io_context`. Discovery, connection, and transfer
 state is serialized on engine-owned executors or strands. Blocking filesystem
@@ -88,10 +90,12 @@ xnn_transfer_core
   -> transfer
 ```
 
-Each P1 module and its tests own a leaf CMake entry point. The current leaf
-targets are empty build boundaries only. Asio, OpenSSL, protected-storage
-adapters, discovery sockets, pairing, and transfer behavior are not yet
-implemented.
+Each P1 module and its tests own a leaf CMake entry point. The pinned vcpkg
+manifest, Asio/OpenSSL overlays, utf8proc registry version, static triplets,
+and compiled dependency probe are implemented. Product leaf targets remain
+empty build boundaries until their owning tasks replace them. Installing the
+dependencies does not implement protected storage, discovery sockets, pairing,
+TLS policy, or transfer behavior.
 
 ## Flutter modules
 
@@ -174,10 +178,11 @@ macOS, and Windows. CI loads the packaged library and exercises the real Dart
 event callback boundary. This proves packaging and ABI loadability, not LAN
 transfer behavior.
 
-P1 dependencies will be pinned through vcpkg manifest mode and project-owned
-overlay ports. OpenSSL is statically linked into the existing native library,
-so applications continue to package one project dynamic library. System
-OpenSSL discovery is forbidden in release builds.
+P1 dependencies are pinned through vcpkg manifest mode, project-owned static
+triplets, and Asio/OpenSSL overlay ports; utf8proc comes from the same pinned
+registry commit. The toolchain rejects unpinned vcpkg checkouts and system
+OpenSSL fallback. Static dependencies preserve one project dynamic library in
+each application bundle.
 
 ## Versioning
 

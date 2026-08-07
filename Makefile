@@ -1,4 +1,4 @@
-.PHONY: abi-compat-test architecture-test benchmark bootstrap doctor flutter-test format governance-test macos-bundle-test native-test security-test verify
+.PHONY: abi-compat-test architecture-test benchmark bootstrap dependency-test doctor flutter-test format governance-test macos-bundle-test native-test security-test vcpkg-bootstrap verify
 
 abi-compat-test:
 	@tool/harness/abi_compat_test.sh
@@ -8,6 +8,9 @@ architecture-test:
 
 benchmark:
 	@tool/harness/performance_test.sh
+
+dependency-test:
+	@tool/harness/dependency_test.sh
 
 doctor:
 	@tool/harness/doctor.sh
@@ -20,6 +23,9 @@ native-test:
 
 security-test:
 	@tool/harness/security_test.sh
+
+vcpkg-bootstrap:
+	@tool/harness/vcpkg_bootstrap.sh
 
 flutter-test:
 	@tool/harness/flutter_test.sh

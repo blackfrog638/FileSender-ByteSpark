@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-07
 - Accepted by task: XT-018
+- Amended by task: XT-046 (utf8proc and landed dependency provenance)
 - Security profile: `docs/adr/0002-pairing-and-transport-security.md`
 
 ## Context
@@ -40,6 +41,18 @@ Asio does not define interface-change policy. Platform infrastructure maps:
 Every notification triggers a complete, bounded interface snapshot comparison.
 Startup and wake also rescan, so missed notifications cannot keep stale
 membership indefinitely.
+
+### Unicode validation
+
+Use utf8proc 2.11.3 under the MIT license for complete UTF-8 decoding, NFC
+normalization checks, scalar counting, and Unicode general-category checks at
+native trust boundaries. Standard C++20 does not provide those operations, and
+platform-specific Unicode behavior would make discovery labels and path policy
+inconsistent across macOS, Windows, and Linux.
+
+Wire parsers still enforce byte limits and TLV structure before invoking
+utf8proc. The library remains an infrastructure detail and does not define
+wire, display, path, or authorization policy.
 
 ### TLS and cryptography
 
@@ -109,15 +122,17 @@ Release and CI builds use vcpkg manifest mode with:
 
 - a pinned vcpkg tool/registry commit and `builtin-baseline`;
 - project-owned overlay ports for exactly Asio 1.38.2 and OpenSSL 3.5.7;
+- utf8proc 2.11.3 from the same pinned built-in registry;
 - upstream release archives, SHA-256 verification, and committed license
   notices;
 - static dependency triplets matching each application architecture;
 - binary-cache keys containing registry commit, overlay content, triplet,
   compiler identity, and configuration.
 
-The public registry did not contain both selected releases at this decision
-point, so a floating registry branch is not an acceptable substitute for the
-overlay ports. Release builds must not discover a system OpenSSL. A populated,
+The public registry did not contain both selected Asio and OpenSSL releases at
+this decision point, so a floating registry branch is not an acceptable
+substitute for the overlay ports. The pinned registry does contain utf8proc
+2.11.3. Release builds must not discover a system OpenSSL. A populated,
 content-addressed vcpkg binary or source cache is the supported offline build
 path; vendored untracked source trees are not.
 
@@ -125,9 +140,9 @@ Sanitizer and fuzz configurations build dependencies from the same pinned
 sources with sanitizer-compatible flags. Release assembly optimizations may
 remain enabled, while fuzz configurations may use a reviewed no-assembly
 variant to improve instrumentation. A dependency update is a reviewed task:
-patch updates within the accepted Asio and OpenSSL lines rerun all security and
-packaging gates; a different OpenSSL minor/major, TLS provider, I/O runtime, or
-storage backend requires an ADR update.
+patch updates within the accepted Asio, OpenSSL, and utf8proc lines rerun all
+security and packaging gates; a different OpenSSL minor/major, TLS provider,
+I/O runtime, Unicode provider, or storage backend requires an ADR update.
 
 ### Module and build ownership
 
@@ -160,6 +175,8 @@ infrastructure details.
   Asio a domain type.
 - Static OpenSSL preserves current single-library packaging at the cost of
   larger artifacts and project-owned security updates.
+- One Unicode provider makes native normalization and category decisions
+  consistent across all desktop platforms.
 - Overlay ports become security-sensitive code and require source-hash,
   license, CVE, and cross-platform review.
 - macOS deployment target 10.14 remains provisional until the selected stack
@@ -196,6 +213,7 @@ infrastructure details.
   `https://think-async.com/Asio/AsioStandalone.html`
 - Asio SSL native handle:
   `https://think-async.com/Asio/asio-1.38.2/doc/asio/reference/ssl__stream/native_handle.html`
+- utf8proc: `https://juliastrings.github.io/utf8proc/`
 - vcpkg manifest mode:
   `https://learn.microsoft.com/vcpkg/consume/manifest-mode`
 - Secret Service API:

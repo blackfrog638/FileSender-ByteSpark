@@ -51,11 +51,38 @@ check_fuzzer_runtime() {
   missing=1
 }
 
+check_vcpkg() {
+  local vcpkg_root
+  local executable
+  local actual_commit
+  local expected_commit="17f35ad2418007a895ced8a4cece4ab34068a58d"
+
+  vcpkg_root="${XNN_TRANSFER_VCPKG_ROOT:-$root/out/tools/vcpkg}"
+  executable="$vcpkg_root/vcpkg"
+  case "$(uname -s)" in
+    MINGW* | MSYS* | CYGWIN*)
+      executable="$vcpkg_root/vcpkg.exe"
+      ;;
+  esac
+  actual_commit="$(
+    git -C "$vcpkg_root" rev-parse HEAD 2>/dev/null || true
+  )"
+  if [[ -x "$executable" && "$actual_commit" == "$expected_commit" ]]; then
+    printf '  [ok]      vcpkg (pinned)\n'
+    return
+  fi
+
+  printf '  [missing] vcpkg commit %s\n' "$expected_commit"
+  missing=1
+}
+
 printf 'XnnTransfer toolchain\n'
 check_tool git git --version
 check_tool c++ c++ --version
 check_tool cmake cmake --version
 check_tool ninja ninja --version
+check_tool perl perl --version
+check_tool pkg-config pkg-config --version
 check_clang_format
 check_tool fvm fvm --version
 check_tool flutter "$root/tool/harness/sdk.sh" flutter --version
@@ -63,6 +90,7 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   check_tool CocoaPods pod --version
 fi
 check_fuzzer_runtime
+check_vcpkg
 
 if [[ "$missing" -eq 0 ]]; then
   printf 'All tools required for full verification are available.\n'
