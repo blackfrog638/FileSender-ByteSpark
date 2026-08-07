@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "XT-016",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-016.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task only canonicalizes checkout line endings for existing fixture bytes; it changes no security-profile decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "No runtime component, dependency boundary, or implemented behavior changes."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "This is a CI portability regression fix within the completed P0 contract evidence, not a delivery milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "python3 protocol/testdata/security/v1/test_wordlist_line_endings.py",
+      "python3 protocol/testdata/security/v1/validate_vectors.py",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

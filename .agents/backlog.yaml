@@ -200,6 +200,19 @@
         "protocol/testdata/security/v1/**",
         "docs/adr/0002-pairing-and-transport-security.md"
       ]
+    },
+    {
+      "id": "XT-016",
+      "title": "Normalize security wordlist line endings",
+      "readiness": "ready",
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-015"
+      ],
+      "owned_paths": [
+        "protocol/testdata/security/v1/**",
+        "native/tests/protocol/CMakeLists.txt"
+      ]
     }
   ]
 }
