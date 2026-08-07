@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-022",
   "task_type": "implementation",
-  "state": "claimed",
+  "state": "in_progress",
   "owner": "protected-identity-agent",
   "base_sha": "cf49286ff409babf743d6d707c99fe405dc472b6",
   "head_sha": "",
