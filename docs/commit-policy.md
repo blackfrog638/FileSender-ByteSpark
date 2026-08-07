@@ -69,17 +69,24 @@ incorrect committer. `make bootstrap` copies the versioned values into this
 repository's local Git config; it does not change the global identity used by
 other repositories.
 
+Schema v1 policies remain historical and are evaluated from each commit.
+Schema v2 activates the immutable trust root: its first committed content
+governs every descendant commit. Modification, deletion, or re-addition after
+that activation is rejected. Hooks and bootstrap read the committed `HEAD`
+policy once schema v2 is active, so staged content cannot authorize a
+replacement identity.
+
 ## Enforcement
 
 `make bootstrap` installs the versioned `.githooks/commit-msg` hook through the
 repository-local `core.hooksPath` setting and repairs the local identity. The
-hook validates both the message and the identities reported by `git var`. It
-gives immediate feedback but is not trusted as a gate because
-`git commit --no-verify` bypasses it.
+hook validates the message, the identities reported by `git var`, and staged
+attempts to change the immutable policy. It gives immediate feedback but is
+not trusted as a gate because `git commit --no-verify` bypasses it.
 
 `make commit-message-test`, `make verify`, task review preparation, and CI
-independently validate governed commit ranges from commit objects. Message
-enforcement begins with the commit that adds this document; identity
-enforcement begins with the commit that adds `.agents/commit-identity.json`.
-Older history remains readable and unchanged; it is not retroactively rejected
-or rewritten.
+independently validate governed commit ranges from commit objects. Message and
+schema v1 identity enforcement retain their historical activation boundaries;
+immutable enforcement begins with the first schema v2 policy commit. Older
+history remains readable and unchanged; it is not retroactively rejected or
+rewritten.

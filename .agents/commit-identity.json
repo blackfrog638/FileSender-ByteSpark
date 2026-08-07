@@ -1,5 +1,6 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "chenzhuoran",
-  "email": "chenzhuoran.638@bytedance.com"
+  "email": "chenzhuoran.638@bytedance.com",
+  "immutable": true
 }

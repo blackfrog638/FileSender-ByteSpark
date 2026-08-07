@@ -63,6 +63,11 @@ class CommitIdentity(NamedTuple):
         return f"{self.name} <{self.email}>"
 
 
+class IdentityPolicy(NamedTuple):
+    schema_version: int
+    identity: CommitIdentity
+
+
 def git(
     root: Path,
     *args: str,
@@ -76,7 +81,7 @@ def git(
     )
 
 
-def parse_identity_policy(source: str) -> CommitIdentity:
+def parse_identity_policy_document(source: str) -> IdentityPolicy:
     try:
         document = json.loads(source)
     except json.JSONDecodeError as error:
@@ -87,15 +92,28 @@ def parse_identity_policy(source: str) -> CommitIdentity:
         raise CommitMessageError(
             f"{IDENTITY_POLICY_PATH} must contain a JSON object"
         )
-    expected_fields = {"schema_version", "name", "email"}
+    schema_version = document.get("schema_version")
+    if type(schema_version) is not int or schema_version not in (1, 2):
+        raise CommitMessageError(
+            f"{IDENTITY_POLICY_PATH}.schema_version must be 1 or 2"
+        )
+    if schema_version == 1:
+        expected_fields = {"schema_version", "name", "email"}
+    else:
+        expected_fields = {
+            "schema_version",
+            "name",
+            "email",
+            "immutable",
+        }
     if set(document) != expected_fields:
         raise CommitMessageError(
             f"{IDENTITY_POLICY_PATH} must contain exactly: "
             + ", ".join(sorted(expected_fields))
         )
-    if document["schema_version"] != 1:
+    if schema_version == 2 and document["immutable"] is not True:
         raise CommitMessageError(
-            f"{IDENTITY_POLICY_PATH}.schema_version must be 1"
+            f"{IDENTITY_POLICY_PATH}.immutable must be true for schema 2"
         )
 
     name = document["name"]
@@ -119,13 +137,20 @@ def parse_identity_policy(source: str) -> CommitIdentity:
         raise CommitMessageError(
             f"{IDENTITY_POLICY_PATH}.email must be a canonical Git email"
         )
-    return CommitIdentity(name=name, email=email)
+    return IdentityPolicy(
+        schema_version=schema_version,
+        identity=CommitIdentity(name=name, email=email),
+    )
 
 
-def load_identity_policy(
+def parse_identity_policy(source: str) -> CommitIdentity:
+    return parse_identity_policy_document(source).identity
+
+
+def load_identity_policy_document(
     root: Path,
     commit: str | None = None,
-) -> CommitIdentity:
+) -> IdentityPolicy:
     if commit is None:
         try:
             source = (root / IDENTITY_POLICY_PATH).read_text(encoding="utf-8")
@@ -145,7 +170,28 @@ def load_identity_policy(
                 f"{commit[:12]} cannot read {IDENTITY_POLICY_PATH}"
             )
         source = result.stdout
-    return parse_identity_policy(source)
+    return parse_identity_policy_document(source)
+
+
+def load_identity_policy(
+    root: Path,
+    commit: str | None = None,
+) -> CommitIdentity:
+    return load_identity_policy_document(root, commit).identity
+
+
+def load_effective_identity_policy(root: Path) -> CommitIdentity:
+    committed = git(
+        root,
+        "show",
+        f"HEAD:{IDENTITY_POLICY_PATH}",
+        check=False,
+    )
+    if committed.returncode == 0:
+        policy = parse_identity_policy_document(committed.stdout)
+        if policy.schema_version == 2:
+            return policy.identity
+    return load_identity_policy(root)
 
 
 def parse_git_ident(value: str, label: str) -> CommitIdentity:
@@ -291,25 +337,123 @@ def policy_activations(root: Path) -> list[str]:
     return path_activations(root, POLICY_PATH)
 
 
-def policy_applies(root: Path, commit: str, activations: list[str]) -> bool:
-    return any(
+def is_ancestor(root: Path, ancestor: str, commit: str) -> bool:
+    return (
         git(
             root,
             "merge-base",
             "--is-ancestor",
-            activation,
+            ancestor,
             commit,
             check=False,
         ).returncode
         == 0
+    )
+
+
+def policy_applies(root: Path, commit: str, activations: list[str]) -> bool:
+    return any(
+        is_ancestor(root, activation, commit)
         for activation in activations
     )
+
+
+def immutable_identity_activations(root: Path) -> list[str]:
+    changes = git(
+        root,
+        "log",
+        "--all",
+        "--format=%H",
+        "--",
+        IDENTITY_POLICY_PATH,
+    )
+    activations: list[str] = []
+    for commit in changes.stdout.splitlines():
+        try:
+            policy = load_identity_policy_document(root, commit)
+        except CommitMessageError:
+            continue
+        if policy.schema_version == 2:
+            activations.append(commit)
+    return activations
+
+
+def governing_activation(
+    root: Path,
+    commit: str,
+    activations: list[str],
+) -> str | None:
+    applicable = [
+        activation
+        for activation in activations
+        if is_ancestor(root, activation, commit)
+    ]
+    if not applicable:
+        return None
+    roots = [
+        activation
+        for activation in applicable
+        if all(
+            is_ancestor(root, activation, descendant)
+            for descendant in applicable
+        )
+    ]
+    if len(roots) != 1:
+        raise CommitMessageError(
+            f"{commit[:12]} has ambiguous immutable identity activations"
+        )
+    return roots[0]
+
+
+def commit_changes_path(root: Path, commit: str, path: str) -> bool:
+    result = git(
+        root,
+        "diff-tree",
+        "--no-commit-id",
+        "--name-only",
+        "-r",
+        "--root",
+        commit,
+        "--",
+        path,
+    )
+    return bool(result.stdout.strip())
+
+
+def staged_identity_policy_changed(root: Path) -> bool:
+    committed = git(
+        root,
+        "show",
+        f"HEAD:{IDENTITY_POLICY_PATH}",
+        check=False,
+    )
+    if committed.returncode != 0:
+        return False
+    policy = parse_identity_policy_document(committed.stdout)
+    if policy.schema_version != 2:
+        return False
+    staged = git(
+        root,
+        "diff",
+        "--cached",
+        "--quiet",
+        "HEAD",
+        "--",
+        IDENTITY_POLICY_PATH,
+        check=False,
+    )
+    if staged.returncode not in (0, 1):
+        raise CommitMessageError(
+            f"cannot inspect staged {IDENTITY_POLICY_PATH}"
+        )
+    return staged.returncode == 1
 
 
 def validate_range(root: Path, base: str, head: str) -> tuple[int, list[str]]:
     commits = git(root, "rev-list", "--reverse", f"{base}..{head}")
     message_activations = policy_activations(root)
     identity_activations = path_activations(root, IDENTITY_POLICY_PATH)
+    immutable_activations = immutable_identity_activations(root)
     checked = 0
     failures: list[str] = []
     for commit in commits.stdout.splitlines():
@@ -323,6 +467,21 @@ def validate_range(root: Path, base: str, head: str) -> tuple[int, list[str]]:
             commit,
             identity_activations,
         )
+        immutable_activation: str | None = None
+        immutable_activation_error = ""
+        try:
+            immutable_activation = governing_activation(
+                root,
+                commit,
+                immutable_activations,
+            )
+        except CommitMessageError as error:
+            immutable_activation_error = str(error)
+        check_identity_policy = bool(
+            check_identity_policy
+            or immutable_activation
+            or immutable_activation_error
+        )
         if not check_message_policy and not check_identity_policy:
             continue
         checked += 1
@@ -331,15 +490,33 @@ def validate_range(root: Path, base: str, head: str) -> tuple[int, list[str]]:
         if check_message_policy:
             errors.extend(validate_message(message))
         if check_identity_policy:
-            try:
-                expected = load_identity_policy(root, commit)
-                author, committer = commit_identities(root, commit)
-            except CommitMessageError as error:
-                errors.append(str(error))
+            if immutable_activation_error:
+                errors.append(immutable_activation_error)
             else:
-                errors.extend(
-                    validate_identities(expected, author, committer)
-                )
+                policy_commit = immutable_activation or commit
+                try:
+                    expected = load_identity_policy(root, policy_commit)
+                    author, committer = commit_identities(root, commit)
+                except CommitMessageError as error:
+                    errors.append(str(error))
+                else:
+                    errors.extend(
+                        validate_identities(expected, author, committer)
+                    )
+                    if (
+                        immutable_activation is not None
+                        and commit != immutable_activation
+                        and commit_changes_path(
+                            root,
+                            commit,
+                            IDENTITY_POLICY_PATH,
+                        )
+                    ):
+                        errors.append(
+                            f"{IDENTITY_POLICY_PATH} is immutable after "
+                            f"schema 2 activation "
+                            f"{immutable_activation[:12]}"
+                        )
         if errors:
             subject = message.splitlines()[0] if message.splitlines() else ""
             failures.append(f"{commit[:12]} {subject}")
@@ -359,15 +536,19 @@ def check_message(path: Path) -> None:
 
 
 def check_current_identity(root: Path) -> None:
-    expected = load_identity_policy(root)
+    expected = load_effective_identity_policy(root)
     author, committer = current_identities(root)
     errors = validate_identities(expected, author, committer)
+    if staged_identity_policy_changed(root):
+        errors.append(
+            f"{IDENTITY_POLICY_PATH} is immutable after schema 2 activation"
+        )
     if errors:
         raise CommitMessageError("\n".join(f"- {error}" for error in errors))
 
 
 def configure_identity(root: Path) -> None:
-    expected = load_identity_policy(root)
+    expected = load_effective_identity_policy(root)
     git(root, "config", "--local", "user.name", expected.name)
     git(root, "config", "--local", "user.email", expected.email)
 

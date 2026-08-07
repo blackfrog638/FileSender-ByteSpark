@@ -116,14 +116,20 @@ class IdentityValidationTest(unittest.TestCase):
         email="blackfrog638@gmail.com",
     )
 
-    def policy_source(self) -> str:
-        return json.dumps(
-            {
-                "schema_version": 1,
-                "name": self.expected.name,
-                "email": self.expected.email,
-            }
-        )
+    def policy_source(
+        self,
+        schema_version: int = 1,
+        identity: commit_message.CommitIdentity | None = None,
+    ) -> str:
+        selected = identity or self.expected
+        document = {
+            "schema_version": schema_version,
+            "name": selected.name,
+            "email": selected.email,
+        }
+        if schema_version == 2:
+            document["immutable"] = True
+        return json.dumps(document)
 
     def git(self, root: Path, *args: str) -> str:
         result = subprocess.run(
@@ -135,14 +141,22 @@ class IdentityValidationTest(unittest.TestCase):
         return result.stdout.strip()
 
     def test_parses_canonical_identity_policy(self) -> None:
-        self.assertEqual(
-            commit_message.parse_identity_policy(self.policy_source()),
-            self.expected,
-        )
+        for schema_version in (1, 2):
+            with self.subTest(schema_version=schema_version):
+                self.assertEqual(
+                    commit_message.parse_identity_policy(
+                        self.policy_source(schema_version)
+                    ),
+                    self.expected,
+                )
 
     def test_repository_policy_matches_canonical_identity(self) -> None:
+        policy = commit_message.load_identity_policy_document(
+            MODULE_PATH.parents[2]
+        )
+        self.assertEqual(policy.schema_version, 2)
         self.assertEqual(
-            commit_message.load_identity_policy(MODULE_PATH.parents[2]),
+            policy.identity,
             self.expected,
         )
 
@@ -150,8 +164,12 @@ class IdentityValidationTest(unittest.TestCase):
         invalid_sources = (
             "{",
             "[]",
+            '{"schema_version": 3, "name": "blackfrog638", '
+            '"email": "blackfrog638@gmail.com"}',
             '{"schema_version": 2, "name": "blackfrog638", '
             '"email": "blackfrog638@gmail.com"}',
+            '{"schema_version": 2, "name": "blackfrog638", '
+            '"email": "blackfrog638@gmail.com", "immutable": false}',
             '{"schema_version": 1, "name": "blackfrog638\\n", '
             '"email": "blackfrog638@gmail.com"}',
             '{"schema_version": 1, "name": "blackfrog638", '
@@ -194,7 +212,7 @@ class IdentityValidationTest(unittest.TestCase):
             self.git(root, "init", "-q")
             policy = root / commit_message.IDENTITY_POLICY_PATH
             policy.parent.mkdir(parents=True)
-            policy.write_text(self.policy_source(), encoding="utf-8")
+            policy.write_text(self.policy_source(2), encoding="utf-8")
             self.git(root, "config", "user.name", self.wrong.name)
             self.git(root, "config", "user.email", self.wrong.email)
 
@@ -218,7 +236,7 @@ class IdentityValidationTest(unittest.TestCase):
             self.git(root, "init", "-q")
             policy = root / commit_message.IDENTITY_POLICY_PATH
             policy.parent.mkdir(parents=True)
-            policy.write_text(self.policy_source(), encoding="utf-8")
+            policy.write_text(self.policy_source(2), encoding="utf-8")
 
             validator = root / "tool" / "harness" / "commit_message.py"
             validator.parent.mkdir(parents=True)
@@ -232,7 +250,12 @@ class IdentityValidationTest(unittest.TestCase):
 
             payload = root / "payload.txt"
             payload.write_text("payload\n", encoding="utf-8")
-            self.git(root, "add", "payload.txt")
+            self.git(
+                root,
+                "add",
+                "payload.txt",
+                commit_message.IDENTITY_POLICY_PATH,
+            )
             result = subprocess.run(
                 [
                     "git",
@@ -257,6 +280,42 @@ class IdentityValidationTest(unittest.TestCase):
                 "-m",
                 "test(harness): accept configured commit identity",
             )
+
+            policy.write_text(
+                self.policy_source(2, self.wrong),
+                encoding="utf-8",
+            )
+            self.git(root, "config", "user.name", self.wrong.name)
+            self.git(root, "config", "user.email", self.wrong.email)
+            commit_message.configure_identity(root)
+            self.assertEqual(
+                self.git(root, "config", "--local", "user.name"),
+                self.expected.name,
+            )
+            self.assertEqual(
+                self.git(root, "config", "--local", "user.email"),
+                self.expected.email,
+            )
+            self.git(root, "config", "user.name", self.wrong.name)
+            self.git(root, "config", "user.email", self.wrong.email)
+            self.git(root, "add", commit_message.IDENTITY_POLICY_PATH)
+            result = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(root),
+                    "commit",
+                    "-m",
+                    "fix(harness): replace repository commit identity",
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("author identity must be", result.stderr)
+            self.assertIn("committer identity must be", result.stderr)
+            self.assertIn("immutable after schema 2", result.stderr)
 
 
 class RangeValidationTest(unittest.TestCase):
@@ -285,22 +344,40 @@ class RangeValidationTest(unittest.TestCase):
         self.git(root, "config", "user.name", self.expected_name)
         self.git(root, "config", "user.email", self.expected_email)
 
-    def activate_identity_policy(self, root: Path) -> str:
-        message_policy = root / commit_message.POLICY_PATH
-        message_policy.parent.mkdir(parents=True, exist_ok=True)
-        message_policy.write_text("policy\n", encoding="utf-8")
+    def write_identity_policy(
+        self,
+        root: Path,
+        name: str,
+        email: str,
+        schema_version: int,
+    ) -> None:
+        document = {
+            "schema_version": schema_version,
+            "name": name,
+            "email": email,
+        }
+        if schema_version == 2:
+            document["immutable"] = True
         identity_policy = root / commit_message.IDENTITY_POLICY_PATH
         identity_policy.parent.mkdir(parents=True, exist_ok=True)
         identity_policy.write_text(
-            json.dumps(
-                {
-                    "schema_version": 1,
-                    "name": self.expected_name,
-                    "email": self.expected_email,
-                }
-            )
-            + "\n",
+            json.dumps(document) + "\n",
             encoding="utf-8",
+        )
+
+    def activate_identity_policy(
+        self,
+        root: Path,
+        schema_version: int = 1,
+    ) -> str:
+        message_policy = root / commit_message.POLICY_PATH
+        message_policy.parent.mkdir(parents=True, exist_ok=True)
+        message_policy.write_text("policy\n", encoding="utf-8")
+        self.write_identity_policy(
+            root,
+            self.expected_name,
+            self.expected_email,
+            schema_version,
         )
         self.git(
             root,
@@ -315,6 +392,38 @@ class RangeValidationTest(unittest.TestCase):
             "ci(harness): enforce repository commit identity",
         )
         return self.git(root, "rev-parse", "HEAD")
+
+    def test_schema_one_policy_changes_remain_historical(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.git(root, "init", "-q")
+            self.configure_expected_identity(root)
+            self.commit(root, "legacy: initialize")
+            base = self.git(root, "rev-parse", "HEAD")
+            self.activate_identity_policy(root)
+            self.write_identity_policy(
+                root,
+                self.wrong_name,
+                self.wrong_email,
+                1,
+            )
+            self.git(root, "add", commit_message.IDENTITY_POLICY_PATH)
+            self.git(
+                root,
+                "-c",
+                f"user.name={self.wrong_name}",
+                "-c",
+                f"user.email={self.wrong_email}",
+                "commit",
+                "--no-verify",
+                "-m",
+                "fix(harness): preserve legacy policy history",
+            )
+            head = self.git(root, "rev-parse", "HEAD")
+
+            checked, failures = commit_message.validate_range(root, base, head)
+            self.assertEqual(checked, 2)
+            self.assertEqual(failures, [])
 
     def test_range_exempts_history_before_policy_activation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -372,6 +481,87 @@ class RangeValidationTest(unittest.TestCase):
             self.assertTrue(
                 any("committer identity must be" in item for item in failures)
             )
+
+    def test_range_rejects_schema_two_policy_replacement(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.git(root, "init", "-q")
+            self.configure_expected_identity(root)
+            self.commit(root, "legacy: initialize")
+            base = self.git(root, "rev-parse", "HEAD")
+            self.activate_identity_policy(root, schema_version=2)
+            self.write_identity_policy(
+                root,
+                self.wrong_name,
+                self.wrong_email,
+                2,
+            )
+            self.git(root, "add", commit_message.IDENTITY_POLICY_PATH)
+            self.git(
+                root,
+                "-c",
+                f"user.name={self.wrong_name}",
+                "-c",
+                f"user.email={self.wrong_email}",
+                "commit",
+                "--no-verify",
+                "-m",
+                "fix(harness): replace immutable commit identity",
+            )
+            head = self.git(root, "rev-parse", "HEAD")
+
+            checked, failures = commit_message.validate_range(root, base, head)
+            self.assertEqual(checked, 2)
+            self.assertTrue(
+                any("author identity must be" in item for item in failures)
+            )
+            self.assertTrue(
+                any("committer identity must be" in item for item in failures)
+            )
+            self.assertTrue(
+                any("immutable after schema 2" in item for item in failures)
+            )
+
+    def test_range_rejects_schema_two_policy_delete_and_readd(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.git(root, "init", "-q")
+            self.configure_expected_identity(root)
+            self.commit(root, "legacy: initialize")
+            base = self.git(root, "rev-parse", "HEAD")
+            self.activate_identity_policy(root, schema_version=2)
+            self.git(root, "rm", commit_message.IDENTITY_POLICY_PATH)
+            self.git(
+                root,
+                "commit",
+                "--no-verify",
+                "-m",
+                "test(harness): delete immutable identity policy",
+            )
+            self.write_identity_policy(
+                root,
+                self.expected_name,
+                self.expected_email,
+                2,
+            )
+            self.git(root, "add", commit_message.IDENTITY_POLICY_PATH)
+            self.git(
+                root,
+                "commit",
+                "--no-verify",
+                "-m",
+                "test(harness): restore immutable identity policy",
+            )
+            head = self.git(root, "rev-parse", "HEAD")
+
+            checked, failures = commit_message.validate_range(root, base, head)
+            self.assertEqual(checked, 3)
+            immutable_failures = [
+                item
+                for item in failures
+                if "immutable after schema 2" in item
+            ]
+            self.assertEqual(len(immutable_failures), 2)
 
     def test_range_exempts_wrong_identity_before_activation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

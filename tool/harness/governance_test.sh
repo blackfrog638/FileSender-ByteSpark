@@ -2,6 +2,8 @@
 
 set -euo pipefail
 
+export PYTHONDONTWRITEBYTECODE=1
+
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 python3 -B "$root/tool/harness/trusted_gates_test.py"
 temporary="$(mktemp -d)"
@@ -367,6 +369,10 @@ PY
 git -C "$repository" branch task/XT-998
 "$repository/tool/harness/agent.sh" validate >/dev/null
 git -C "$repository" branch -D task/XT-998 >/dev/null
+if [[ -n "$(git -C "$repository" status --short)" ]]; then
+  printf 'Dirty governance fixture before claim:\n' >&2
+  git -C "$repository" status --short >&2
+fi
 "$repository/tool/harness/agent.sh" \
   claim "$task_id" test-agent >/dev/null
 "$repository/tool/harness/agent.sh" \
