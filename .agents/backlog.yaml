@@ -765,6 +765,27 @@
         "tool/harness/**",
         "docs/architecture.md"
       ]
+    },
+    {
+      "id": "XT-049",
+      "title": "Protocol public headers",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-048"
+      ],
+      "owned_paths": [
+        ".agents/architecture/modules.json",
+        "native/include/xnn_transfer/protocol/**",
+        "native/src/protocol/**",
+        "native/tests/protocol/**",
+        "native/fuzz/protocol/**",
+        "tool/harness/architecture_test.py",
+        "tool/harness/architecture_test_test.py"
+      ]
     }
   ]
 }
