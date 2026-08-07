@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-050",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "harness-integrity-agent",
   "base_sha": "225866f8f36a49b6a4ed0c78540fda3e074485e1",
   "head_sha": "c367143491eacfdb80038018f470ca8047f3a3f6",
@@ -113,9 +113,9 @@
     ],
     "source_commits_sha256": "7d124659e7f681e8554d6e786c32b19b55602568271d881eceb77d295fe9f3d4",
     "source_patch_id": "8eb6dfae1ca5084c7453decd7917247bf27e37d5",
-    "result": "",
+    "result": "3985701c3a1096d70f7ec61ad6f7038038f1c308",
     "result_patch_id": "8eb6dfae1ca5084c7453decd7917247bf27e37d5",
-    "verified_sha": ""
+    "verified_sha": "3985701c3a1096d70f7ec61ad6f7038038f1c308"
   },
   "verification": {
     "status": "passed",
@@ -127,11 +127,11 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": "local:c367143491eacfdb80038018f470ca8047f3a3f6:2026-08-07T19:43:57Z"
+    "reference": "local:3985701c3a1096d70f7ec61ad6f7038038f1c308:2026-08-07T20:11:55Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-08T04:11:55+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
