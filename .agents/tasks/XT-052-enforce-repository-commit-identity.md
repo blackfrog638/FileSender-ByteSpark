@@ -12,6 +12,7 @@ owned_paths:
   - tool/harness/bootstrap.sh
   - tool/harness/commit_message.py
   - tool/harness/commit_message_test.py
+  - tool/harness/governance_test.sh
   - docs/commit-policy.md
 contract_changes:
   - New commits must use the versioned repository author and committer identity
@@ -27,10 +28,11 @@ Reject commits whose author or committer differs from the versioned
 ## Context
 
 XT-047 validates message quality but does not validate commit attribution.
-Repository-local identity was repeatedly overwritten, and independent clones
-under the same project directory inherited an unrelated global identity. This
-task extends the existing commit policy so local hooks fail immediately and
-the range gate still rejects `--no-verify` bypasses.
+Independent clones repeatedly inherited the unrelated global
+`chenzhuoran <chenzhuoran.638@bytedance.com>` identity because a local config
+only protects one clone. This task extends the existing commit policy so
+bootstrap repairs each clone, local hooks fail immediately, and the range gate
+still rejects `--no-verify` bypasses.
 
 ## Constraints
 

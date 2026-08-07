@@ -55,13 +55,31 @@ The harness generates trailers for lifecycle, delivery, and acceptance
 commits. Squash delivery commits retain source range and patch provenance in
 additional `Xnn-*` trailers.
 
+## Repository identity
+
+`.agents/commit-identity.json` is the machine-readable source of truth for the
+repository author and committer:
+
+```text
+blackfrog638 <blackfrog638@gmail.com>
+```
+
+Both identities must match exactly. A correct author does not excuse an
+incorrect committer. `make bootstrap` copies the versioned values into this
+repository's local Git config; it does not change the global identity used by
+other repositories.
+
 ## Enforcement
 
 `make bootstrap` installs the versioned `.githooks/commit-msg` hook through the
-repository-local `core.hooksPath` setting. The hook gives immediate feedback
-but is not trusted as a gate because `git commit --no-verify` bypasses it.
+repository-local `core.hooksPath` setting and repairs the local identity. The
+hook validates both the message and the identities reported by `git var`. It
+gives immediate feedback but is not trusted as a gate because
+`git commit --no-verify` bypasses it.
 
 `make commit-message-test`, `make verify`, task review preparation, and CI
-independently validate governed commit ranges. Enforcement begins with the
-commit that first adds this policy file. Older history remains readable and
-unchanged; it is not retroactively rejected or rewritten.
+independently validate governed commit ranges from commit objects. Message
+enforcement begins with the commit that adds this document; identity
+enforcement begins with the commit that adds `.agents/commit-identity.json`.
+Older history remains readable and unchanged; it is not retroactively rejected
+or rewritten.

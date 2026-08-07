@@ -4,6 +4,11 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
+python3 -B \
+  "$root/tool/harness/commit_message.py" \
+  configure \
+  --root \
+  "$root"
 git -C "$root" config --local core.hooksPath .githooks
 
 if [[ "$(uname -s)" == "Darwin" ]] &&
@@ -56,5 +61,5 @@ else
 fi
 
 printf '%s\n' \
-  'Installed the repository commit-msg hook through core.hooksPath.' \
+  'Configured repository commit identity and the commit-msg hook.' \
   'Bootstrap completed with the available toolchain.'
