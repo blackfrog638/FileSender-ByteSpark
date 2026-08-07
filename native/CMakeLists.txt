@@ -27,6 +27,11 @@ function(xnn_transfer_enable_sanitizers target)
 endfunction()
 
 add_subdirectory(src/protocol)
+add_subdirectory(src/discovery)
+add_subdirectory(src/security)
+add_subdirectory(src/session)
+add_subdirectory(src/storage)
+add_subdirectory(src/transfer)
 
 target_include_directories(
   xnn_transfer_core
@@ -34,7 +39,17 @@ target_include_directories(
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
     "$<INSTALL_INTERFACE:include>"
 )
-target_link_libraries(xnn_transfer_core PRIVATE Threads::Threads)
+target_link_libraries(
+  xnn_transfer_core
+  PRIVATE
+    Threads::Threads
+    xnn_transfer_discovery
+    xnn_transfer_identity
+    xnn_transfer_session
+    xnn_transfer_storage
+    xnn_transfer_tls
+    xnn_transfer_transfer
+)
 
 target_compile_definitions(xnn_transfer_core PRIVATE XNN_TRANSFER_BUILDING_LIBRARY)
 set_target_properties(
@@ -65,6 +80,11 @@ endif()
 
 if(XNN_TRANSFER_BUILD_TESTS)
   add_subdirectory(tests/protocol)
+  add_subdirectory(tests/discovery)
+  add_subdirectory(tests/security)
+  add_subdirectory(tests/session)
+  add_subdirectory(tests/storage)
+  add_subdirectory(tests/transfer)
 
   add_executable(
     xnn_transfer_native_tests

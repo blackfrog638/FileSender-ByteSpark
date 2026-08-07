@@ -52,6 +52,47 @@ yet been added to that event surface.
 Infrastructure modules may implement domain interfaces, but domain code must
 not depend on a concrete socket, crypto, filesystem, or Flutter type.
 
+## P1 runtime boundaries
+
+ADR 0006 selects standalone Asio 1.38.2 for asynchronous sockets, timers, and
+cancellation, and OpenSSL 3.5.7 LTS as the sole TLS and general cryptographic
+provider. These dependencies are infrastructure details and must not appear in
+domain interfaces, C ABI structs, or Flutter types.
+
+One engine owns one Asio `io_context`. Discovery, connection, and transfer
+state is serialized on engine-owned executors or strands. Blocking filesystem
+work may use a separate bounded worker pool, but state changes and event
+publication return to the owning executor. Platform interface monitors feed
+bounded snapshots into discovery; they do not mutate peer state directly.
+
+Protected identity storage is platform-specific behind one fail-closed
+interface:
+
+- macOS Keychain with synchronization disabled and device-only accessibility;
+- Windows Credential Manager with local-machine persistence for the current
+  user, never enterprise persistence;
+- a qualified device-local Linux Secret Service backend.
+
+There is no production secret-storage fallback. Locked, unavailable, corrupt,
+or unqualified storage disables pairing and authenticated transport.
+
+The native build aggregates fixed leaf targets:
+
+```text
+xnn_transfer_core
+  -> discovery
+  -> identity
+  -> tls
+  -> session
+  -> storage
+  -> transfer
+```
+
+Each P1 module and its tests own a leaf CMake entry point. The current leaf
+targets are empty build boundaries only. Asio, OpenSSL, protected-storage
+adapters, discovery sockets, pairing, and transfer behavior are not yet
+implemented.
+
 ## Flutter modules
 
 Each feature uses three layers:
@@ -78,8 +119,10 @@ must enforce:
 
 ADR 0002 accepts the pairing and authenticated transport design, but the
 profile remains unimplemented. ADR 0004 accepts bounded v1 framing and
-negotiation independently from transport authentication. No current component
-may claim authenticated pairing, encrypted transfer, or production v1
+negotiation independently from transport authentication. ADR 0006 accepts the
+P1 runtime and dependency boundaries but does not install or implement those
+providers. No current component may claim discovery, protected identity
+storage, authenticated pairing, encrypted transfer, or production v1
 conformance.
 
 ## Data flow
@@ -103,6 +146,11 @@ One native engine owns all native state. Flutter creates exactly one engine per
 process and destroys it after subscriptions and operations stop. Native worker
 threads never invoke Flutter-owned memory after shutdown begins.
 
+P1 retains that single-owner model. The selected Asio executor will own network
+and timer completion, while bounded filesystem workers return results through
+the executor before touching observable state. Stop remains a barrier across
+both execution domains.
+
 The implemented engine exposes these observable states:
 
 ```text
@@ -125,6 +173,11 @@ Debug and Release desktop builds compile and bundle the native core on Linux,
 macOS, and Windows. CI loads the packaged library and exercises the real Dart
 event callback boundary. This proves packaging and ABI loadability, not LAN
 transfer behavior.
+
+P1 dependencies will be pinned through vcpkg manifest mode and project-owned
+overlay ports. OpenSSL is statically linked into the existing native library,
+so applications continue to package one project dynamic library. System
+OpenSSL discovery is forbidden in release builds.
 
 ## Versioning
 
