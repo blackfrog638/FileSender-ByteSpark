@@ -578,6 +578,16 @@
         ".github/workflows/**",
         "tool/harness/**"
       ]
+    },
+    {
+      "id": "XT-040",
+      "title": "Clangd compilation database",
+      "readiness": "ready",
+      "workstream": "integration",
+      "depends_on": [],
+      "owned_paths": [
+        ".clangd"
+      ]
     }
   ]
 }

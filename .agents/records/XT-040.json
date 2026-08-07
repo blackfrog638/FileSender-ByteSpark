@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "XT-040",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-040.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "This is local editor tooling configuration and does not change a public or expensive-to-reverse contract."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The native architecture and CMake target boundaries are unchanged."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Developer diagnostics do not alter product milestones."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "cmake --preset dev -S .",
+      "clangd --check=native/src/core/engine.cpp",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
