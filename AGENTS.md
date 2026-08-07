@@ -51,8 +51,9 @@ C ABI bridge -> C++ application -> C++ domain <- C++ infrastructure
 6. Run focused tests while developing, then `make verify`.
 7. Complete `.agents/handoffs/HANDOFF_TEMPLATE.md` in the task file or PR and
    move the runtime state to `review`.
-8. The integration owner runs `agent.sh integrate <task>`, performs any shared
-   integration fixes, then runs `agent.sh accept <task> <reviewer>`.
+8. The integration owner runs `agent.sh integrate <task>`, then
+   `agent.sh accept <task> <reviewer>`. A required integration fix returns the
+   task to `in_progress` for a new reviewed source range.
 9. Run `agent.sh cleanup <task>` only after the durable record is `done`.
 
 The backlog is a reviewed catalogue. `.agents/records/XT-NNN.json` is the
@@ -70,9 +71,16 @@ review -> in_progress
 blocked -> in_progress
 ```
 
-Cherry-pick is the standard task integration strategy. `agent.sh integrate`
-uses `git cherry-pick -x` and records each source SHA, integrated SHA, and
-stable patch ID. A hand-written cherry-pick is not sufficient evidence.
+Squash is the standard task integration strategy. `agent.sh integrate` records
+the complete ordered source range and proves that its aggregate payload patch
+matches one delivery commit. The generated record for the current task is
+excluded from that patch comparison and validated as structured provenance.
+`agent.sh accept` records the delivery SHA after verification in a separate
+acceptance commit.
+
+An integration owner may explicitly select `--strategy cherry-pick` only when
+individual commit topology is a reviewed delivery requirement. A hand-written
+squash or cherry-pick is not sufficient evidence.
 
 ## Verification policy
 

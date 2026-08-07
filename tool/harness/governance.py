@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import fnmatch
+import hashlib
 import json
 import re
 import subprocess
@@ -30,6 +31,7 @@ VALID_STATES = {
 }
 ACTIVE_STATES = {"claimed", "in_progress", "blocked", "review", "integrated"}
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 class GovernanceError(RuntimeError):
@@ -117,6 +119,35 @@ def stable_patch_id(commit: str) -> str:
     return output.split()[0]
 
 
+def stable_range_patch_id(base: str, head: str, excluded_path: str) -> str:
+    shown = git(
+        "diff",
+        "--binary",
+        base,
+        head,
+        "--",
+        ".",
+        f":(exclude){excluded_path}",
+    )
+    result = git("patch-id", "--stable", input_bytes=shown.stdout)
+    output = result.stdout.decode("ascii").strip()
+    if not output:
+        raise GovernanceError(
+            f"Range {base}..{head} has no payload patch ID"
+        )
+    return output.split()[0]
+
+
+def commit_parents(commit: str) -> list[str]:
+    values = git_text("rev-list", "--parents", "-n", "1", commit).split()
+    return values[1:]
+
+
+def source_commits_digest(commits: list[str]) -> str:
+    encoded = ("\n".join(commits) + "\n").encode("ascii")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def is_ancestor(ancestor: str, descendant: str) -> bool:
     return (
         git(
@@ -141,6 +172,239 @@ def require_string(
         errors.append(f"{label} must be a non-empty string")
         return ""
     return value
+
+
+def validate_verified_sha(
+    errors: list[str],
+    task_id: str,
+    state: str,
+    integration: dict[str, Any],
+    *,
+    verify_git: bool,
+) -> str:
+    verified_sha = require_string(
+        errors,
+        integration.get("verified_sha"),
+        f"{task_id}.integration.verified_sha",
+        allow_empty=state == "integrated",
+    )
+    if verified_sha and not SHA_PATTERN.fullmatch(verified_sha):
+        errors.append(
+            f"{task_id}.integration.verified_sha must be a full lowercase SHA"
+        )
+    elif verified_sha and verify_git and not commit_exists(verified_sha):
+        errors.append(
+            f"{task_id}.integration.verified_sha is unavailable: {verified_sha}"
+        )
+    return verified_sha
+
+
+def validate_cherry_pick_integration(
+    errors: list[str],
+    task_id: str,
+    head_sha: str,
+    integration: dict[str, Any],
+    verified_sha: str,
+    *,
+    verify_git: bool,
+) -> None:
+    mappings = integration.get("mappings")
+    if not isinstance(mappings, list) or not mappings:
+        errors.append(f"{task_id}.integration.mappings must not be empty")
+        mappings = []
+
+    mapped_sources: set[str] = set()
+    for index, mapping in enumerate(mappings):
+        mapping_label = f"{task_id}.integration.mappings[{index}]"
+        if not isinstance(mapping, dict):
+            errors.append(f"{mapping_label} must be an object")
+            continue
+        source = require_string(
+            errors, mapping.get("source"), f"{mapping_label}.source"
+        )
+        result = require_string(
+            errors, mapping.get("result"), f"{mapping_label}.result"
+        )
+        patch_id = require_string(
+            errors, mapping.get("patch_id"), f"{mapping_label}.patch_id"
+        )
+        for name, commit in (("source", source), ("result", result)):
+            if commit and not SHA_PATTERN.fullmatch(commit):
+                errors.append(f"{mapping_label}.{name} must be a full SHA")
+        if source:
+            if source in mapped_sources:
+                errors.append(f"{mapping_label}.source is duplicated")
+            mapped_sources.add(source)
+        if not verify_git or not result or not patch_id:
+            continue
+        if not commit_exists(result):
+            errors.append(f"{mapping_label}.result is unavailable: {result}")
+            continue
+        if stable_patch_id(result) != patch_id:
+            errors.append(f"{mapping_label}.result patch ID does not match")
+        if commit_exists(source) and stable_patch_id(source) != patch_id:
+            errors.append(f"{mapping_label}.source patch ID does not match")
+        if verified_sha and not is_ancestor(result, verified_sha):
+            errors.append(
+                f"{mapping_label}.result is not reachable from verified_sha"
+            )
+    if head_sha and mappings and head_sha not in mapped_sources:
+        errors.append(f"{task_id}.head_sha has no integration mapping")
+
+
+def validate_squash_integration(
+    errors: list[str],
+    task_id: str,
+    state: str,
+    base_sha: str,
+    head_sha: str,
+    integration: dict[str, Any],
+    verified_sha: str,
+    *,
+    verify_git: bool,
+) -> None:
+    label = f"{task_id}.integration"
+    source_base = require_string(
+        errors, integration.get("source_base"), f"{label}.source_base"
+    )
+    source_head = require_string(
+        errors, integration.get("source_head"), f"{label}.source_head"
+    )
+    source_patch_id = require_string(
+        errors,
+        integration.get("source_patch_id"),
+        f"{label}.source_patch_id",
+    )
+    commits_digest = require_string(
+        errors,
+        integration.get("source_commits_sha256"),
+        f"{label}.source_commits_sha256",
+    )
+    result = require_string(
+        errors,
+        integration.get("result"),
+        f"{label}.result",
+        allow_empty=state == "integrated",
+    )
+    result_patch_id = require_string(
+        errors,
+        integration.get("result_patch_id"),
+        f"{label}.result_patch_id",
+    )
+    source_commits = integration.get("source_commits")
+    if not isinstance(source_commits, list) or not source_commits:
+        errors.append(f"{label}.source_commits must not be empty")
+        source_commits = []
+    elif not all(
+        isinstance(commit, str) and SHA_PATTERN.fullmatch(commit)
+        for commit in source_commits
+    ):
+        errors.append(
+            f"{label}.source_commits must contain full lowercase SHAs"
+        )
+        source_commits = []
+
+    for name, commit in (
+        ("source_base", source_base),
+        ("source_head", source_head),
+        ("result", result),
+    ):
+        if commit and not SHA_PATTERN.fullmatch(commit):
+            errors.append(f"{label}.{name} must be a full lowercase SHA")
+    for name, patch_id in (
+        ("source_patch_id", source_patch_id),
+        ("result_patch_id", result_patch_id),
+    ):
+        if patch_id and not SHA_PATTERN.fullmatch(patch_id):
+            errors.append(f"{label}.{name} must be a stable patch ID")
+    if commits_digest and not SHA256_PATTERN.fullmatch(commits_digest):
+        errors.append(f"{label}.source_commits_sha256 must be a SHA-256 digest")
+
+    if source_base and base_sha and source_base != base_sha:
+        errors.append(f"{label}.source_base does not match base_sha")
+    if source_head and source_commits and source_commits[-1] != source_head:
+        errors.append(f"{label}.source_head is not the final source commit")
+    if len(set(source_commits)) != len(source_commits):
+        errors.append(f"{label}.source_commits contains duplicates")
+    if (
+        source_commits
+        and commits_digest
+        and source_commits_digest(source_commits) != commits_digest
+    ):
+        errors.append(f"{label}.source_commits SHA-256 does not match")
+    if head_sha and source_commits and head_sha not in source_commits:
+        errors.append(f"{task_id}.head_sha is outside the squash source range")
+    if (
+        source_patch_id
+        and result_patch_id
+        and source_patch_id != result_patch_id
+    ):
+        errors.append(f"{label}.source and result patch IDs do not match")
+
+    record_relative = f".agents/records/{task_id}.json"
+    if verify_git and source_base and source_head and commit_exists(source_head):
+        actual_commits = git_text(
+            "rev-list", "--reverse", f"{source_base}..{source_head}"
+        ).splitlines()
+        if source_commits != actual_commits:
+            errors.append(
+                f"{label}.source_commits does not match the source range"
+            )
+        for commit in actual_commits:
+            if len(commit_parents(commit)) != 1:
+                errors.append(
+                    f"{label}.source_commits contains merge commit {commit}"
+                )
+        try:
+            actual_source_patch = stable_range_patch_id(
+                source_base,
+                source_head,
+                record_relative,
+            )
+        except GovernanceError as error:
+            errors.append(str(error))
+        else:
+            if source_patch_id and actual_source_patch != source_patch_id:
+                errors.append(f"{label}.source patch ID does not match")
+
+    delivery_result = result
+    if state == "integrated" and not delivery_result and verify_git:
+        delivery_result = git_text("rev-parse", "HEAD")
+    if not verify_git or not delivery_result:
+        return
+    if not commit_exists(delivery_result):
+        errors.append(f"{label}.result is unavailable: {delivery_result}")
+        return
+    parents = commit_parents(delivery_result)
+    if len(parents) != 1:
+        errors.append(f"{label}.result must have exactly one parent")
+        return
+    try:
+        actual_result_patch = stable_range_patch_id(
+            parents[0],
+            delivery_result,
+            record_relative,
+        )
+    except GovernanceError as error:
+        errors.append(str(error))
+    else:
+        if result_patch_id and actual_result_patch != result_patch_id:
+            errors.append(f"{label}.result patch ID does not match")
+
+    message = git_text("show", "-s", "--format=%B", delivery_result)
+    required_trailers = (
+        f"Xnn-Task: {task_id}",
+        "Xnn-Integration-Strategy: squash",
+        f"Xnn-Source-Base: {source_base}",
+        f"Xnn-Source-Head: {source_head}",
+        f"Xnn-Source-Commits-SHA256: {commits_digest}",
+        f"Xnn-Source-Patch-Id: {source_patch_id}",
+    )
+    for trailer in required_trailers:
+        if trailer not in message.splitlines():
+            errors.append(f"{label}.result is missing trailer: {trailer}")
+    if verified_sha and not is_ancestor(delivery_result, verified_sha):
+        errors.append(f"{label}.result is not reachable from verified_sha")
 
 
 def validate_impact(
@@ -298,64 +562,36 @@ def validate_record(
                 errors.append(f"{task_id}.acceptance.accepted_at is not ISO-8601")
 
     if state in {"integrated", "done"}:
-        if integration.get("strategy") not in {"cherry-pick", "merge"}:
+        strategy = integration.get("strategy")
+        if strategy not in {"cherry-pick", "merge", "squash"}:
             errors.append(f"{task_id}.integration.strategy is invalid")
-        mappings = integration.get("mappings")
-        if not isinstance(mappings, list) or not mappings:
-            errors.append(f"{task_id}.integration.mappings must not be empty")
-            mappings = []
-        verified_sha = require_string(
+        verified_sha = validate_verified_sha(
             errors,
-            integration.get("verified_sha"),
-            f"{task_id}.integration.verified_sha",
-            allow_empty=state == "integrated",
+            task_id,
+            state,
+            integration,
+            verify_git=verify_git,
         )
-        if verified_sha and not SHA_PATTERN.fullmatch(verified_sha):
-            errors.append(
-                f"{task_id}.integration.verified_sha must be a full lowercase SHA"
+        if strategy in {"cherry-pick", "merge"}:
+            validate_cherry_pick_integration(
+                errors,
+                task_id,
+                head_sha,
+                integration,
+                verified_sha,
+                verify_git=verify_git,
             )
-        elif verified_sha and verify_git and not commit_exists(verified_sha):
-            errors.append(
-                f"{task_id}.integration.verified_sha is unavailable: {verified_sha}"
+        elif strategy == "squash":
+            validate_squash_integration(
+                errors,
+                task_id,
+                state,
+                base_sha,
+                head_sha,
+                integration,
+                verified_sha,
+                verify_git=verify_git,
             )
-
-        mapped_sources: set[str] = set()
-        for index, mapping in enumerate(mappings):
-            mapping_label = f"{task_id}.integration.mappings[{index}]"
-            if not isinstance(mapping, dict):
-                errors.append(f"{mapping_label} must be an object")
-                continue
-            source = require_string(
-                errors, mapping.get("source"), f"{mapping_label}.source"
-            )
-            result = require_string(
-                errors, mapping.get("result"), f"{mapping_label}.result"
-            )
-            patch_id = require_string(
-                errors, mapping.get("patch_id"), f"{mapping_label}.patch_id"
-            )
-            for name, commit in (("source", source), ("result", result)):
-                if commit and not SHA_PATTERN.fullmatch(commit):
-                    errors.append(f"{mapping_label}.{name} must be a full SHA")
-            if source:
-                if source in mapped_sources:
-                    errors.append(f"{mapping_label}.source is duplicated")
-                mapped_sources.add(source)
-            if not verify_git or not result or not patch_id:
-                continue
-            if not commit_exists(result):
-                errors.append(f"{mapping_label}.result is unavailable: {result}")
-                continue
-            if stable_patch_id(result) != patch_id:
-                errors.append(f"{mapping_label}.result patch ID does not match")
-            if commit_exists(source) and stable_patch_id(source) != patch_id:
-                errors.append(f"{mapping_label}.source patch ID does not match")
-            if verified_sha and not is_ancestor(result, verified_sha):
-                errors.append(
-                    f"{mapping_label}.result is not reachable from verified_sha"
-                )
-        if head_sha and mappings and head_sha not in mapped_sources:
-            errors.append(f"{task_id}.head_sha has no integration mapping")
 
     return errors
 
@@ -556,20 +792,36 @@ def mark_review(task_id: str, head_sha: str, reference: str) -> None:
     write_json(record_path(task_id), record)
 
 
-def mark_integrated(task_id: str, mappings_path: Path) -> None:
+def mark_integrated(task_id: str, provenance_path: Path) -> None:
     record = load_record(task_id)
     if record.get("state") != "review":
         raise GovernanceError(f"{task_id} must be in review before integration")
-    mappings_value = load_json(mappings_path)
-    mappings = mappings_value.get("mappings")
-    if not isinstance(mappings, list) or not mappings:
-        raise GovernanceError("Integration mapping file has no mappings")
+    provenance = load_json(provenance_path)
+    strategy = provenance.get("strategy")
+    if strategy == "squash":
+        required = (
+            "source_base",
+            "source_head",
+            "source_commits",
+            "source_commits_sha256",
+            "source_patch_id",
+            "result",
+            "result_patch_id",
+            "verified_sha",
+        )
+        missing = [field for field in required if field not in provenance]
+        if missing:
+            raise GovernanceError(
+                "Squash provenance is missing fields: " + ", ".join(missing)
+            )
+    elif strategy == "cherry-pick":
+        mappings = provenance.get("mappings")
+        if not isinstance(mappings, list) or not mappings:
+            raise GovernanceError("Integration mapping file has no mappings")
+    else:
+        raise GovernanceError(f"Unsupported integration strategy: {strategy}")
     record["state"] = "integrated"
-    record["integration"] = {
-        "strategy": "cherry-pick",
-        "mappings": mappings,
-        "verified_sha": "",
-    }
+    record["integration"] = provenance
     write_json(record_path(task_id), record)
 
 
@@ -578,6 +830,11 @@ def mark_accepted(task_id: str, reviewer: str, reference: str, verified_sha: str
     if record.get("state") != "integrated":
         raise GovernanceError(f"{task_id} must be integrated before acceptance")
     record["state"] = "done"
+    if (
+        record["integration"].get("strategy") == "squash"
+        and not record["integration"].get("result")
+    ):
+        record["integration"]["result"] = verified_sha
     record["integration"]["verified_sha"] = verified_sha
     record["verification"]["status"] = "passed"
     record["verification"]["reference"] = reference
@@ -639,7 +896,7 @@ def main() -> int:
 
     integrated_parser = subparsers.add_parser("mark-integrated")
     integrated_parser.add_argument("task_id")
-    integrated_parser.add_argument("mappings_path", type=Path)
+    integrated_parser.add_argument("provenance_path", type=Path)
 
     accepted_parser = subparsers.add_parser("mark-accepted")
     accepted_parser.add_argument("task_id")
@@ -667,7 +924,7 @@ def main() -> int:
         elif args.command == "mark-review":
             mark_review(args.task_id, args.head_sha, args.reference)
         elif args.command == "mark-integrated":
-            mark_integrated(args.task_id, args.mappings_path)
+            mark_integrated(args.task_id, args.provenance_path)
         elif args.command == "mark-accepted":
             mark_accepted(
                 args.task_id,

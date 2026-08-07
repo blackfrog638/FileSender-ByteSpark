@@ -33,10 +33,12 @@ source-range, patch-equivalence, verification, or cleanup checks.
 
 - Preserve the reviewed task branch and its complete source commit list until
   the task is accepted and cleaned up.
-- Default to one non-merge delivery commit whose tree diff is equivalent to the
-  reviewed `base_sha..head_sha` range.
-- Record source base, source head, ordered source commits, aggregate source
-  patch ID, integrated result SHA, and result patch ID.
+- Default to one non-merge delivery commit whose payload diff is equivalent to
+  the complete reviewed task range; exclude only the generated current-task
+  record from patch comparison.
+- Record source base, source head, ordered source commits and their SHA-256
+  digest, aggregate source patch ID, integrated result SHA, and result patch
+  ID.
 - Continue validating existing cherry-pick records without rewriting XT-001
   through XT-016.
 - Reject incomplete source ranges, mismatched patch IDs, unavailable result
@@ -45,17 +47,17 @@ source-range, patch-equivalence, verification, or cleanup checks.
 
 ## Acceptance criteria
 
-- [ ] `agent.sh integrate` creates one squash delivery commit for a reviewed
+- [x] `agent.sh integrate` creates one squash delivery commit for a reviewed
   task with multiple source commits.
-- [ ] Squash provenance proves the ordered source range and aggregate patch
+- [x] Squash provenance proves the ordered source range and aggregate patch
   equivalence to the integrated result.
-- [ ] Governance validation rejects tampered source head, source commit list,
+- [x] Governance validation rejects tampered source head, source commit list,
   source patch ID, result SHA, and result patch ID.
-- [ ] Cleanup accepts complete squash provenance and legacy cherry-pick records
+- [x] Cleanup accepts complete squash provenance and legacy cherry-pick records
   remain valid.
-- [ ] ADR 0005 and harness documentation describe the default strategy and
+- [x] ADR 0005 and harness documentation describe the default strategy and
   explicit compatibility boundary.
-- [ ] Repository verification passes.
+- [x] Repository verification passes.
 
 ## Verification
 

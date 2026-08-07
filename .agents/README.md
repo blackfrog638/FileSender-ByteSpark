@@ -50,10 +50,20 @@ transition requires a clean worktree, validates owned paths and handoff fields,
 and executes the verification commands in the task record.
 
 `integrate` must run from the configured integration branch. It uses
-`git cherry-pick -x` and records stable patch-ID mappings. Shared integration
-fixes may be committed after this step. `accept` reruns the recorded commands
-and is the only path to `done`. `cleanup` refuses to remove a branch containing
-an unmapped commit.
+one squash delivery commit by default and records the ordered source range plus
+aggregate source/result payload patch IDs. If a squash conflicts, stage the
+resolved source-equivalent patch and rerun `integrate XT-NNN --continue`.
+Integration fixes that change the reviewed patch must return to
+`in_progress`.
+
+Use `--strategy cherry-pick` only when commit topology is an explicit review
+requirement. Existing cherry-pick records remain valid.
+
+`accept` reruns the recorded commands, fills the delivery and verified SHAs,
+and is the only path to `done`. `cleanup` refuses to remove a branch whose
+commits do not exactly match its squash source list or legacy mappings. A
+normal requirement therefore adds three commits to `harness`: planning, one
+delivery, and acceptance.
 
 The valid runtime path is:
 

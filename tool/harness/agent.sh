@@ -15,7 +15,8 @@ Usage:
   tool/harness/agent.sh validate
   tool/harness/agent.sh claim XT-001 owner-slug [worktree-path] [base-ref]
   tool/harness/agent.sh transition XT-001 in_progress|review|blocked
-  tool/harness/agent.sh integrate XT-001
+  tool/harness/agent.sh integrate XT-001 [--strategy squash|cherry-pick]
+  tool/harness/agent.sh integrate XT-001 --continue
   tool/harness/agent.sh accept XT-001 reviewer-slug [verification-reference]
   tool/harness/agent.sh cleanup XT-001
   tool/harness/agent.sh prompt XT-001
@@ -24,7 +25,7 @@ Claims require a clean, committed base. Each task maps to one task/XT-NNN
 branch and one worktree, so competing claims fail atomically.
 
 Only integrate and accept can move review -> integrated -> done. Integration
-uses cherry-pick -x and records source/result patch provenance.
+defaults to one squash delivery commit with aggregate patch provenance.
 EOF
 }
 
@@ -110,6 +111,25 @@ run_verification() {
 commit_patch_id() {
   local commit="$1"
   git -C "$root" show --pretty=format: --binary "$commit" |
+    git -C "$root" patch-id --stable |
+    awk '{ print $1 }'
+}
+
+range_patch_id() {
+  local base="$1"
+  local head="$2"
+  local excluded_path="$3"
+  git -C "$root" diff --binary "$base" "$head" -- \
+    . ":(exclude)$excluded_path" |
+    git -C "$root" patch-id --stable |
+    awk '{ print $1 }'
+}
+
+index_patch_id() {
+  local base="$1"
+  local excluded_path="$2"
+  git -C "$root" diff --cached --binary "$base" -- \
+    . ":(exclude)$excluded_path" |
     git -C "$root" patch-id --stable |
     awk '{ print $1 }'
 }
@@ -338,20 +358,319 @@ transition() {
   printf '%s: %s -> %s\n' "$task_id" "$current" "$next"
 }
 
+integrate_cherry_pick() {
+  local task_id="$1"
+  local branch="$2"
+  local base="$3"
+  local source result source_patch result_patch mapping_rows provenance_json
+  mapping_rows="$(mktemp)"
+  provenance_json="$(mktemp)"
+
+  while IFS= read -r source; do
+    [[ -n "$source" ]] || continue
+    if [[ "$(
+      git -C "$root" rev-list --parents -n 1 "$source" |
+        awk '{ print NF - 1 }'
+    )" -ne 1 ]]; then
+      printf 'Merge commits are not supported by integration: %s\n' \
+        "$source" >&2
+      rm -f "$mapping_rows" "$provenance_json"
+      exit 1
+    fi
+    source_patch="$(commit_patch_id "$source")"
+    if ! git -C "$root" cherry-pick -x "$source"; then
+      printf '%s\n' \
+        'Cherry-pick integration stopped on a conflict.' \
+        'Restore a clean pre-integration state before retrying.' >&2
+      rm -f "$mapping_rows" "$provenance_json"
+      exit 1
+    fi
+    result="$(git -C "$root" rev-parse HEAD)"
+    result_patch="$(commit_patch_id "$result")"
+    if [[ "$source_patch" != "$result_patch" ]]; then
+      printf 'Patch ID changed while integrating %s.\n' "$source" >&2
+      rm -f "$mapping_rows" "$provenance_json"
+      exit 1
+    fi
+    printf '%s\t%s\t%s\n' \
+      "$source" "$result" "$source_patch" >>"$mapping_rows"
+  done < <(git -C "$root" rev-list --reverse "$base..$branch")
+
+  python3 - "$mapping_rows" "$provenance_json" <<'PY'
+import json
+import sys
+
+rows_path, output_path = sys.argv[1:]
+mappings = []
+with open(rows_path, encoding="utf-8") as rows:
+    for line in rows:
+        source, result, patch_id = line.rstrip("\n").split("\t")
+        mappings.append(
+            {"source": source, "result": result, "patch_id": patch_id}
+        )
+with open(output_path, "w", encoding="utf-8") as output:
+    json.dump(
+        {
+            "strategy": "cherry-pick",
+            "mappings": mappings,
+            "verified_sha": "",
+        },
+        output,
+    )
+PY
+  "$governance" mark-integrated "$task_id" "$provenance_json"
+  commit_record \
+    "$root" \
+    "$task_id" \
+    "harness: record $task_id integration"
+  rm -f "$mapping_rows" "$provenance_json"
+}
+
+integrate_squash() {
+  local task_id="$1"
+  local branch="$2"
+  local base="$3"
+  local continue_integration="$4"
+  local record_relative source_head source_patch staged_patch result_patch
+  local source_commits_sha256
+  local integration_parent result source_commits provenance_json source
+  record_relative=".agents/records/$task_id.json"
+  source_head="$(git -C "$root" rev-parse "$branch")"
+  source_commits="$(mktemp)"
+  provenance_json="$(mktemp)"
+
+  if ! git -C "$root" merge-base --is-ancestor "$base" "$source_head"; then
+    printf '%s base is not an ancestor of its source head.\n' "$task_id" >&2
+    rm -f "$source_commits" "$provenance_json"
+    exit 1
+  fi
+  git -C "$root" rev-list --reverse \
+    "$base..$source_head" >"$source_commits"
+  if [[ ! -s "$source_commits" ]]; then
+    printf '%s has no source commits to integrate.\n' "$task_id" >&2
+    rm -f "$source_commits" "$provenance_json"
+    exit 1
+  fi
+  while IFS= read -r source; do
+    if [[ "$(
+      git -C "$root" rev-list --parents -n 1 "$source" |
+        awk '{ print NF - 1 }'
+    )" -ne 1 ]]; then
+      printf 'Merge commits are not supported by integration: %s\n' \
+        "$source" >&2
+      rm -f "$source_commits" "$provenance_json"
+      exit 1
+    fi
+  done <"$source_commits"
+  source_commits_sha256="$(
+    python3 - "$source_commits" <<'PY'
+import hashlib
+import sys
+from pathlib import Path
+
+commits = [
+    line.strip()
+    for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
+    if line.strip()
+]
+encoded = ("\n".join(commits) + "\n").encode("ascii")
+print(hashlib.sha256(encoded).hexdigest())
+PY
+  )"
+
+  source_patch="$(range_patch_id "$base" "$source_head" "$record_relative")"
+  if [[ -z "$source_patch" ]]; then
+    printf '%s source range has no payload patch ID.\n' "$task_id" >&2
+    rm -f "$source_commits" "$provenance_json"
+    exit 1
+  fi
+  integration_parent="$(git -C "$root" rev-parse HEAD)"
+  if ! git -C "$root" merge-base --is-ancestor "$base" "$integration_parent"; then
+    printf '%s base is not an ancestor of the integration branch.\n' \
+      "$task_id" >&2
+    rm -f "$source_commits" "$provenance_json"
+    exit 1
+  fi
+
+  if [[ "$continue_integration" -eq 0 ]]; then
+    if ! git -C "$root" merge --squash --no-commit "$branch"; then
+      printf '%s\n' \
+        'Squash integration stopped on a conflict.' \
+        "Resolve and stage every conflict, then run:" \
+        "  tool/harness/agent.sh integrate $task_id --continue" >&2
+      rm -f "$source_commits" "$provenance_json"
+      exit 1
+    fi
+  else
+    if git -C "$root" diff --cached --quiet; then
+      printf 'No staged squash integration is available to continue.\n' >&2
+      rm -f "$source_commits" "$provenance_json"
+      exit 1
+    fi
+    if [[ -n "$(git -C "$root" diff --name-only --diff-filter=U)" ]]; then
+      printf 'Squash integration still has unresolved conflicts.\n' >&2
+      rm -f "$source_commits" "$provenance_json"
+      exit 1
+    fi
+    if ! git -C "$root" diff --quiet; then
+      printf 'Stage every squash integration change before continuing.\n' >&2
+      rm -f "$source_commits" "$provenance_json"
+      exit 1
+    fi
+    if [[ -n "$(
+      git -C "$root" ls-files --others --exclude-standard
+    )" ]]; then
+      printf 'Remove unrelated untracked files before continuing.\n' >&2
+      rm -f "$source_commits" "$provenance_json"
+      exit 1
+    fi
+  fi
+
+  staged_patch="$(
+    index_patch_id "$integration_parent" "$record_relative"
+  )"
+  if [[ "$staged_patch" != "$source_patch" ]]; then
+    printf '%s\n' \
+      'Squash payload patch ID does not match the reviewed source range.' \
+      "source: $source_patch" \
+      "staged: ${staged_patch:-empty}" >&2
+    rm -f "$source_commits" "$provenance_json"
+    exit 1
+  fi
+
+  python3 - \
+    "$source_commits" \
+    "$provenance_json" \
+    "$base" \
+    "$source_head" \
+    "$source_commits_sha256" \
+    "$source_patch" <<'PY'
+import json
+import sys
+
+(
+    commits_path,
+    output_path,
+    source_base,
+    source_head,
+    commits_sha256,
+    patch_id,
+) = sys.argv[1:]
+with open(commits_path, encoding="utf-8") as source:
+    commits = [line.strip() for line in source if line.strip()]
+with open(output_path, "w", encoding="utf-8") as output:
+    json.dump(
+        {
+            "strategy": "squash",
+            "source_base": source_base,
+            "source_head": source_head,
+            "source_commits": commits,
+            "source_commits_sha256": commits_sha256,
+            "source_patch_id": patch_id,
+            "result": "",
+            "result_patch_id": patch_id,
+            "verified_sha": "",
+        },
+        output,
+    )
+PY
+  "$governance" mark-integrated "$task_id" "$provenance_json"
+  git -C "$root" add "$record_relative"
+  if ! git -C "$root" diff --quiet; then
+    printf 'Integration left unstaged changes after recording provenance.\n' >&2
+    rm -f "$source_commits" "$provenance_json"
+    exit 1
+  fi
+  git -C "$root" commit \
+    -m "harness: deliver $task_id" \
+    -m "Xnn-Task: $task_id" \
+    -m "Xnn-Integration-Strategy: squash" \
+    -m "Xnn-Source-Base: $base" \
+    -m "Xnn-Source-Head: $source_head" \
+    -m "Xnn-Source-Commits-SHA256: $source_commits_sha256" \
+    -m "Xnn-Source-Patch-Id: $source_patch" >/dev/null
+
+  result="$(git -C "$root" rev-parse HEAD)"
+  result_patch="$(
+    range_patch_id "$integration_parent" "$result" "$record_relative"
+  )"
+  if [[ "$result_patch" != "$source_patch" ]]; then
+    printf 'Committed squash payload patch ID changed for %s.\n' \
+      "$task_id" >&2
+    rm -f "$source_commits" "$provenance_json"
+    exit 1
+  fi
+  "$governance" validate >/dev/null
+  rm -f "$source_commits" "$provenance_json"
+  printf 'Integrated delivery: %s\n' "$result"
+}
+
 integrate() {
-  if [[ "$#" -ne 1 ]]; then
+  if [[ "$#" -lt 1 || "$#" -gt 3 ]]; then
     usage
     exit 2
   fi
 
   local task_id="$1"
-  local branch worktree state base source result source_patch result_patch
-  local mapping_rows mapping_json
-  branch="$(task_branch "$task_id")"
+  local strategy="squash"
+  local continue_integration=0
+  local branch worktree state base pending
+  shift
+  if [[ "$#" -gt 0 ]]; then
+    case "$1" in
+      --continue)
+        [[ "$#" -eq 1 ]] || {
+          usage
+          exit 2
+        }
+        continue_integration=1
+        ;;
+      --strategy)
+        [[ "$#" -eq 2 ]] || {
+          usage
+          exit 2
+        }
+        strategy="$2"
+        ;;
+      *)
+        usage
+        exit 2
+        ;;
+    esac
+  fi
+  if [[ "$strategy" != "squash" && "$strategy" != "cherry-pick" ]]; then
+    printf 'Unknown integration strategy: %s\n' "$strategy" >&2
+    exit 2
+  fi
+  if [[ "$continue_integration" -eq 1 && "$strategy" != "squash" ]]; then
+    printf '%s\n' '--continue is only valid for squash integration.' >&2
+    exit 2
+  fi
 
+  branch="$(task_branch "$task_id")"
   ensure_integration_worktree
-  if [[ -n "$(git -C "$root" status --porcelain)" ]]; then
+  if [[ "$continue_integration" -eq 0 && \
+    -n "$(git -C "$root" status --porcelain)" ]]; then
     printf 'The integration worktree must be clean before integration.\n' >&2
+    exit 1
+  fi
+  pending="$(
+    python3 - "$root/.agents/records" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+records = Path(sys.argv[1])
+for path in sorted(records.glob("XT-*.json")):
+    with path.open(encoding="utf-8") as source:
+        record = json.load(source)
+    if record.get("state") == "integrated":
+        print(record["id"])
+PY
+  )"
+  if [[ -n "$pending" ]]; then
+    printf 'Accept the pending integrated task before another integration: %s\n' \
+      "$pending" >&2
     exit 1
   fi
   worktree="$(task_worktree "$task_id")"
@@ -370,63 +689,15 @@ integrate() {
     exit 1
   fi
   base="$("$worktree/tool/harness/governance.py" get "$task_id" base_sha)"
-  mapping_rows="$(mktemp)"
-  mapping_json="$(mktemp)"
 
-  while IFS= read -r source; do
-    [[ -n "$source" ]] || continue
-    if [[ "$(
-      git -C "$root" rev-list --parents -n 1 "$source" |
-        awk '{ print NF - 1 }'
-    )" -ne 1 ]]; then
-      printf 'Merge commits are not supported by cherry-pick integration: %s\n' \
-        "$source" >&2
-      rm -f "$mapping_rows" "$mapping_json"
-      exit 1
-    fi
-    source_patch="$(commit_patch_id "$source")"
-    if ! git -C "$root" cherry-pick -x "$source"; then
-      printf '%s\n' \
-        'Integration stopped on a conflict.' \
-        'Resolve it in the integration worktree, then restart after restoring' \
-        'a clean pre-integration state.' >&2
-      rm -f "$mapping_rows" "$mapping_json"
-      exit 1
-    fi
-    result="$(git -C "$root" rev-parse HEAD)"
-    result_patch="$(commit_patch_id "$result")"
-    if [[ "$source_patch" != "$result_patch" ]]; then
-      printf 'Patch ID changed while integrating %s.\n' "$source" >&2
-      rm -f "$mapping_rows" "$mapping_json"
-      exit 1
-    fi
-    printf '%s\t%s\t%s\n' \
-      "$source" "$result" "$source_patch" >>"$mapping_rows"
-  done < <(git -C "$root" rev-list --reverse "$base..$branch")
-
-  python3 - "$mapping_rows" "$mapping_json" <<'PY'
-import json
-import sys
-
-rows_path, output_path = sys.argv[1:]
-mappings = []
-with open(rows_path, encoding="utf-8") as rows:
-    for line in rows:
-        source, result, patch_id = line.rstrip("\n").split("\t")
-        mappings.append(
-            {"source": source, "result": result, "patch_id": patch_id}
-        )
-with open(output_path, "w", encoding="utf-8") as output:
-    json.dump({"mappings": mappings}, output)
-PY
-  "$governance" mark-integrated "$task_id" "$mapping_json"
-  commit_record \
-    "$root" \
-    "$task_id" \
-    "harness: record $task_id integration"
+  if [[ "$strategy" == "squash" ]]; then
+    integrate_squash \
+      "$task_id" "$branch" "$base" "$continue_integration"
+  else
+    integrate_cherry_pick "$task_id" "$branch" "$base"
+  fi
   git -C "$root" config "branch.$branch.xnnState" integrated
-  rm -f "$mapping_rows" "$mapping_json"
-  printf '%s: review -> integrated\n' "$task_id"
+  printf '%s: review -> integrated (%s)\n' "$task_id" "$strategy"
 }
 
 accept() {
@@ -457,6 +728,7 @@ accept() {
     exit 1
   fi
 
+  "$governance" validate >/dev/null
   run_verification "$root" "$task_id"
   verified_sha="$(git -C "$root" rev-parse HEAD)"
   if [[ -z "$reference" ]]; then
@@ -497,13 +769,14 @@ cleanup() {
       "$task_id" "$state" >&2
     exit 1
   fi
+  "$governance" validate >/dev/null
   if ! git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
     printf '%s has no local task branch; nothing to clean.\n' "$task_id"
     return
   fi
   base="$("$governance" get "$task_id" base_sha)"
   commits_file="$(mktemp)"
-  git -C "$root" rev-list "$base..$branch" >"$commits_file"
+  git -C "$root" rev-list --reverse "$base..$branch" >"$commits_file"
   if ! python3 - \
     "$root/.agents/records/$task_id.json" \
     "$commits_file" <<'PY'
@@ -513,17 +786,24 @@ import sys
 record_path, commits_path = sys.argv[1:]
 with open(record_path, encoding="utf-8") as source:
     record = json.load(source)
-mapped = {
-    item["source"] for item in record["integration"]["mappings"]
-}
 with open(commits_path, encoding="utf-8") as source:
-    commits = {line.strip() for line in source if line.strip()}
-missing = sorted(commits - mapped)
-if missing:
-    raise SystemExit(
-        "Task branch contains commits without integration mappings:\n"
-        + "\n".join(missing)
-    )
+    commits = [line.strip() for line in source if line.strip()]
+integration = record["integration"]
+if integration["strategy"] == "squash":
+    if commits != integration["source_commits"]:
+        raise SystemExit(
+            "Task branch does not match squash source provenance."
+        )
+elif integration["strategy"] in {"cherry-pick", "merge"}:
+    mapped = {item["source"] for item in integration["mappings"]}
+    missing = sorted(set(commits) - mapped)
+    if missing:
+        raise SystemExit(
+            "Task branch contains commits without integration mappings:\n"
+            + "\n".join(missing)
+        )
+else:
+    raise SystemExit("Task has an unsupported integration strategy.")
 PY
   then
     rm -f "$commits_file"
