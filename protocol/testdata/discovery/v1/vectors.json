@@ -1,0 +1,816 @@
+{
+  "format_version": 1,
+  "protocol": "xnn-transfer-discovery-v1.0",
+  "description": "Synthetic byte-exact datagrams and monotonic lifecycle scenarios. No fixture establishes identity, trust, pairing, or transfer authority.",
+  "datagrams": {
+    "announce_min": "584e4e4401000100002c002c000000000000000100112233445566778899aabbccddeeffb337000f00000000",
+    "announce_seq2": "584e4e4401000100002c002c000000000000000200112233445566778899aabbccddeeffb337000f00000000",
+    "announce_seq2_label_conflict": "584e4e44010001000036002c000000000000000200112233445566778899aabbccddeeffb338000f000a0000000100064465736b2041",
+    "announce_seq3_label": "584e4e44010001000036002c000000000000000300112233445566778899aabbccddeeffb338000f000a0000000100064465736b2041",
+    "announce_seq4_label": "584e4e44010001000036002c000000000000000400112233445566778899aabbccddeeffb338000f000a0000000100064465736b2041",
+    "announce_seq6_label": "584e4e44010001000036002c000000000000000600112233445566778899aabbccddeeffb338000f000a0000000100064465736b2041",
+    "announce_ttl5": "584e4e4401000100002c002c000000000000000b00112233445566778899aabbccddeeffb337000500000000",
+    "announce_ttl60": "584e4e4401000100002c002c000000000000000c00112233445566778899aabbccddeeffb337003c00000000",
+    "withdraw_seq5": "584e4e4401000200002c002c000000000000000500112233445566778899aabbccddeeff0000000000000000",
+    "label_nfc": "584e4e44010001000035002c0000000000000001102132435465768798a9bacbdcedfe0fb337000f0009000000010005436166c3a9",
+    "label_max_scalars": "584e4e44010001000070002c0000000000000002102132435465768798a9bacbdcedfe0fb337000f004400000001004061616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+    "unknown_noncritical": "584e4e44010001000034002c0000000000000001ffeeddccbbaa99887766554433221100b337000f0008000001000004deadbeef",
+    "max_datagram": {
+      "prefix_hex": "584e4e44010001000200002c00000000000000010102030405060708090a0b0c0d0e0f10b337000f01d40000010001d0",
+      "repeat_hex": "5a",
+      "repeat_count": 464
+    },
+    "too_short": "584e4e4401000100002c002c000000000000000100112233445566778899aabbccddeeffb337000f000000",
+    "too_large": {
+      "prefix_hex": "584e4e44010001000201002c00000000000000010102030405060708090a0b0c0d0e0f10b337000f01d50000010001d1",
+      "repeat_hex": "5a",
+      "repeat_count": 465
+    },
+    "bad_magic": "4241442101000100002c002c000000000000000100112233445566778899aabbccddeeffb337000f00000000",
+    "major_2": "584e4e4402000100002c002c000000000000000100112233445566778899aabbccddeeffb337000f00000000",
+    "minor_1": "584e4e4401010100002c002c000000000000000100112233445566778899aabbccddeeffb337000f00000000",
+    "length_short_declaration": "584e4e4401000100002b002c000000000000000100112233445566778899aabbccddeeffb337000f00000000",
+    "bad_header_length": "584e4e4401000100002c002b000000000000000100112233445566778899aabbccddeeffb337000f00000000",
+    "nonzero_flags": "584e4e4401000101002c002c000000000000000100112233445566778899aabbccddeeffb337000f00000000",
+    "nonzero_reserved": "584e4e4401000100002c002c000000000000000100112233445566778899aabbccddeeffb337000f00000001",
+    "bad_tlv_length": "584e4e4401000100002c002c000000000000000100112233445566778899aabbccddeeffb337000f00010000",
+    "unknown_message": "584e4e4401000300002c002c000000000000000100112233445566778899aabbccddeeffb337000f00000000",
+    "zero_sequence": "584e4e4401000100002c002c000000000000000000112233445566778899aabbccddeeffb337000f00000000",
+    "zero_token": "584e4e4401000100002c002c000000000000000100000000000000000000000000000000b337000f00000000",
+    "zero_port": "584e4e4401000100002c002c000000000000000100112233445566778899aabbccddeeff0000000f00000000",
+    "ttl_below_min": "584e4e4401000100002c002c000000000000000100112233445566778899aabbccddeeffb337000400000000",
+    "ttl_above_max": "584e4e4401000100002c002c000000000000000100112233445566778899aabbccddeeffb337003d00000000",
+    "withdraw_with_port": "584e4e4401000200002c002c000000000000000100112233445566778899aabbccddeeffb337000000000000",
+    "withdraw_with_tlv": "584e4e44010002000030002c000000000000000100112233445566778899aabbccddeeff000000000004000001000000",
+    "tlv_short_header": "584e4e4401000100002d002c000000000000000100112233445566778899aabbccddeeffb337000f0001000000",
+    "tlv_value_truncated": "584e4e44010001000030002c000000000000000100112233445566778899aabbccddeeffb337000f0004000001000001",
+    "tlv_out_of_order": "584e4e44010001000035002c000000000000000100112233445566778899aabbccddeeffb337000f00090000010000000001000141",
+    "tlv_duplicate": "584e4e44010001000036002c000000000000000100112233445566778899aabbccddeeffb337000f000a000000010001410001000142",
+    "unknown_critical": "584e4e4401000100003d002c000000000000000100112233445566778899aabbccddeeffb337000f001100008100000d6964656e746974792d6c696b65",
+    "reserved_tlv_zero": "584e4e44010001000030002c000000000000000100112233445566778899aabbccddeeffb337000f0004000000000000",
+    "label_empty": "584e4e44010001000030002c000000000000000100112233445566778899aabbccddeeffb337000f0004000000010000",
+    "label_invalid_utf8": "584e4e44010001000032002c000000000000000100112233445566778899aabbccddeeffb337000f0006000000010002c0af",
+    "label_non_nfc": "584e4e44010001000036002c000000000000000100112233445566778899aabbccddeeffb337000f000a00000001000643616665cc81",
+    "label_leading_space": "584e4e44010001000035002c000000000000000100112233445566778899aabbccddeeffb337000f0009000000010005204465736b",
+    "label_control": "584e4e44010001000036002c000000000000000100112233445566778899aabbccddeeffb337000f000a0000000100064465736b0a41",
+    "label_too_many_bytes": "584e4e44010001000091002c000000000000000100112233445566778899aabbccddeeffb337000f006500000001006161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+    "label_too_many_scalars": "584e4e44010001000071002c000000000000000100112233445566778899aabbccddeeffb337000f00450000000100416161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+    "too_many_tlvs": "584e4e440100010000b0002c000000000000000100112233445566778899aabbccddeeffb337000f0084000001000000010100000102000001030000010400000105000001060000010700000108000001090000010a0000010b0000010c0000010d0000010e0000010f000001100000011100000112000001130000011400000115000001160000011700000118000001190000011a0000011b0000011c0000011d0000011e0000011f000001200000"
+  },
+  "parse_cases": [
+    {
+      "id": "minimum_announcement",
+      "datagram": "announce_min",
+      "result": "ACCEPT",
+      "decoded": {
+        "message_type": "ANNOUNCE",
+        "sequence": 1,
+        "token": "00112233445566778899aabbccddeeff",
+        "service_port": 45879,
+        "ttl_seconds": 15,
+        "label": null
+      }
+    },
+    {
+      "id": "minimum_ttl",
+      "datagram": "announce_ttl5",
+      "result": "ACCEPT",
+      "decoded": {
+        "message_type": "ANNOUNCE",
+        "sequence": 11,
+        "token": "00112233445566778899aabbccddeeff",
+        "service_port": 45879,
+        "ttl_seconds": 5,
+        "label": null
+      }
+    },
+    {
+      "id": "maximum_ttl",
+      "datagram": "announce_ttl60",
+      "result": "ACCEPT",
+      "decoded": {
+        "message_type": "ANNOUNCE",
+        "sequence": 12,
+        "token": "00112233445566778899aabbccddeeff",
+        "service_port": 45879,
+        "ttl_seconds": 60,
+        "label": null
+      }
+    },
+    {
+      "id": "valid_withdrawal",
+      "datagram": "withdraw_seq5",
+      "result": "ACCEPT",
+      "decoded": {
+        "message_type": "WITHDRAW",
+        "sequence": 5,
+        "token": "00112233445566778899aabbccddeeff",
+        "service_port": 0,
+        "ttl_seconds": 0,
+        "label": null
+      }
+    },
+    {
+      "id": "nfc_display_label",
+      "datagram": "label_nfc",
+      "result": "ACCEPT",
+      "decoded": {
+        "message_type": "ANNOUNCE",
+        "sequence": 1,
+        "token": "102132435465768798a9bacbdcedfe0f",
+        "service_port": 45879,
+        "ttl_seconds": 15,
+        "label": "Café"
+      }
+    },
+    {
+      "id": "maximum_label_scalars",
+      "datagram": "label_max_scalars",
+      "result": "ACCEPT",
+      "decoded": {
+        "message_type": "ANNOUNCE",
+        "sequence": 2,
+        "token": "102132435465768798a9bacbdcedfe0f",
+        "service_port": 45879,
+        "ttl_seconds": 15,
+        "label": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "id": "identity_like_unknown_hint_is_not_exposed",
+      "datagram": "unknown_noncritical",
+      "result": "ACCEPT",
+      "decoded": {
+        "message_type": "ANNOUNCE",
+        "sequence": 1,
+        "token": "ffeeddccbbaa99887766554433221100",
+        "service_port": 45879,
+        "ttl_seconds": 15,
+        "label": null
+      }
+    },
+    {
+      "id": "maximum_datagram",
+      "datagram": "max_datagram",
+      "result": "ACCEPT",
+      "decoded": {
+        "message_type": "ANNOUNCE",
+        "sequence": 1,
+        "token": "0102030405060708090a0b0c0d0e0f10",
+        "service_port": 45879,
+        "ttl_seconds": 15,
+        "label": null
+      }
+    },
+    {
+      "id": "truncated_fixed_header",
+      "datagram": "too_short",
+      "result": "DROP_TOO_SHORT"
+    },
+    {
+      "id": "oversized_payload",
+      "datagram": "too_large",
+      "result": "DROP_TOO_LARGE"
+    },
+    {
+      "id": "invalid_magic",
+      "datagram": "bad_magic",
+      "result": "DROP_BAD_MAGIC"
+    },
+    {
+      "id": "unknown_major",
+      "datagram": "major_2",
+      "result": "DROP_UNSUPPORTED_VERSION"
+    },
+    {
+      "id": "unknown_minor",
+      "datagram": "minor_1",
+      "result": "DROP_UNSUPPORTED_VERSION"
+    },
+    {
+      "id": "short_length_declaration",
+      "datagram": "length_short_declaration",
+      "result": "DROP_LENGTH_MISMATCH"
+    },
+    {
+      "id": "invalid_header_length",
+      "datagram": "bad_header_length",
+      "result": "DROP_BAD_HEADER_LENGTH"
+    },
+    {
+      "id": "unknown_flags",
+      "datagram": "nonzero_flags",
+      "result": "DROP_NONZERO_FLAGS"
+    },
+    {
+      "id": "nonzero_reserved_header",
+      "datagram": "nonzero_reserved",
+      "result": "DROP_NONZERO_RESERVED"
+    },
+    {
+      "id": "inconsistent_tlv_length",
+      "datagram": "bad_tlv_length",
+      "result": "DROP_LENGTH_MISMATCH"
+    },
+    {
+      "id": "unknown_message_type",
+      "datagram": "unknown_message",
+      "result": "DROP_UNKNOWN_MESSAGE"
+    },
+    {
+      "id": "zero_sequence",
+      "datagram": "zero_sequence",
+      "result": "DROP_ZERO_SEQUENCE"
+    },
+    {
+      "id": "zero_instance_token",
+      "datagram": "zero_token",
+      "result": "DROP_ZERO_TOKEN"
+    },
+    {
+      "id": "zero_service_port",
+      "datagram": "zero_port",
+      "result": "DROP_INVALID_ANNOUNCE"
+    },
+    {
+      "id": "ttl_below_minimum",
+      "datagram": "ttl_below_min",
+      "result": "DROP_INVALID_ANNOUNCE"
+    },
+    {
+      "id": "ttl_above_maximum",
+      "datagram": "ttl_above_max",
+      "result": "DROP_INVALID_ANNOUNCE"
+    },
+    {
+      "id": "withdrawal_with_port",
+      "datagram": "withdraw_with_port",
+      "result": "DROP_INVALID_WITHDRAW"
+    },
+    {
+      "id": "withdrawal_with_tlv",
+      "datagram": "withdraw_with_tlv",
+      "result": "DROP_INVALID_WITHDRAW"
+    },
+    {
+      "id": "truncated_tlv_header",
+      "datagram": "tlv_short_header",
+      "result": "DROP_TLV_TRUNCATED"
+    },
+    {
+      "id": "truncated_tlv_value",
+      "datagram": "tlv_value_truncated",
+      "result": "DROP_TLV_TRUNCATED"
+    },
+    {
+      "id": "out_of_order_tlv",
+      "datagram": "tlv_out_of_order",
+      "result": "DROP_TLV_ORDER"
+    },
+    {
+      "id": "duplicate_tlv",
+      "datagram": "tlv_duplicate",
+      "result": "DROP_DUPLICATE_TLV"
+    },
+    {
+      "id": "identity_like_critical_hint",
+      "datagram": "unknown_critical",
+      "result": "DROP_UNKNOWN_CRITICAL_TLV"
+    },
+    {
+      "id": "reserved_field_id_zero",
+      "datagram": "reserved_tlv_zero",
+      "result": "DROP_RESERVED_TLV"
+    },
+    {
+      "id": "empty_label",
+      "datagram": "label_empty",
+      "result": "DROP_INVALID_LABEL"
+    },
+    {
+      "id": "invalid_utf8_label",
+      "datagram": "label_invalid_utf8",
+      "result": "DROP_INVALID_LABEL"
+    },
+    {
+      "id": "non_nfc_label",
+      "datagram": "label_non_nfc",
+      "result": "DROP_INVALID_LABEL"
+    },
+    {
+      "id": "leading_whitespace_label",
+      "datagram": "label_leading_space",
+      "result": "DROP_INVALID_LABEL"
+    },
+    {
+      "id": "control_character_label",
+      "datagram": "label_control",
+      "result": "DROP_INVALID_LABEL"
+    },
+    {
+      "id": "label_exceeds_byte_limit",
+      "datagram": "label_too_many_bytes",
+      "result": "DROP_INVALID_LABEL"
+    },
+    {
+      "id": "label_exceeds_scalar_limit",
+      "datagram": "label_too_many_scalars",
+      "result": "DROP_INVALID_LABEL"
+    },
+    {
+      "id": "field_count_limit",
+      "datagram": "too_many_tlvs",
+      "result": "DROP_TOO_MANY_TLVS"
+    }
+  ],
+  "state_cases": [
+    {
+      "id": "duplicate_does_not_extend_expiry_and_old_replay_stays_tombstoned",
+      "actions": [
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "192.0.2.10",
+          "datagram": "announce_min",
+          "result": "APPEARED",
+          "events": ["appeared"],
+          "deadline_ms": 15000
+        },
+        {
+          "op": "receive",
+          "at_ms": 5000,
+          "interface": "if-a#1",
+          "source": "192.0.2.10",
+          "datagram": "announce_min",
+          "result": "DROP_DUPLICATE",
+          "events": [],
+          "deadline_ms": 15000
+        },
+        {
+          "op": "advance",
+          "at_ms": 14999,
+          "events": [],
+          "counts": {"candidates": 1, "tombstones": 0}
+        },
+        {
+          "op": "advance",
+          "at_ms": 15000,
+          "events": ["expired:ttl"],
+          "counts": {"candidates": 0, "tombstones": 1}
+        },
+        {
+          "op": "receive",
+          "at_ms": 16000,
+          "interface": "if-a#1",
+          "source": "192.0.2.10",
+          "datagram": "announce_min",
+          "result": "DROP_STALE",
+          "events": [],
+          "counts": {"candidates": 0, "tombstones": 1}
+        },
+        {
+          "op": "receive",
+          "at_ms": 17000,
+          "interface": "if-a#1",
+          "source": "192.0.2.10",
+          "datagram": "announce_seq2",
+          "result": "APPEARED",
+          "events": ["appeared"],
+          "deadline_ms": 32000
+        }
+      ],
+      "final_counts": {"candidates": 1, "tombstones": 0}
+    },
+    {
+      "id": "newer_sequence_refreshes_and_conflict_does_not",
+      "actions": [
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "198.51.100.7",
+          "datagram": "announce_min",
+          "result": "APPEARED",
+          "deadline_ms": 15000
+        },
+        {
+          "op": "receive",
+          "at_ms": 4000,
+          "interface": "if-a#1",
+          "source": "198.51.100.7",
+          "datagram": "announce_seq2",
+          "result": "REFRESHED",
+          "events": [],
+          "deadline_ms": 19000
+        },
+        {
+          "op": "receive",
+          "at_ms": 5000,
+          "interface": "if-a#1",
+          "source": "198.51.100.7",
+          "datagram": "announce_seq2_label_conflict",
+          "result": "DROP_SEQUENCE_CONFLICT",
+          "events": [],
+          "deadline_ms": 19000
+        },
+        {
+          "op": "receive",
+          "at_ms": 6000,
+          "interface": "if-a#1",
+          "source": "198.51.100.7",
+          "datagram": "announce_seq3_label",
+          "result": "UPDATED",
+          "events": ["updated"],
+          "deadline_ms": 21000
+        },
+        {
+          "op": "receive",
+          "at_ms": 7000,
+          "interface": "if-a#1",
+          "source": "198.51.100.7",
+          "datagram": "announce_min",
+          "result": "DROP_STALE",
+          "events": [],
+          "deadline_ms": 21000
+        }
+      ],
+      "final_counts": {"candidates": 1, "tombstones": 0}
+    },
+    {
+      "id": "withdrawal_suppresses_reordered_announcement",
+      "actions": [
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "203.0.113.5",
+          "datagram": "withdraw_seq5",
+          "result": "TOMBSTONED",
+          "counts": {"candidates": 0, "tombstones": 1}
+        },
+        {
+          "op": "receive",
+          "at_ms": 100,
+          "interface": "if-a#1",
+          "source": "203.0.113.5",
+          "datagram": "announce_seq3_label",
+          "result": "DROP_STALE",
+          "counts": {"candidates": 0, "tombstones": 1}
+        },
+        {
+          "op": "receive",
+          "at_ms": 200,
+          "interface": "if-a#1",
+          "source": "203.0.113.5",
+          "datagram": "announce_seq6_label",
+          "result": "APPEARED",
+          "events": ["appeared"]
+        },
+        {
+          "op": "receive",
+          "at_ms": 300,
+          "interface": "if-a#1",
+          "source": "203.0.113.5",
+          "datagram": "withdraw_seq5",
+          "result": "DROP_STALE",
+          "counts": {"candidates": 1, "tombstones": 0}
+        }
+      ],
+      "final_counts": {"candidates": 1, "tombstones": 0}
+    },
+    {
+      "id": "higher_withdrawal_expires_visible_candidate",
+      "actions": [
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "203.0.113.8",
+          "datagram": "announce_seq4_label",
+          "result": "APPEARED"
+        },
+        {
+          "op": "receive",
+          "at_ms": 1,
+          "interface": "if-a#1",
+          "source": "203.0.113.8",
+          "datagram": "withdraw_seq5",
+          "result": "WITHDRAWN",
+          "events": ["expired:withdrawn"],
+          "counts": {"candidates": 0, "tombstones": 1}
+        }
+      ],
+      "final_counts": {"candidates": 0, "tombstones": 1}
+    },
+    {
+      "id": "same_token_and_label_from_different_sources_are_distinct_untrusted_candidates",
+      "actions": [
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "192.0.2.20",
+          "datagram": "announce_min",
+          "result": "APPEARED"
+        },
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "192.0.2.21",
+          "datagram": "announce_min",
+          "result": "APPEARED",
+          "counts": {"candidates": 2, "tombstones": 0}
+        }
+      ],
+      "final_counts": {"candidates": 2, "tombstones": 0}
+    },
+    {
+      "id": "interface_removal_is_immediate_and_generation_scoped",
+      "actions": [
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "192.0.2.30",
+          "datagram": "announce_min",
+          "result": "APPEARED"
+        },
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-b#1",
+          "source": "192.0.2.30",
+          "datagram": "announce_min",
+          "result": "APPEARED"
+        },
+        {
+          "op": "remove_interface",
+          "at_ms": 1000,
+          "interface": "if-a#1",
+          "events": ["expired:interface_removed"],
+          "counts": {"candidates": 1, "tombstones": 0}
+        }
+      ],
+      "final_counts": {"candidates": 1, "tombstones": 0}
+    },
+    {
+      "id": "wake_expires_candidates_and_preserves_replay_tombstone",
+      "actions": [
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "192.0.2.40",
+          "datagram": "announce_min",
+          "result": "APPEARED"
+        },
+        {
+          "op": "wake",
+          "at_ms": 1000,
+          "events": ["expired:wake"],
+          "counts": {"candidates": 0, "tombstones": 1}
+        },
+        {
+          "op": "receive",
+          "at_ms": 2000,
+          "interface": "if-a#1",
+          "source": "192.0.2.40",
+          "datagram": "announce_min",
+          "result": "DROP_STALE"
+        },
+        {
+          "op": "receive",
+          "at_ms": 3000,
+          "interface": "if-a#1",
+          "source": "192.0.2.40",
+          "datagram": "announce_seq2",
+          "result": "APPEARED",
+          "events": ["appeared"],
+          "deadline_ms": 18000
+        }
+      ],
+      "final_counts": {"candidates": 1, "tombstones": 0}
+    },
+    {
+      "id": "self_filter_is_interface_and_family_scoped",
+      "actions": [
+        {
+          "op": "add_local_token",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "family": 4,
+          "token": "00112233445566778899aabbccddeeff"
+        },
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "192.0.2.50",
+          "datagram": "announce_min",
+          "result": "DROP_SELF",
+          "counts": {"candidates": 0, "tombstones": 0}
+        },
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-b#1",
+          "source": "192.0.2.50",
+          "datagram": "announce_min",
+          "result": "APPEARED",
+          "counts": {"candidates": 1, "tombstones": 0}
+        }
+      ],
+      "final_counts": {"candidates": 1, "tombstones": 0}
+    },
+    {
+      "id": "per_source_burst_limit_applies_before_parse_and_cache",
+      "actions": [
+        {
+          "op": "repeat_receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "192.0.2.60",
+          "datagram": "announce_min",
+          "count": 17,
+          "results": {
+            "APPEARED": 1,
+            "DROP_DUPLICATE": 15,
+            "DROP_RATE_LIMIT": 1
+          },
+          "events": ["appeared"],
+          "counts": {"candidates": 1, "tombstones": 0}
+        }
+      ],
+      "final_counts": {"candidates": 1, "tombstones": 0}
+    },
+    {
+      "id": "per_interface_candidate_limit_refuses_new_keys_without_eviction",
+      "actions": [
+        {
+          "op": "receive_source_range",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "datagram": "announce_min",
+          "prefix": "192.0.2.",
+          "start": 1,
+          "count": 65,
+          "results": {
+            "APPEARED": 64,
+            "DROP_CAPACITY": 1
+          },
+          "counts": {"candidates": 64, "tombstones": 0}
+        }
+      ],
+      "final_counts": {"candidates": 64, "tombstones": 0}
+    },
+    {
+      "id": "per_interface_source_bucket_table_is_bounded",
+      "actions": [
+        {
+          "op": "receive_source_range",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "datagram": "bad_magic",
+          "network": "2001:db8::/120",
+          "start": 1,
+          "count": 129,
+          "results": {
+            "DROP_BAD_MAGIC": 128,
+            "DROP_RATE_LIMIT": 1
+          },
+          "counts": {"candidates": 0, "tombstones": 0}
+        }
+      ],
+      "final_counts": {"candidates": 0, "tombstones": 0}
+    },
+    {
+      "id": "packet_metadata_selects_the_endpoint_and_group",
+      "actions": [
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "192.0.2.69",
+          "datagram": "max_datagram",
+          "truncated": true,
+          "result": "DROP_TRUNCATED",
+          "counts": {"candidates": 0, "tombstones": 0}
+        },
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "192.0.2.70",
+          "destination": "239.255.88.79",
+          "datagram": "announce_min",
+          "result": "DROP_WRONG_DESTINATION",
+          "counts": {"candidates": 0, "tombstones": 0}
+        },
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "127.0.0.1",
+          "datagram": "announce_min",
+          "result": "DROP_INVALID_SOURCE",
+          "counts": {"candidates": 0, "tombstones": 0}
+        },
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "0.0.0.0",
+          "datagram": "announce_min",
+          "result": "DROP_INVALID_SOURCE",
+          "counts": {"candidates": 0, "tombstones": 0}
+        },
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "255.255.255.255",
+          "datagram": "announce_min",
+          "result": "DROP_INVALID_SOURCE",
+          "counts": {"candidates": 0, "tombstones": 0}
+        },
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-a#1",
+          "source": "239.1.2.3",
+          "datagram": "announce_min",
+          "result": "DROP_INVALID_SOURCE",
+          "counts": {"candidates": 0, "tombstones": 0}
+        },
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-v6#1",
+          "source": "::ffff:192.0.2.1",
+          "datagram": "announce_min",
+          "result": "DROP_INVALID_SOURCE",
+          "counts": {"candidates": 0, "tombstones": 0}
+        }
+      ],
+      "final_counts": {"candidates": 0, "tombstones": 0}
+    },
+    {
+      "id": "ipv6_link_local_source_retains_observer_scope",
+      "actions": [
+        {
+          "op": "receive",
+          "at_ms": 0,
+          "interface": "if-v6#1",
+          "source": "fe80::1234",
+          "destination": "ff12:0:0:0:0:0:584e:4e44",
+          "datagram": "announce_min",
+          "result": "APPEARED",
+          "events": ["appeared"],
+          "counts": {"candidates": 1, "tombstones": 0}
+        }
+      ],
+      "final_counts": {"candidates": 1, "tombstones": 0}
+    },
+    {
+      "id": "minimum_ttl_expires_on_exact_monotonic_deadline",
+      "actions": [
+        {
+          "op": "receive",
+          "at_ms": 1000,
+          "interface": "if-a#1",
+          "source": "192.0.2.80",
+          "datagram": "announce_ttl5",
+          "result": "APPEARED",
+          "deadline_ms": 6000
+        },
+        {
+          "op": "advance",
+          "at_ms": 5999,
+          "events": [],
+          "counts": {"candidates": 1, "tombstones": 0}
+        },
+        {
+          "op": "advance",
+          "at_ms": 6000,
+          "events": ["expired:ttl"],
+          "counts": {"candidates": 0, "tombstones": 1}
+        },
+        {
+          "op": "advance",
+          "at_ms": 65999,
+          "events": [],
+          "counts": {"candidates": 0, "tombstones": 1}
+        },
+        {
+          "op": "advance",
+          "at_ms": 66000,
+          "events": [],
+          "counts": {"candidates": 0, "tombstones": 0}
+        }
+      ],
+      "final_counts": {"candidates": 0, "tombstones": 0}
+    }
+  ]
+}

@@ -2,15 +2,15 @@
   "schema_version": 1,
   "id": "XT-019",
   "task_type": "protocol",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "p1-discovery-contract-agent",
+  "base_sha": "710f44f0dd986f1100ebf44cb6aeb4567c78065e",
+  "head_sha": "81364a0f7fd8c2b4cb7d7ab261d87265b2006258",
   "handoff": ".agents/handoffs/XT-019.md",
   "impacts": {
     "adr": {
       "required": true,
-      "status": "proposed",
+      "status": "accepted",
       "references": [
         "docs/adr/0007-lan-discovery.md"
       ],
@@ -28,16 +28,29 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "710f44f0dd986f1100ebf44cb6aeb4567c78065e",
+    "source_head": "524027ac13231b10c0634146fb94e2680d63506a",
+    "source_commits": [
+      "0c6821f5c506dd3e1ce1ce1aedc03e1a4b35c091",
+      "9ea57c48595cae0c2ad475d1092806dbc85568f7",
+      "cc6a541a31589500c8a8d2be18f00f5d3e9de6f9",
+      "81364a0f7fd8c2b4cb7d7ab261d87265b2006258",
+      "524027ac13231b10c0634146fb94e2680d63506a"
+    ],
+    "source_commits_sha256": "b22524a90026f64bdd7eb9ca25130256eff21d1ce2143c346d9af0fcaa280e46",
+    "source_patch_id": "93d96ba0223cf1ee8b57e6e9bf8ee6930643409e",
+    "result": "",
+    "result_patch_id": "93d96ba0223cf1ee8b57e6e9bf8ee6930643409e",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
+      "python3 protocol/testdata/discovery/v1/validate_vectors.py",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:81364a0f7fd8c2b4cb7d7ab261d87265b2006258:2026-08-07T05:52:11Z"
   },
   "acceptance": {
     "accepted_by": "",
