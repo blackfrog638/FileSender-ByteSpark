@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-021",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-021.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Incorrect discovery commands or peer events would desynchronize native and Flutter peer state.",
+      "gates": ["make native-test", "make flutter-test", "make verify"]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "Untrusted peer names and endpoints must cross the ABI as bounded caller-owned copies.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Peer event bursts and snapshot recovery must remain bounded without blocking the UI thread.",
+      "gates": ["make native-test", "make flutter-test"]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "The additive discovery ABI must preserve existing symbols, struct negotiation, and Dart decoding.",
+      "gates": ["make native-test", "make flutter-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Event overflow, callback wakeups, snapshots, and shutdown can race across the FFI boundary.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "The dynamic library and Dart adapter must behave consistently on all three desktop platforms.",
+      "gates": ["make verify"]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The discovery ABI exposes ephemeral snapshots and adds no durable format.",
+      "gates": []
+    }
+  },
   "impacts": {
     "adr": {
       "required": true,

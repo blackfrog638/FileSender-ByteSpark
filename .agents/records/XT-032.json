@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-032",
   "task_type": "integration",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-032.md",
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "A false milestone acceptance would mark the one-file vertical slice complete without real two-process evidence.",
+      "gates": ["make verify", "make security-test"]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Acceptance must prove authenticated peer identity, hostile-peer rejection, and cleanup rather than only successful transfer.",
+      "gates": ["make security-test", "make verify"]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "The vertical slice must complete without unbounded queues or memory, while production throughput baselines remain later work.",
+      "gates": ["make verify"]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Two real processes and available cross-platform pairs must interoperate through the accepted ABI and wire profile.",
+      "gates": ["make verify", "make security-test"]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Cancellation, process exit, callbacks, and artifact cleanup must remain deterministic end to end.",
+      "gates": ["make security-test"]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "The milestone covers packaged macOS, Windows, and Linux applications rather than one host build.",
+      "gates": ["make verify"]
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "Acceptance must confirm committed files survive and failed transfers leave no temporary artifacts.",
+      "gates": ["make security-test"]
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,

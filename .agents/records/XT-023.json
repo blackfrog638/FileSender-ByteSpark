@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-023",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-023.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Provider configuration or exporter defects would prevent compatible authenticated sessions.",
+      "gates": ["make native-test", "make security-test", "make verify"]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "TLS versions, key validation, pinning, exporter labels, resumption, and randomness define the transport security boundary.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Handshake and record processing must stay bounded without weakening cryptographic configuration.",
+      "gates": ["make native-test"]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "Provider output must remain byte-exact with the accepted security vectors and peer role semantics.",
+      "gates": ["make security-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Handshake cancellation, connection teardown, and secret lifetime cross asynchronous completion paths.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "The pinned provider and TLS configuration must build and behave identically on all desktop targets.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The TLS provider consumes identity interfaces but does not own a durable schema.",
+      "gates": []
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,

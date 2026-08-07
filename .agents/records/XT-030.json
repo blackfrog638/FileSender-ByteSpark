@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-030",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-030.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Transfer commands and events must keep native terminal state and Flutter application state synchronized.",
+      "gates": ["make native-test", "make flutter-test", "make verify"]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "Only authenticated offers and validated metadata may cross the ABI, with no protocol handling in Dart.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Progress events, snapshots, and manifest data must remain bounded during sustained transfers.",
+      "gates": ["make native-test", "make flutter-test"]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "The additive transfer ABI must preserve existing symbols, layouts, lifecycle, discovery, and pairing clients.",
+      "gates": ["make native-test", "make flutter-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Progress, completion, cancellation, event overflow, disposal, and shutdown race across FFI.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Platform paths, C layout, dynamic loading, and Dart decoding differ across desktop targets.",
+      "gates": ["make flutter-test", "make verify"]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "This adapter exposes transfer operations but owns no durable storage format.",
+      "gates": []
+    }
+  },
   "impacts": {
     "adr": {
       "required": true,

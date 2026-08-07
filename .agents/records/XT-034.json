@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-034",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-034.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Scheduler defects can stall transfers, violate credit, starve peers, or report incorrect rates.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "A hostile slow peer must not force unbounded queues, counters, memory, or work.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "performance": {
+      "level": "critical",
+      "rationale": "This task directly owns throughput, backpressure, fairness, CPU, RSS, and rate reporting.",
+      "gates": ["make native-test", "make benchmark"]
+    },
+    "compatibility": {
+      "level": "medium",
+      "rationale": "Credit and acknowledgement behavior must remain within protocol v1 negotiation and limits.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Multiple files, transfers, acknowledgements, cancellation, and disconnect compete for shared connection credit.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Timer resolution, socket completion, filesystem throughput, CPU, and RSS differ across platforms.",
+      "gates": ["make benchmark", "make verify"]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The scheduler owns in-memory flow control and does not define durable transfer state.",
+      "gates": []
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,

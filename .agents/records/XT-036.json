@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-036",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-036.md",
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "Reconnect and process restart must resume only verified offsets or fail without corrupting destination state.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Resume authorization must bind peer, roles, transfer, manifest, destination, live session, and revocation state.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "performance": {
+      "level": "high",
+      "rationale": "Checkpoint frequency, recovery latency, retransmitted bytes, and retained metadata affect transfer throughput.",
+      "gates": ["make native-test", "make benchmark"]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "The versioned resume schema needs an explicit migration and incompatible-state policy.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Checkpointing, acknowledgements, disconnect, cancellation, cleanup, and restart race across storage and session state.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "Atomic metadata persistence and destination identity must behave across supported filesystems and process models.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "persistence": {
+      "level": "critical",
+      "rationale": "This task defines durable, integrity-protected, bounded resume records and their cleanup.",
+      "gates": ["make native-test", "make security-test"]
+    }
+  },
   "impacts": {
     "adr": {
       "required": true,
@@ -36,6 +73,7 @@
     "status": "pending",
     "commands": [
       "make native-test",
+      "make benchmark",
       "make security-test",
       "make verify"
     ],

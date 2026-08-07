@@ -264,6 +264,7 @@
       "id": "XT-020",
       "title": "Native discovery service",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-019"
@@ -278,6 +279,7 @@
       "id": "XT-021",
       "title": "Discovery c abi",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_bridge",
       "depends_on": [
         "XT-020"
@@ -293,6 +295,7 @@
       "id": "XT-022",
       "title": "Protected identity storage",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-018"
@@ -308,6 +311,7 @@
       "id": "XT-023",
       "title": "Tls13 security provider",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-018",
@@ -323,6 +327,7 @@
       "id": "XT-024",
       "title": "Security runtime review",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "protocol",
       "depends_on": [
         "XT-022",
@@ -338,6 +343,7 @@
       "id": "XT-025",
       "title": "Authenticated pairing session",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-020",
@@ -353,6 +359,7 @@
       "id": "XT-026",
       "title": "Pairing c abi",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_bridge",
       "depends_on": [
         "XT-021",
@@ -370,6 +377,7 @@
       "id": "XT-027",
       "title": "Safe one file storage",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-011",
@@ -385,6 +393,7 @@
       "id": "XT-028",
       "title": "One file transfer engine",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-006",
@@ -401,6 +410,7 @@
       "id": "XT-029",
       "title": "Cancellation cleanup",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-028"
@@ -419,6 +429,7 @@
       "id": "XT-030",
       "title": "Transfer c abi",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_bridge",
       "depends_on": [
         "XT-026",
@@ -436,6 +447,7 @@
       "id": "XT-031",
       "title": "Flutter p1 vertical slice",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "flutter_desktop",
       "depends_on": [
         "XT-021",
@@ -452,6 +464,7 @@
       "id": "XT-032",
       "title": "P1 vertical slice acceptance",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "integration",
       "depends_on": [
         "XT-031"
@@ -468,6 +481,7 @@
       "id": "XT-033",
       "title": "Multi file manifests",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-032"
@@ -486,6 +500,7 @@
       "id": "XT-034",
       "title": "Transfer scheduling backpressure",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-033"
@@ -501,6 +516,7 @@
       "id": "XT-035",
       "title": "Destination collision policy",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-033"
@@ -515,6 +531,7 @@
       "id": "XT-036",
       "title": "Resume persistence",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-022",
@@ -537,6 +554,7 @@
       "id": "XT-037",
       "title": "Production transfer adapters",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "native_bridge",
       "depends_on": [
         "XT-036"
@@ -553,6 +571,7 @@
       "id": "XT-038",
       "title": "Flutter production transfer flow",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "flutter_desktop",
       "depends_on": [
         "XT-037"
@@ -567,6 +586,7 @@
       "id": "XT-039",
       "title": "P1 production acceptance",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "integration",
       "depends_on": [
         "XT-038"
@@ -593,6 +613,7 @@
       "id": "XT-041",
       "title": "Risk aware task gates",
       "readiness": "ready",
+      "risk_profile_required": true,
       "workstream": "integration",
       "depends_on": [],
       "owned_paths": [

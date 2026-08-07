@@ -1,12 +1,65 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-041",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "governance-risk-agent",
+  "base_sha": "05ea984da61b9f119fd30d7ed0fa48c14f2e81f4",
+  "head_sha": "e83d9bbb1844e9ff36252c3e02e0be6ce458bbfd",
   "handoff": ".agents/handoffs/XT-041.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "A validator defect could allow tasks to reach review without executable evidence for their declared risks.",
+      "gates": [
+        "make governance-test",
+        "make verify"
+      ]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "The change governs whether later security-sensitive work binds its claims to commands, without changing product cryptography.",
+      "gates": [
+        "make governance-test",
+        "make verify"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Validation adds bounded checks over small task records and must remain practical in the repository completion gate.",
+      "gates": [
+        "make governance-test"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Schema version 2 must coexist with archived version 1 records and active work created before the cutover.",
+      "gates": [
+        "make governance-test",
+        "make verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "The validator and task generator run synchronously and add no shared runtime state.",
+      "gates": []
+    },
+    "platform": {
+      "level": "medium",
+      "rationale": "The Python and shell governance workflow must remain usable on the repository's macOS, Linux, and Windows CI environments.",
+      "gates": [
+        "make governance-test",
+        "make verify"
+      ]
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "The tracked JSON task record is a durable governance format whose prior version must remain readable.",
+      "gates": [
+        "make governance-test"
+      ]
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,
@@ -26,17 +79,30 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "05ea984da61b9f119fd30d7ed0fa48c14f2e81f4",
+    "source_head": "d15f297af681a4ddf40abd90a927aae079ecaa82",
+    "source_commits": [
+      "8ab775ec14d55b90ca6d98cb7ee73f2d4a5a6432",
+      "aad8c391fbfde9bc25f0b0b326efb14ed17b6a36",
+      "dff9ed67fa7afca7362f79e89b27560d77be67cf",
+      "95f85d5e9cc3e0dbf507d21ba0366f1f2e5c7988",
+      "e83d9bbb1844e9ff36252c3e02e0be6ce458bbfd",
+      "d15f297af681a4ddf40abd90a927aae079ecaa82"
+    ],
+    "source_commits_sha256": "e7ce24644f4e0234dda5f88a11559edb1de5a5beb60033da4f5257e41b6c2159",
+    "source_patch_id": "527813b00d0a5618c1ddf8ce7d866ca022b25649",
+    "result": "",
+    "result_patch_id": "527813b00d0a5618c1ddf8ce7d866ca022b25649",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make governance-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:e83d9bbb1844e9ff36252c3e02e0be6ce458bbfd:2026-08-07T06:12:49Z"
   },
   "acceptance": {
     "accepted_by": "",

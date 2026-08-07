@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-022",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-022.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Identity creation or pairing-record failures can permanently lose trust state or disable pairing.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Private keys and trust records must never fall back to plaintext, synchronized, or attacker-controlled storage.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Protected-store access occurs on startup and trust updates but must not stall runtime state ownership.",
+      "gates": ["make native-test"]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Stored identity and pairing records must remain readable or fail closed across supported upgrades.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Concurrent first-run identity creation and trust updates must be atomic and race-safe.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "Keychain, Credential Manager, and Secret Service have different protection and availability semantics.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "persistence": {
+      "level": "critical",
+      "rationale": "This task owns durable private identity and peer trust records, including corruption and rollback behavior.",
+      "gates": ["make native-test", "make security-test"]
+    }
+  },
   "impacts": {
     "adr": {
       "required": true,

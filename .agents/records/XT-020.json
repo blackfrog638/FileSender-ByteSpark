@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-020",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-020.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Discovery expiry, duplicate handling, or interface recovery defects would hide peers or retain stale endpoints.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "Hostile LAN datagrams must not create unbounded state or trusted peer identity.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Advertisement rate, peer count, cache growth, and parser allocation must remain bounded under LAN load.",
+      "gates": ["make native-test"]
+    },
+    "compatibility": {
+      "level": "medium",
+      "rationale": "The service must implement the accepted discovery v1 contract without changing its wire behavior.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Interface changes, expiry timers, datagrams, and shutdown race on the engine-owned runtime.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Discovery adapters and interface-change behavior differ across macOS, Windows, and Linux.",
+      "gates": ["make verify"]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "Discovery candidates are ephemeral and this task stores no durable state.",
+      "gates": []
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,

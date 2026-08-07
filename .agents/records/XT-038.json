@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-038",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-038.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Production UI must represent multi-file, collision, pause, reconnect, restart, resume, expiry, and revoke states exactly.",
+      "gates": ["make flutter-test", "make verify"]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "The UI must preserve explicit destination decisions and never infer trust or restore revoked sessions.",
+      "gates": ["make flutter-test"]
+    },
+    "performance": {
+      "level": "high",
+      "rationale": "Large manifests, progress updates, and rate events must remain virtualized and responsive.",
+      "gates": ["make flutter-test"]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Presentation and controllers must consume typed production adapters without duplicating native policy.",
+      "gates": ["make flutter-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Dialogs, duplicate commands, reconnect, restart recovery, revocation, and disposal race in application state.",
+      "gates": ["make flutter-test"]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Directory selection, keyboard access, virtualization, and desktop layout must work on all targets.",
+      "gates": ["make flutter-test", "make verify"]
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "The UI restores native resume state after restart but must not become an independent authority for it.",
+      "gates": ["make flutter-test"]
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,

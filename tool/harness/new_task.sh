@@ -119,6 +119,7 @@ backlog["tasks"].append(
         "id": task_id,
         "title": title,
         "readiness": "ready",
+        "risk_profile_required": True,
         "workstream": workstream,
         "depends_on": dependencies,
         "owned_paths": owned_paths,
@@ -159,6 +160,11 @@ TODO: link architecture, ADR, protocol, and predecessor tasks.
 
 - TODO: define security, compatibility, platform, and performance constraints.
 
+## Risk profile
+
+Resolve every schema version 2 risk dimension in the task record. Every
+non-none risk must name commands that also appear in `verification.commands`.
+
 ## Acceptance criteria
 
 - [ ] Functional behavior and negative boundaries are covered.
@@ -175,7 +181,7 @@ make verify
 )
 
 record = {
-    "schema_version": 1,
+    "schema_version": 2,
     "id": task_id,
     "task_type": "implementation",
     "state": "ready",
@@ -183,6 +189,43 @@ record = {
     "base_sha": "",
     "head_sha": "",
     "handoff": f".agents/handoffs/{task_id}.md",
+    "risks": {
+        "functionality": {
+            "level": "medium",
+            "rationale": "TODO: describe functional regression risk.",
+            "gates": ["make verify"],
+        },
+        "security": {
+            "level": "none",
+            "rationale": "TODO: describe security risk or why it is absent.",
+            "gates": [],
+        },
+        "performance": {
+            "level": "none",
+            "rationale": "TODO: describe performance risk or why it is absent.",
+            "gates": [],
+        },
+        "compatibility": {
+            "level": "none",
+            "rationale": "TODO: describe compatibility risk or why it is absent.",
+            "gates": [],
+        },
+        "concurrency": {
+            "level": "none",
+            "rationale": "TODO: describe concurrency risk or why it is absent.",
+            "gates": [],
+        },
+        "platform": {
+            "level": "none",
+            "rationale": "TODO: describe platform risk or why it is absent.",
+            "gates": [],
+        },
+        "persistence": {
+            "level": "none",
+            "rationale": "TODO: describe persistence risk or why it is absent.",
+            "gates": [],
+        },
+    },
     "impacts": {
         "adr": {
             "required": False,

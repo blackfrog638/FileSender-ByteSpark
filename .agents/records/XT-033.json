@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-033",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-033.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Multi-file and directory transfers must preserve complete manifest validation, ordering, and partial terminal results.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Every manifest entry, aggregate limit, collision, parent relation, and link must be validated before creation.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "performance": {
+      "level": "high",
+      "rationale": "Large manifests and many small files can amplify memory, hashing, traversal, and scheduling costs.",
+      "gates": ["make native-test", "make benchmark"]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Manifest commitments and ordering must remain byte-compatible with protocol v1 and existing one-file behavior.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Parallel entry processing, partial I/O failure, cancellation, and commit can race within one transfer.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "Name normalization, reserved paths, collisions, directories, and atomic commit vary by filesystem.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "persistence": {
+      "level": "critical",
+      "rationale": "The task creates and commits multiple durable files and directories with defined partial-failure behavior.",
+      "gates": ["make native-test", "make security-test"]
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,
@@ -34,6 +71,7 @@
     "status": "pending",
     "commands": [
       "make native-test",
+      "make benchmark",
       "make security-test",
       "make verify"
     ],

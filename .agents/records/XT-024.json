@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-024",
   "task_type": "review",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-024.md",
+  "risks": {
+    "functionality": {
+      "level": "medium",
+      "rationale": "An incomplete review could unblock pairing while required runtime prerequisites remain unsatisfied.",
+      "gates": ["make security-test", "make verify"]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "This review is the independent acceptance boundary for protected identity and TLS runtime behavior.",
+      "gates": ["make security-test", "make verify"]
+    },
+    "performance": {
+      "level": "none",
+      "rationale": "The task reviews security evidence and adds no throughput-sensitive runtime path.",
+      "gates": []
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Review evidence must match the accepted ADR and byte-exact profile without silently changing them.",
+      "gates": ["make security-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "medium",
+      "rationale": "The review must cover cancellation, secret lifetime, and shutdown behavior in asynchronous provider code.",
+      "gates": ["make security-test"]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "No platform may be accepted with weaker identity protection or TLS configuration.",
+      "gates": ["make security-test", "make verify"]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "The review covers durable identity, trust update, rollback, and corruption handling.",
+      "gates": ["make security-test"]
+    }
+  },
   "impacts": {
     "adr": {
       "required": true,

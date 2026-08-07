@@ -51,6 +51,7 @@ backlog["tasks"].append(
         "id": task_id,
         "title": "Exercise governance lifecycle",
         "readiness": "ready",
+        "risk_profile_required": True,
         "workstream": "integration",
         "depends_on": [],
         "owned_paths": ["protocol/testdata/governance-fixture.txt"],
@@ -80,7 +81,7 @@ Exercise the governance state machine in an isolated clone.
 )
 
 record = {
-    "schema_version": 1,
+    "schema_version": 2,
     "id": task_id,
     "task_type": "test",
     "state": "ready",
@@ -88,6 +89,43 @@ record = {
     "base_sha": "",
     "head_sha": "",
     "handoff": f".agents/handoffs/{task_id}.md",
+    "risks": {
+        "functionality": {
+            "level": "low",
+            "rationale": "The fixture must exercise one complete governed lifecycle.",
+            "gates": ["true"],
+        },
+        "security": {
+            "level": "none",
+            "rationale": "The isolated fixture changes no product security behavior.",
+            "gates": [],
+        },
+        "performance": {
+            "level": "none",
+            "rationale": "The isolated fixture establishes no performance claim.",
+            "gates": [],
+        },
+        "compatibility": {
+            "level": "none",
+            "rationale": "The fixture uses only the current harness contract.",
+            "gates": [],
+        },
+        "concurrency": {
+            "level": "none",
+            "rationale": "The fixture runs one synchronous lifecycle.",
+            "gates": [],
+        },
+        "platform": {
+            "level": "none",
+            "rationale": "The fixture does not claim product platform support.",
+            "gates": [],
+        },
+        "persistence": {
+            "level": "none",
+            "rationale": "The fixture creates no product persisted state.",
+            "gates": [],
+        },
+    },
     "impacts": {
         "adr": {
             "required": False,
@@ -125,6 +163,91 @@ git -C "$repository" add \
 git -C "$repository" commit -m "test: register governance fixture" >/dev/null
 
 "$repository/tool/harness/agent.sh" validate >/dev/null
+
+python3 - "$repository" "$task_id" <<'PY'
+import copy
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+task_id = sys.argv[2]
+record_path = root / ".agents" / "records" / f"{task_id}.json"
+valid = json.loads(record_path.read_text(encoding="utf-8"))
+legacy = json.loads(
+    (root / ".agents" / "records" / "XT-019.json").read_text(encoding="utf-8")
+)
+assert legacy["schema_version"] == 1
+
+
+def remove_dimension(record):
+    record["risks"].pop("platform")
+
+
+def invalid_level(record):
+    record["risks"]["security"]["level"] = "severe"
+
+
+def placeholder_rationale(record):
+    record["risks"]["security"]["rationale"] = "TODO: assess this risk"
+
+
+def empty_gates(record):
+    record["risks"]["functionality"]["gates"] = []
+
+
+def duplicate_gates(record):
+    record["risks"]["functionality"]["gates"] = ["true", "true"]
+
+
+def unexecuted_gate(record):
+    record["risks"]["functionality"]["gates"] = ["false"]
+
+
+def gate_on_none(record):
+    record["risks"]["security"]["gates"] = ["true"]
+
+
+cases = (
+    ("missing dimension", remove_dimension, "is missing dimensions"),
+    ("invalid level", invalid_level, "level must be one of"),
+    ("placeholder rationale", placeholder_rationale, "still contains TODO"),
+    ("empty gates", empty_gates, "gates must not be empty"),
+    ("duplicate gates", duplicate_gates, "gates contains duplicates"),
+    ("unexecuted gate", unexecuted_gate, "unexecuted command"),
+    ("gate on none", gate_on_none, "gates must be empty"),
+)
+
+try:
+    for label, mutate, expected in cases:
+        tampered = copy.deepcopy(valid)
+        mutate(tampered)
+        record_path.write_text(
+            json.dumps(tampered, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        result = subprocess.run(
+            [str(root / "tool" / "harness" / "governance.py"), "validate"],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            raise SystemExit(f"Governance accepted {label}")
+        if expected not in result.stderr:
+            raise SystemExit(
+                f"Governance rejected {label} for the wrong reason:\n"
+                + result.stderr
+            )
+finally:
+    record_path.write_text(
+        json.dumps(valid, indent=2) + "\n",
+        encoding="utf-8",
+    )
+PY
+
 git -C "$repository" branch task/XT-998
 "$repository/tool/harness/agent.sh" validate >/dev/null
 git -C "$repository" branch -D task/XT-998 >/dev/null
@@ -433,5 +556,52 @@ fi
   --owned '.agents/handoffs/XT-998.md' >/dev/null
 test -f "$repository/.agents/tasks/XT-998-no-dependency-fixture.md"
 test -f "$repository/.agents/records/XT-998.json"
+
+python3 - "$repository" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+with (root / ".agents" / "backlog.yaml").open(encoding="utf-8") as source:
+    backlog = json.load(source)
+task = next(item for item in backlog["tasks"] if item["id"] == "XT-998")
+assert task["risk_profile_required"] is True
+
+record = json.loads(
+    (root / ".agents" / "records" / "XT-998.json").read_text(encoding="utf-8")
+)
+assert record["schema_version"] == 2
+assert set(record["risks"]) == {
+    "functionality",
+    "security",
+    "performance",
+    "compatibility",
+    "concurrency",
+    "platform",
+    "persistence",
+}
+assert record["risks"]["functionality"]["gates"] == ["make verify"]
+assert all(
+    "TODO" in risk["rationale"] for risk in record["risks"].values()
+)
+spec = (
+    root / ".agents" / "tasks" / "XT-998-no-dependency-fixture.md"
+).read_text(encoding="utf-8")
+assert "## Risk profile" in spec
+PY
+
+generated_errors="$temporary/generated-task-errors.txt"
+if "$repository/tool/harness/agent.sh" \
+  validate >/dev/null 2>"$generated_errors"; then
+  printf 'Generated task passed before risk placeholders were resolved.\n' >&2
+  exit 1
+fi
+grep -q \
+  'XT-998 task spec still contains TODO' \
+  "$generated_errors"
+grep -q \
+  'XT-998.risks.functionality.rationale still contains TODO' \
+  "$generated_errors"
 
 printf 'Governance lifecycle test passed.\n'

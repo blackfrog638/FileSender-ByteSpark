@@ -5,12 +5,15 @@ of truth for task state, review evidence, integration provenance, and document
 impact. Local `branch.task/XT-NNN.xnn*` Git configuration is only a scheduler
 cache for worktrees in one clone.
 
-Records use schema version 1 and contain:
+Archived records may use schema version 1. Risk-governed tasks use schema
+version 2 and contain:
 
 - `state`: `ready`, `claimed`, `in_progress`, `blocked`, `review`,
   `integrated`, or `done`;
 - `base_sha` and `head_sha`: the task branch range reviewed for delivery;
 - `handoff`: the tracked handoff document;
+- `risks`: functionality, security, performance, compatibility, concurrency,
+  platform, and persistence levels, rationales, and executable gates;
 - `impacts`: explicit ADR, architecture, and roadmap dispositions;
 - `integration`: strategy-specific source and result provenance;
 - `verification`: commands and the local or CI evidence reference;
@@ -18,6 +21,13 @@ Records use schema version 1 and contain:
 
 `tool/harness/agent.sh validate` validates every record. A `done` record must
 have complete acceptance and verification fields.
+
+Each schema version 2 risk uses one of `none`, `low`, `medium`, `high`, or
+`critical`. Every dimension needs a concrete rationale. A non-`none` risk must
+name at least one gate, and each gate must exactly match a command in the
+record's `verification.commands`. A `none` risk has no gates. This makes the
+claimed mitigation executable during review and acceptance instead of leaving
+it as prose.
 
 Active task transitions update the task branch copy of its record. Integration
 defaults to one squash delivery commit and moves the task to `integrated`. Its

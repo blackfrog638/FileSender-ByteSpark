@@ -84,6 +84,13 @@ squash or cherry-pick is not sufficient evidence.
 
 ## Verification policy
 
+- Risk-governed task records declare functionality, security, performance,
+  compatibility, concurrency, platform, and persistence risk. Every non-none
+  risk names at least one gate that exactly matches an executable
+  `verification.commands` entry.
+- A passing generic repository gate is not evidence for a specialized claim.
+  Reviewers must reject security, performance, interoperability, or recovery
+  gates that do not exercise the behavior named in the risk rationale.
 - Native changes: build and run native tests on the current platform.
 - Flutter changes: `flutter analyze` and `flutter test`.
 - Protocol changes: update the versioned specification and compatibility

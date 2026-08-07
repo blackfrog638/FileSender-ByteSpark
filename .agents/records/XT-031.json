@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-031",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-031.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "The first usable flow must preserve discovery, pairing, offer decisions, progress, cancellation, and completion state.",
+      "gates": ["make flutter-test", "make verify"]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "The UI must distinguish untrusted peers, require explicit decisions, and render hostile display data safely.",
+      "gates": ["make flutter-test"]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Event-driven state updates and progress rendering must not block the desktop UI.",
+      "gates": ["make flutter-test"]
+    },
+    "compatibility": {
+      "level": "medium",
+      "rationale": "Application controllers must consume the typed native gateways without bypassing established state contracts.",
+      "gates": ["make flutter-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Duplicate actions, stale events, cancellation, navigation, and disposal race in application state.",
+      "gates": ["make flutter-test"]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Keyboard, accessibility, file selection, and desktop layout must work across supported Flutter targets.",
+      "gates": ["make flutter-test", "make verify"]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The vertical-slice UI owns no durable transfer or trust representation.",
+      "gates": []
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,

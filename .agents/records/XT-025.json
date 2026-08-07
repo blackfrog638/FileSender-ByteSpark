@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-025",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-025.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Pairing state errors can strand attempts, accept the wrong peer, or prevent trusted reconnects.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "SAS confirmation, role binding, pin enforcement, revocation, replay, and timeout are authentication controls.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Pre-auth attempts, bytes, timers, and concurrent sessions must remain strictly bounded.",
+      "gates": ["make native-test"]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "The state machine must preserve the accepted pairing transcript and transport-binding semantics.",
+      "gates": ["make native-test", "make security-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Local decisions, remote messages, timeouts, revocation, and shutdown can race on each pairing attempt.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Authenticated session behavior must remain consistent above platform-specific networking and storage.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "Successful pairing and revocation update durable trust records through the identity store.",
+      "gates": ["make native-test", "make security-test"]
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,

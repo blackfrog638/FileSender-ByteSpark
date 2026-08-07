@@ -29,6 +29,28 @@ concrete rationale.
 - State security, compatibility, platform, and performance constraints.
 - List behavior explicitly outside this task.
 
+## Risk profile
+
+Use record schema version 2 and assess every dimension:
+
+```json
+{
+  "risks": {
+    "functionality": {"level": "medium", "rationale": "...", "gates": ["make verify"]},
+    "security": {"level": "none", "rationale": "...", "gates": []},
+    "performance": {"level": "none", "rationale": "...", "gates": []},
+    "compatibility": {"level": "none", "rationale": "...", "gates": []},
+    "concurrency": {"level": "none", "rationale": "...", "gates": []},
+    "platform": {"level": "none", "rationale": "...", "gates": []},
+    "persistence": {"level": "none", "rationale": "...", "gates": []}
+  }
+}
+```
+
+Allowed levels are `none`, `low`, `medium`, `high`, and `critical`. Every
+non-`none` risk needs at least one gate, and every gate must exactly match a
+command in `verification.commands`.
+
 ## Acceptance criteria
 
 - [ ] Functional behavior is covered by focused tests.

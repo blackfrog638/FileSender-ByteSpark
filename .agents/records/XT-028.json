@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-028",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-028.md",
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "Offer, acceptance, chunk flow, integrity, acknowledgement, and commit form the first complete transfer path.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Only authenticated, explicitly accepted, bounded, integrity-verified bytes may reach storage.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "performance": {
+      "level": "high",
+      "rationale": "Chunk sizing, credit, queue depth, hashing, and I/O determine throughput and memory use.",
+      "gates": ["make native-test", "make benchmark"]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Sender and receiver must implement the accepted v1 transfer messages and failure scopes exactly.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Network completion, file I/O, acknowledgements, rejection, failure, and shutdown cross asynchronous domains.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "The transfer engine must preserve behavior above platform-specific sockets and filesystems.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "The receiver writes temporary data and commits a durable destination after integrity verification.",
+      "gates": ["make native-test", "make security-test"]
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,
@@ -34,6 +71,7 @@
     "status": "pending",
     "commands": [
       "make native-test",
+      "make benchmark",
       "make security-test",
       "make verify"
     ],

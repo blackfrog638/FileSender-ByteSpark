@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-029",
   "task_type": "implementation",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-029.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Cancellation must reach one deterministic terminal result from every transfer phase.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Cleanup must not leave attacker-controlled partial files or delete committed or unrelated data.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Cancellation latency and already queued work must remain bounded under load.",
+      "gates": ["make native-test"]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Local and remote cancellation must preserve v1 CANCEL and terminal-state semantics.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Cancel, commit, network completion, file writes, and engine stop can race from both peers.",
+      "gates": ["make native-test", "make security-test"]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Socket, descriptor, worker, and temporary-file cleanup differ across desktop platforms.",
+      "gates": ["make native-test", "make verify"]
+    },
+    "persistence": {
+      "level": "critical",
+      "rationale": "Failure cleanup must remove only the current transfer's temporary and resumable state.",
+      "gates": ["make native-test", "make security-test"]
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,

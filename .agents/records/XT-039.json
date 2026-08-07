@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "id": "XT-039",
   "task_type": "integration",
   "state": "ready",
@@ -7,6 +7,43 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-039.md",
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "A false production acceptance would close P1 without large-file, failure, recovery, cleanup, and real application evidence.",
+      "gates": ["make verify", "make security-test"]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Final acceptance must include hostile inputs, security fuzzing, identity enforcement, storage races, and cleanup failures.",
+      "gates": ["make security-test", "make verify"]
+    },
+    "performance": {
+      "level": "critical",
+      "rationale": "P1 acceptance owns scheduled throughput, CPU, RSS, fairness, recovery latency, and retransmission baselines.",
+      "gates": ["make benchmark", "make verify"]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "All supported sender and receiver platform pairs must interoperate through the shipped ABI, wire, and persisted state.",
+      "gates": ["make verify", "make security-test"]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Sleep, wake, interface churn, process kill, reconnect, resume, cancellation, and destination races are release gates.",
+      "gates": ["make security-test", "make verify"]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "Production acceptance covers packaged macOS, Windows, and Linux applications in both sender and receiver roles.",
+      "gates": ["make verify"]
+    },
+    "persistence": {
+      "level": "critical",
+      "rationale": "Restart, resume, low-space, destination race, committed output, and cleanup evidence cover durable state.",
+      "gates": ["make security-test", "make verify"]
+    }
+  },
   "impacts": {
     "adr": {
       "required": false,
@@ -38,6 +75,7 @@
   "verification": {
     "status": "pending",
     "commands": [
+      "make benchmark",
       "make verify",
       "make security-test"
     ],
