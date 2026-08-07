@@ -12,6 +12,14 @@
       "license": "third_party/licenses/asio-1.38.2.txt",
       "license_sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566"
     },
+    "libsecret": {
+      "version": "0.21.7",
+      "url": "https://download.gnome.org/sources/libsecret/0.21/libsecret-0.21.7.tar.xz",
+      "sha256": "6b452e4750590a2b5617adc40026f28d2f4903de15f1250e1d1c40bfd68ed55e",
+      "sha512": "f5ee1244338ba324ae403096ddd7357899f55fa9f961d2473515ac924164fe9b33f87e39eea2a30b99fc32f2300c0e626d20c98509dbbcadb2c99628a1caa0e4",
+      "license": "third_party/licenses/libsecret-0.21.7.txt",
+      "license_sha256": "a1a33180d02960ab1c5de36cf20b1a2f0fe9888d83826ad263da5db52f1b183b"
+    },
     "openssl": {
       "version": "3.5.7",
       "url": "https://github.com/openssl/openssl/releases/download/openssl-3.5.7/openssl-3.5.7.tar.gz",
