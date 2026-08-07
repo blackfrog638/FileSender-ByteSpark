@@ -10,6 +10,7 @@ owned_paths:
   - .agents/**
   - tool/harness/commit_message.py
   - tool/harness/commit_message_test.py
+  - tool/harness/governance_test.sh
   - docs/commit-policy.md
 contract_changes:
   - The activated repository identity policy is immutable
