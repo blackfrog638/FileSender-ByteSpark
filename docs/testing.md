@@ -13,8 +13,7 @@ The harness phase has real checks for:
 - host-independent path and manifest contract vectors for legal limits,
   traversal, collisions, invalid entries, and inconsistent summaries;
 - C++ compiler warnings;
-- pinned dependency provenance, exact linked versions, Linux-only libsecret
-  scoping, a gate-generated Linux runtime link probe, static triplets, and
+- pinned dependency provenance, exact linked versions, static triplets, and
   absence of dependency dynamic libraries;
 - ASan and UBSan over the native test suite;
 - short libFuzzer runs over C ABI lifecycle and protocol parser inputs;
