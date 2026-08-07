@@ -720,7 +720,8 @@ integrate() {
   local task_id="$1"
   local strategy="squash"
   local continue_integration=0
-  local branch worktree state base pending
+  local branch worktree state base head pending reviewed_patch current_patch
+  local review_tip review_parent review_paths review_lifecycle
   shift
   if [[ "$#" -gt 0 ]]; then
     case "$1" in
@@ -795,6 +796,49 @@ PY
     exit 1
   fi
   base="$("$worktree/tool/harness/governance.py" get "$task_id" base_sha)"
+  head="$("$worktree/tool/harness/governance.py" get "$task_id" head_sha)"
+  review_tip="$(git -C "$root" rev-parse "$branch")"
+  review_parent="$(git -C "$root" rev-parse "$review_tip^")"
+  review_paths="$(
+    git -C "$root" diff-tree \
+      --no-commit-id \
+      --name-only \
+      -r \
+      "$review_tip"
+  )"
+  review_lifecycle="$(
+    git -C "$root" show -s --format=%B "$review_tip" |
+      git interpret-trailers --parse |
+      awk -F': ' '$1 == "Xnn-Lifecycle" { print $2 }'
+  )"
+  if [[ "$review_parent" != "$head" ||
+    "$review_paths" != ".agents/records/$task_id.json" ||
+    "$review_lifecycle" != "review" ]]; then
+    printf '%s\n' \
+      "$task_id branch tip is not its immutable review commit." \
+      'Return the task to in_progress and repeat review.' >&2
+    exit 1
+  fi
+  reviewed_patch="$(
+    range_patch_id \
+      "$base" \
+      "$head" \
+      ".agents/records/$task_id.json"
+  )"
+  current_patch="$(
+    range_patch_id \
+      "$base" \
+      "$branch" \
+      ".agents/records/$task_id.json"
+  )"
+  if [[ -z "$reviewed_patch" || "$current_patch" != "$reviewed_patch" ]]; then
+    printf '%s\n' \
+      "$task_id payload changed after review." \
+      "reviewed: ${reviewed_patch:-empty}" \
+      "current: ${current_patch:-empty}" \
+      'Return the task to in_progress and repeat review.' >&2
+    exit 1
+  fi
   if [[ -f "$worktree/tool/harness/commit_message.py" ]]; then
     python3 -B \
       "$worktree/tool/harness/commit_message.py" \

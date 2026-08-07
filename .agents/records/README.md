@@ -20,18 +20,20 @@ version 2 and contain:
   platform, and persistence levels, rationales, and executable gates;
 - `impacts`: explicit ADR, architecture, and roadmap dispositions;
 - `integration`: strategy-specific source and result provenance;
-- `verification`: commands and the local or CI evidence reference;
+- `verification`: trusted gate IDs, their resolved commands, and the local or
+  CI evidence reference;
 - `acceptance`: the integration owner and acceptance time.
 
 `tool/harness/agent.sh validate` validates every record. A `done` record must
 have complete acceptance and verification fields.
 
 Each schema version 2 risk uses one of `none`, `low`, `medium`, `high`, or
-`critical`. Every dimension needs a concrete rationale. A non-`none` risk must
-name at least one gate, and each gate must exactly match a command in the
-record's `verification.commands`. A `none` risk has no gates. This makes the
-claimed mitigation executable during review and acceptance instead of leaving
-it as prose.
+`critical`. Every dimension needs a concrete rationale. For new tasks, a
+non-`none` risk names one or more gate IDs from `.agents/manifest.yaml`, and
+`verification.commands` is the exact resolved command list. Legacy records may
+name commands directly, but every command must still exist in that registry.
+The task cannot replace a specialized gate with arbitrary shell, and every task
+must include the repository-level `verify` gate.
 
 Active task transitions update the task branch copy of its record. Integration
 defaults to one squash delivery commit and moves the task to `integrated`. Its
@@ -48,7 +50,10 @@ Payload patch IDs exclude `.agents/records/XT-NNN.json` for the current task
 because integration generates that metadata inside the delivery commit. The
 record itself is validated structurally, source commits are checked against
 the exact range while available, and the result commit remains mandatory after
-source cleanup.
+source cleanup. Before integration, the aggregate payload at the task branch
+tip must equal the payload at `head_sha`, which is the commit submitted for
+review. A post-review payload change is not an integration correction; it
+requires `review -> in_progress -> review`.
 
 Legacy `cherry-pick` and `merge` records retain `integration.mappings`, where
 each source/result pair must have the same stable patch ID. Only

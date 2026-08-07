@@ -2,10 +2,10 @@
   "schema_version": 2,
   "id": "XT-050",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "harness-integrity-agent",
+  "base_sha": "f7d53f1fa7452ae4d35d1cce39e7c7c1453457c1",
+  "head_sha": "c367143491eacfdb80038018f470ca8047f3a3f6",
   "handoff": ".agents/handoffs/XT-050.md",
   "commit": {
     "type": "fix",
@@ -28,16 +28,16 @@
       "level": "high",
       "rationale": "Incorrect payload or gate resolution could block valid tasks or allow unreviewed changes to integrate.",
       "gates": [
-        "make governance-test",
-        "make verify"
+        "governance_test",
+        "verify"
       ]
     },
     "security": {
       "level": "high",
       "rationale": "Task-controlled commands and post-review payload changes are integrity boundary bypasses.",
       "gates": [
-        "make governance-test",
-        "make verify"
+        "governance_test",
+        "verify"
       ]
     },
     "performance": {
@@ -49,8 +49,8 @@
       "level": "medium",
       "rationale": "Accepted schema v1 and v2 records must retain their registered verification commands.",
       "gates": [
-        "make governance-test",
-        "make verify"
+        "governance_test",
+        "verify"
       ]
     },
     "concurrency": {
@@ -62,8 +62,8 @@
       "level": "low",
       "rationale": "Gate resolution and patch comparison must behave consistently in Bash and Python on CI hosts.",
       "gates": [
-        "make governance-test",
-        "make verify"
+        "governance_test",
+        "verify"
       ]
     },
     "persistence": {
@@ -95,17 +95,39 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "f7d53f1fa7452ae4d35d1cce39e7c7c1453457c1",
+    "source_head": "6b893d9f58e7eeaa9e0968c99ac0510cf0d5469a",
+    "source_commits": [
+      "fe868e4d15245b2ef21771d1cac99257be793a5b",
+      "525bf38f63a2aa87943ba99413987242413e30d9",
+      "49d4efb0fb17580b93c6e54d53babfb7823d3528",
+      "291b993cb625c95fda92472d605412c96448892c",
+      "613db2949e184fd4829b5e161d1db51ce4bb0713",
+      "cf5d278e9ca776d88af11ad7350fde054421f552",
+      "cc9997ead5d81fca4f4d7d3220258ec136daebf4",
+      "b797de3f192834efd4cb43cd59069266fdd01efd",
+      "4098d1535a97fee93d72922d0565229dffa7f297",
+      "c367143491eacfdb80038018f470ca8047f3a3f6",
+      "6b893d9f58e7eeaa9e0968c99ac0510cf0d5469a"
+    ],
+    "source_commits_sha256": "7d124659e7f681e8554d6e786c32b19b55602568271d881eceb77d295fe9f3d4",
+    "source_patch_id": "8eb6dfae1ca5084c7453decd7917247bf27e37d5",
+    "result": "",
+    "result_patch_id": "8eb6dfae1ca5084c7453decd7917247bf27e37d5",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
+    "gates": [
+      "governance_test",
+      "verify"
+    ],
     "commands": [
       "make governance-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:c367143491eacfdb80038018f470ca8047f3a3f6:2026-08-07T19:43:57Z"
   },
   "acceptance": {
     "accepted_by": "",

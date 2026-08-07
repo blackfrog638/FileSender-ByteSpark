@@ -256,8 +256,12 @@ from pathlib import Path
 
 root_value, task_id, slug, workstream, spec_value, record_value = sys.argv[1:]
 root = Path(root_value)
+sys.path.insert(0, str(root / "tool" / "harness"))
+from trusted_gates import load_gate_registry
+
 spec_path = Path(spec_value)
 record_path = Path(record_value)
+gate_registry = load_gate_registry(root / ".agents" / "manifest.yaml")
 title = slug.replace("-", " ").capitalize()
 dependencies = [
     value for value in os.environ["DEPENDENCIES"].splitlines() if value
@@ -368,7 +372,8 @@ machine-readable in `architecture_change`.
 ## Risk profile
 
 Resolve every schema version 2 risk dimension in the task record. Every
-non-none risk must name commands that also appear in `verification.commands`.
+non-none risk must name trusted gate IDs that also appear in
+`verification.gates`; commands are resolved from `.agents/manifest.yaml`.
 
 ## Acceptance criteria
 
@@ -400,7 +405,7 @@ record = {
         "functionality": {
             "level": "medium",
             "rationale": "TODO: describe functional regression risk.",
-            "gates": ["make verify"],
+            "gates": ["verify"],
         },
         "security": {
             "level": "none",
@@ -454,7 +459,8 @@ record = {
     "integration": {"strategy": "", "mappings": [], "verified_sha": ""},
     "verification": {
         "status": "pending",
-        "commands": ["make verify"],
+        "gates": ["verify"],
+        "commands": [gate_registry["verify"]],
         "reference": "",
     },
     "acceptance": {"accepted_by": "", "accepted_at": "", "note": ""},

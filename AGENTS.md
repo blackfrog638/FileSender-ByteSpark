@@ -93,6 +93,9 @@ Squash is the standard task integration strategy. `agent.sh integrate` records
 the complete ordered source range and proves that its aggregate payload patch
 matches one delivery commit. The generated record for the current task is
 excluded from that patch comparison and validated as structured provenance.
+Integration also proves that the current payload is byte-equivalent to the
+payload submitted for review. Any post-review handoff or product change returns
+the task to `in_progress` for a fresh review.
 `agent.sh accept` records the delivery SHA after verification in a separate
 acceptance commit.
 
@@ -103,9 +106,11 @@ squash or cherry-pick is not sufficient evidence.
 ## Verification policy
 
 - Risk-governed task records declare functionality, security, performance,
-  compatibility, concurrency, platform, and persistence risk. Every non-none
-  risk names at least one gate that exactly matches an executable
-  `verification.commands` entry.
+  compatibility, concurrency, platform, and persistence risk. New tasks name
+  trusted gate IDs from `.agents/manifest.yaml`; the harness resolves their
+  commands and rejects task-authored shell. Legacy commands remain valid only
+  while they exactly match a registered command. Every task includes the
+  repository-level `verify` gate.
 - Commit-governed task records declare the delivery `type`, `scope`, and
   imperative `summary`. Harness lifecycle commits derive meaningful subjects
   from that metadata instead of using the task number as the message.
