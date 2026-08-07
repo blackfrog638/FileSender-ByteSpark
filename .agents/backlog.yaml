@@ -685,6 +685,36 @@
         ".agents/**",
         "native/tests/abi/**"
       ]
+    },
+    {
+      "id": "XT-046",
+      "title": "Pinned p1 dependency bootstrap",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-045"
+      ],
+      "owned_paths": [
+        ".agents/**",
+        "vcpkg.json",
+        "vcpkg-configuration.json",
+        "cmake/**",
+        "third_party/licenses/**",
+        "CMakeLists.txt",
+        "CMakePresets.json",
+        "Brewfile",
+        "Makefile",
+        "README.md",
+        "docs/adr/0006-p1-native-runtime.md",
+        "docs/architecture.md",
+        "docs/testing.md",
+        "tool/harness/**",
+        ".github/workflows/ci.yml",
+        "apps/desktop/linux/CMakeLists.txt",
+        "apps/desktop/windows/CMakeLists.txt",
+        "apps/desktop/macos/build_native.sh"
+      ]
     }
   ]
 }
