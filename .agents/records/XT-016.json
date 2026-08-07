@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-016",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "windows-ci-agent",
   "base_sha": "87566460e044a012d065fb2699bd2a3ee1408475",
   "head_sha": "77ddc460756d645bf5bc8e76e4c4df2c79b17ee1",
@@ -54,7 +54,7 @@
         "patch_id": "1b7d642944cecdc09c14fdc2c25644c48d199072"
       }
     ],
-    "verified_sha": ""
+    "verified_sha": "167187d56eda8fdbd4d6cd5fdaec388d2238c0af"
   },
   "verification": {
     "status": "passed",
@@ -64,11 +64,11 @@
       "make verify",
       "make security-test"
     ],
-    "reference": "local:77ddc460756d645bf5bc8e76e4c4df2c79b17ee1:2026-08-07T03:13:52Z"
+    "reference": "local:167187d56eda8fdbd4d6cd5fdaec388d2238c0af:2026-08-07T03:16:32Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-07T11:16:32+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
