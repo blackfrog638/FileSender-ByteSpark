@@ -1,12 +1,12 @@
 {
   "schema_version": 2,
-  "id": "XT-050",
+  "id": "XT-051",
   "task_type": "implementation",
   "state": "ready",
   "owner": "unassigned",
   "base_sha": "",
   "head_sha": "",
-  "handoff": ".agents/handoffs/XT-050.md",
+  "handoff": ".agents/handoffs/XT-051.md",
   "commit": {
     "type": "build",
     "scope": "deps",

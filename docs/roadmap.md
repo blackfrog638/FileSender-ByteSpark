@@ -49,8 +49,8 @@ paths remain disjoint.
 | --- | --- | --- | --- | --- |
 | 0 | XT-018 | integration | native runtime/dependency ADR and leaf build boundaries | XT-017 |
 | 1 | XT-019 | protocol | discovery v1 wire, lifecycle, limits, and vectors | XT-018 |
-| 1 | XT-050 | integration | pinned Linux Secret Service dependency | XT-046 |
-| 1 | XT-022 | native_core | protected identity and pairing-record storage | XT-018, XT-050 |
+| 1 | XT-051 | integration | pinned Linux Secret Service dependency | XT-046 |
+| 1 | XT-022 | native_core | protected identity and pairing-record storage | XT-018, XT-051 |
 | 1 | XT-023 | native_core | TLS 1.3 and security-profile provider | XT-018, XT-015 |
 | 1 | XT-027 | native_core | safe one-file storage transaction | XT-018, XT-011 |
 | 2 | XT-020 | native_core | multicast discovery, cache, expiry, and interface recovery | XT-019 |
@@ -72,7 +72,7 @@ paths remain disjoint.
 | 14 | XT-039 | integration | adverse-platform tests and final P1 acceptance | XT-038 |
 
 Security ordering is fail-closed: XT-022 cannot complete its Linux adapter
-before XT-050 proves the selected Secret Service dependency, and XT-025 cannot
+before XT-051 proves the selected Secret Service dependency, and XT-025 cannot
 start until XT-024 accepts both the protected identity and TLS providers.
 Public C ABI work is serialized through XT-021, XT-026, XT-030, and XT-037.
 ADR 0008 governs that additive surface. No task before XT-032 may claim the

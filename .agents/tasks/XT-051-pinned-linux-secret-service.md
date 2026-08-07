@@ -1,5 +1,5 @@
 ---
-id: XT-050
+id: XT-051
 title: Pinned linux secret service
 state: ready
 workstream: integration
@@ -18,7 +18,7 @@ owned_paths:
   - tool/harness/dependency_test.sh
   - .github/workflows/ci.yml
 contract_changes: []
-handoff: .agents/handoffs/XT-050.md
+handoff: .agents/handoffs/XT-051.md
 ---
 
 ## Outcome
