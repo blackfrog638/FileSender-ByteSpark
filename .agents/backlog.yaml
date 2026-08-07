@@ -588,6 +588,18 @@
       "owned_paths": [
         ".clangd"
       ]
+    },
+    {
+      "id": "XT-041",
+      "title": "Risk aware task gates",
+      "readiness": "ready",
+      "workstream": "integration",
+      "depends_on": [],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/**",
+        "tool/harness/**"
+      ]
     }
   ]
 }

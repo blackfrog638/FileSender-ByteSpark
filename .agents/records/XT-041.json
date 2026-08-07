@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "id": "XT-041",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-041.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "This changes internal task-governance metadata, not a public runtime, wire, security, or persisted product contract."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Runtime components and dependency direction remain unchanged; AGENTS.md documents the engineering workflow contract."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Risk evidence gates govern delivery but do not complete a product milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
