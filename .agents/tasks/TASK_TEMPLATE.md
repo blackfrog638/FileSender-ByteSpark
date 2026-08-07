@@ -71,7 +71,7 @@ Use record schema version 2 and assess every dimension:
 ```json
 {
   "risks": {
-    "functionality": {"level": "medium", "rationale": "...", "gates": ["make verify"]},
+    "functionality": {"level": "medium", "rationale": "...", "gates": ["verify"]},
     "security": {"level": "none", "rationale": "...", "gates": []},
     "performance": {"level": "none", "rationale": "...", "gates": []},
     "compatibility": {"level": "none", "rationale": "...", "gates": []},
@@ -83,8 +83,9 @@ Use record schema version 2 and assess every dimension:
 ```
 
 Allowed levels are `none`, `low`, `medium`, `high`, and `critical`. Every
-non-`none` risk needs at least one gate, and every gate must exactly match a
-command in `verification.commands`.
+non-`none` risk needs at least one trusted gate ID from
+`.agents/manifest.yaml`. `verification.commands` is the exact command list
+resolved from `verification.gates`; tasks cannot introduce shell commands.
 
 ## Acceptance criteria
 
@@ -96,7 +97,7 @@ command in `verification.commands`.
 ## Verification
 
 ```bash
-# Add deterministic commands with expected outcomes.
+# Declare gate IDs in the record; this block documents expected outcomes.
 make verify
 ```
 

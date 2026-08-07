@@ -18,18 +18,29 @@ integration_branch: harness
 commands:
   abi_compat_test: make abi-compat-test
   architecture_test: make architecture-test
+  cmake_dev_configure: cmake --preset dev -S .
+  desktop_bundle_test: tool/harness/desktop_bundle_test.sh
+  diff_check: git diff --check
+  discovery_vectors: python3 protocol/testdata/discovery/v1/validate_vectors.py
   doctor: make doctor
   bootstrap: make bootstrap
   verify: make verify
+  flutter_analyze: flutter analyze
+  flutter_raw_test: flutter test
   native_test: make native-test
   flutter_test: make flutter-test
   security_test: make security-test
+  security_vectors: python3 protocol/testdata/security/v1/validate_vectors.py
+  security_wordlist_test: python3 protocol/testdata/security/v1/test_wordlist_line_endings.py
+  protocol_vectors: python3 protocol/testdata/v1/validate_vectors.py
+  manifest_vectors: python3 protocol/testdata/v1/manifest/validate_vectors.py
   benchmark: make benchmark
+  clangd_check: clangd --check=native/src/core/engine.cpp
   dependency_test: make dependency-test
   commit_message_test: make commit-message-test
   vcpkg_bootstrap: make vcpkg-bootstrap
   agent_list: tool/harness/agent.sh list
-  governance_test: tool/harness/governance_test.sh
+  governance_test: make governance-test
 
 workstreams:
   integration:
@@ -90,6 +101,8 @@ quality_gates:
     - canonical module replacement and temporary-code leases
     - C ABI v1 compatibility
     - task governance and integration provenance
+    - trusted verification gate resolution
+    - immutable post-review payload
     - native build and tests
     - flutter static analysis and tests
   policy: A missing tool reports a skipped local gate; CI must run all gates.

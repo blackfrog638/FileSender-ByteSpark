@@ -20,6 +20,7 @@ HARNESS_DIR = Path(__file__).resolve().parent
 if str(HARNESS_DIR) not in sys.path:
     sys.path.insert(0, str(HARNESS_DIR))
 import architecture_change
+from trusted_gates import GateRegistryError, load_gate_registry
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -67,6 +68,7 @@ COMMIT_SUMMARY_PATTERN = re.compile(r"^[a-z][^\t\r\n]{11,}$")
 TASK_ID_IN_TEXT_PATTERN = re.compile(r"\bXT-[0-9]{3,}\b", re.IGNORECASE)
 ARCHITECTURE_SCHEMA_MIN_TASK_NUMBER = 48
 ARCHITECTURE_MODULES = ROOT / ".agents" / "architecture" / "modules.json"
+MANIFEST = ROOT / ".agents" / "manifest.yaml"
 
 
 class GovernanceError(RuntimeError):
@@ -133,6 +135,13 @@ def record_path(task_id: str) -> Path:
 
 def load_record(task_id: str) -> dict[str, Any]:
     return load_json(record_path(task_id))
+
+
+def trusted_gate_registry() -> dict[str, str]:
+    try:
+        return load_gate_registry(MANIFEST)
+    except GateRegistryError as error:
+        raise GovernanceError(str(error)) from error
 
 
 def task_spec_paths(task_id: str) -> list[Path]:
@@ -378,6 +387,48 @@ def validate_squash_integration(
 
     record_relative = f".agents/records/{task_id}.json"
     if verify_git and source_base and source_head and commit_exists(source_head):
+        if head_sha and commit_exists(head_sha):
+            if commit_parents(source_head) != [head_sha]:
+                errors.append(
+                    f"{label}.source_head is not the immutable review commit"
+                )
+            review_paths = git_text(
+                "diff-tree",
+                "--no-commit-id",
+                "--name-only",
+                "-r",
+                source_head,
+            ).splitlines()
+            if review_paths != [record_relative]:
+                errors.append(
+                    f"{label}.source_head changes paths outside the task record"
+                )
+            review_message = git_text(
+                "show",
+                "-s",
+                "--format=%B",
+                source_head,
+            )
+            if not re.search(
+                r"(?m)^Xnn-Lifecycle:\s+review$",
+                review_message,
+            ):
+                errors.append(
+                    f"{label}.source_head is missing the review lifecycle"
+                )
+            try:
+                reviewed_patch = stable_range_patch_id(
+                    source_base,
+                    head_sha,
+                    record_relative,
+                )
+            except GovernanceError as error:
+                errors.append(str(error))
+            else:
+                if source_patch_id and reviewed_patch != source_patch_id:
+                    errors.append(
+                        f"{label}.source payload differs from reviewed head"
+                    )
         actual_commits = git_text(
             "rev-list", "--reverse", f"{source_base}..{source_head}"
         ).splitlines()
@@ -493,7 +544,7 @@ def validate_risks(
     errors: list[str],
     task_id: str,
     risks: Any,
-    commands: list[str],
+    verification_evidence: list[str],
 ) -> None:
     label = f"{task_id}.risks"
     if not isinstance(risks, dict):
@@ -509,7 +560,7 @@ def validate_risks(
             f"{label} has unexpected dimensions: {', '.join(unexpected)}"
         )
 
-    command_set = set(commands)
+    evidence_set = set(verification_evidence)
     expected_fields = {"level", "rationale", "gates"}
     for dimension in RISK_DIMENSIONS:
         risk = risks.get(dimension)
@@ -549,7 +600,7 @@ def validate_risks(
             isinstance(gate, str) and gate for gate in gates
         ):
             errors.append(
-                f"{risk_label}.gates must be an array of non-empty commands"
+                f"{risk_label}.gates must be an array of non-empty references"
             )
             gates = []
         if len(gates) != len(set(gates)):
@@ -559,9 +610,10 @@ def validate_risks(
         elif level in RISK_LEVELS - {"none"} and not gates:
             errors.append(f"{risk_label}.gates must not be empty for {level} risk")
         for gate in gates:
-            if gate not in command_set:
+            if gate not in evidence_set:
                 errors.append(
-                    f"{risk_label}.gates references unexecuted command: {gate}"
+                    f"{risk_label}.gates references unexecuted command or "
+                    f"gate: {gate}"
                 )
 
 
@@ -595,11 +647,13 @@ def validate_record(
     records: dict[str, dict[str, Any]],
     tasks: dict[str, dict[str, Any]],
     module_ids: set[str],
+    gate_registry: dict[str, str],
     *,
     verify_git: bool,
 ) -> list[str]:
     errors: list[str] = []
     task_id = task["id"]
+    task_number = int(task_id.removeprefix("XT-"))
     schema_version = record.get("schema_version")
     if schema_version not in {1, 2}:
         errors.append(f"{task_id}.schema_version must be 1 or 2")
@@ -749,8 +803,54 @@ def validate_record(
     elif len(commands) != len(set(commands)):
         errors.append(f"{task_id}.verification.commands contains duplicates")
 
+    gate_ids = verification.get("gates")
+    if gate_ids is None:
+        verification_evidence = commands
+        registered_commands = set(gate_registry.values())
+        for command in commands:
+            if command not in registered_commands:
+                errors.append(
+                    f"{task_id}.verification.commands contains unregistered "
+                    f"command: {command}"
+                )
+        if "make verify" not in commands:
+            errors.append(
+                f"{task_id}.verification.commands must include make verify"
+            )
+    else:
+        if not isinstance(gate_ids, list) or not gate_ids or not all(
+            isinstance(gate, str) and gate for gate in gate_ids
+        ):
+            errors.append(
+                f"{task_id}.verification.gates must be a non-empty array"
+            )
+            gate_ids = []
+        elif len(gate_ids) != len(set(gate_ids)):
+            errors.append(f"{task_id}.verification.gates contains duplicates")
+        for gate in gate_ids:
+            if gate not in gate_registry:
+                errors.append(
+                    f"{task_id}.verification.gates contains unknown gate: "
+                    f"{gate}"
+                )
+        resolved = [
+            gate_registry[gate] for gate in gate_ids if gate in gate_registry
+        ]
+        if commands != resolved:
+            errors.append(
+                f"{task_id}.verification.commands must match trusted gates"
+            )
+        if "verify" not in gate_ids:
+            errors.append(f"{task_id}.verification.gates must include verify")
+        verification_evidence = gate_ids
+
     if schema_version == 2:
-        validate_risks(errors, task_id, record.get("risks"), commands)
+        validate_risks(
+            errors,
+            task_id,
+            record.get("risks"),
+            verification_evidence,
+        )
 
     if state == "done":
         if verification.get("status") != "passed":
@@ -814,6 +914,11 @@ def validate_record(
 def validate_repository(*, verify_git: bool = True) -> None:
     document, tasks = load_backlog()
     errors: list[str] = []
+    try:
+        gate_registry = trusted_gate_registry()
+    except GovernanceError as error:
+        errors.append(str(error))
+        gate_registry = {}
     try:
         module_ids = architecture_module_ids()
     except GovernanceError as error:
@@ -954,6 +1059,7 @@ def validate_repository(*, verify_git: bool = True) -> None:
                 records,
                 tasks,
                 module_ids,
+                gate_registry,
                 verify_git=verify_git,
             )
         )
@@ -1208,9 +1314,22 @@ def get_field(task_id: str, field: str) -> None:
 
 def verification_commands(task_id: str) -> None:
     record = load_record(task_id)
-    commands = record.get("verification", {}).get("commands", [])
+    verification = record.get("verification", {})
+    commands = verification.get("commands", [])
     if not isinstance(commands, list):
         raise GovernanceError(f"{task_id} has invalid verification commands")
+    registry = trusted_gate_registry()
+    gates = verification.get("gates")
+    if gates is not None:
+        if not isinstance(gates, list) or not all(
+            isinstance(gate, str) and gate in registry for gate in gates
+        ):
+            raise GovernanceError(f"{task_id} has invalid verification gates")
+        commands = [registry[gate] for gate in gates]
+    elif not all(command in set(registry.values()) for command in commands):
+        raise GovernanceError(
+            f"{task_id} has an unregistered verification command"
+        )
     for command in commands:
         print(command)
 

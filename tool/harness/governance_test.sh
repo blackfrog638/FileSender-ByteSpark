@@ -3,6 +3,7 @@
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+python3 -B "$root/tool/harness/trusted_gates_test.py"
 temporary="$(mktemp -d)"
 repository="$temporary/repository"
 task_id="XT-999"
@@ -25,22 +26,52 @@ from pathlib import Path
 
 root = Path(sys.argv[1])
 task_id, inherited_head = sys.argv[2:]
+manifest_path = root / ".agents" / "manifest.yaml"
+manifest = manifest_path.read_text(encoding="utf-8")
+manifest = manifest.replace(
+    "  verify: make verify\n",
+    "  legacy_verify: make verify\n  verify: true\n",
+)
+manifest_path.write_text(manifest, encoding="utf-8")
 for path in sorted((root / ".agents" / "records").glob("XT-*.json")):
     record = json.loads(path.read_text(encoding="utf-8"))
-    if record.get("state") != "integrated":
-        continue
-    integration = record["integration"]
-    if integration.get("strategy") == "squash" and not integration.get("result"):
-        integration["result"] = inherited_head
-    integration["verified_sha"] = inherited_head
-    record["state"] = "done"
-    record["verification"]["status"] = "passed"
-    record["verification"]["reference"] = "test:inherited-integration"
-    record["acceptance"] = {
-        "accepted_by": "harness-test",
-        "accepted_at": "2000-01-01T00:00:00+00:00",
-        "note": "Closed inherited state in the isolated lifecycle fixture.",
-    }
+    verification = record.get("verification", {})
+    gates = verification.get("gates")
+    if isinstance(gates, list) and "verify" in gates:
+        expanded = []
+        for gate in gates:
+            if gate == "verify":
+                expanded.extend(("legacy_verify", "verify"))
+            else:
+                expanded.append(gate)
+        verification["gates"] = expanded
+        commands = {
+            "governance_test": "make governance-test",
+            "legacy_verify": "make verify",
+            "verify": "true",
+        }
+        verification["commands"] = [commands[gate] for gate in expanded]
+        for risk in record.get("risks", {}).values():
+            risk["gates"] = [
+                "legacy_verify" if gate == "verify" else gate
+                for gate in risk.get("gates", [])
+            ]
+    if record.get("state") == "integrated":
+        integration = record["integration"]
+        if (
+            integration.get("strategy") == "squash"
+            and not integration.get("result")
+        ):
+            integration["result"] = inherited_head
+        integration["verified_sha"] = inherited_head
+        record["state"] = "done"
+        verification["status"] = "passed"
+        verification["reference"] = "test:inherited-integration"
+        record["acceptance"] = {
+            "accepted_by": "harness-test",
+            "accepted_at": "2000-01-01T00:00:00+00:00",
+            "note": "Closed inherited state in the isolated lifecycle fixture.",
+        }
     path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 
 backlog_path = root / ".agents" / "backlog.yaml"
@@ -107,7 +138,7 @@ record = {
         "functionality": {
             "level": "low",
             "rationale": "The fixture must exercise one complete governed lifecycle.",
-            "gates": ["true"],
+            "gates": ["verify"],
         },
         "security": {
             "level": "none",
@@ -161,6 +192,7 @@ record = {
     "integration": {"strategy": "", "mappings": [], "verified_sha": ""},
     "verification": {
         "status": "pending",
+        "gates": ["verify"],
         "commands": ["true"],
         "reference": "",
     },
@@ -171,6 +203,7 @@ record_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 PY
 
 git -C "$repository" add \
+  .agents/manifest.yaml \
   .agents/backlog.yaml \
   ".agents/tasks/$task_id-governance-lifecycle.md" \
   .agents/records
@@ -213,15 +246,31 @@ def empty_gates(record):
 
 
 def duplicate_gates(record):
-    record["risks"]["functionality"]["gates"] = ["true", "true"]
+    record["risks"]["functionality"]["gates"] = ["verify", "verify"]
 
 
 def unexecuted_gate(record):
-    record["risks"]["functionality"]["gates"] = ["false"]
+    record["risks"]["functionality"]["gates"] = ["unknown"]
 
 
 def gate_on_none(record):
-    record["risks"]["security"]["gates"] = ["true"]
+    record["risks"]["security"]["gates"] = ["verify"]
+
+
+def unregistered_command(record):
+    record["verification"].pop("gates")
+    record["verification"]["commands"] = ["false"]
+    record["risks"]["functionality"]["gates"] = ["false"]
+
+
+def trusted_gate_mismatch(record):
+    record["verification"]["commands"] = ["false"]
+
+
+def missing_verify_gate(record):
+    record["verification"]["gates"] = ["commit_message_test"]
+    record["verification"]["commands"] = ["make commit-message-test"]
+    record["risks"]["functionality"]["gates"] = ["commit_message_test"]
 
 
 def missing_architecture_change(record):
@@ -249,6 +298,17 @@ cases = (
     ("duplicate gates", duplicate_gates, "gates contains duplicates"),
     ("unexecuted gate", unexecuted_gate, "unexecuted command"),
     ("gate on none", gate_on_none, "gates must be empty"),
+    ("unregistered command", unregistered_command, "unregistered command"),
+    (
+        "trusted gate mismatch",
+        trusted_gate_mismatch,
+        "commands must match trusted gates",
+    ),
+    (
+        "missing verify gate",
+        missing_verify_gate,
+        "gates must include verify",
+    ),
     (
         "missing architecture change",
         missing_architecture_change,
@@ -374,6 +434,27 @@ git -C "$task_worktree" add ".agents/handoffs/$task_id.md"
 git -C "$task_worktree" commit \
   -m "docs(harness): document governance fixture handoff" >/dev/null
 
+"$repository/tool/harness/agent.sh" \
+  transition "$task_id" review >/dev/null
+printf 'unreviewed payload\n' \
+  >"$task_worktree/protocol/testdata/governance-fixture.txt"
+git -C "$task_worktree" add protocol/testdata/governance-fixture.txt
+git -C "$task_worktree" commit \
+  -m "test(harness): append unreviewed fixture payload" >/dev/null
+post_review_errors="$temporary/post-review-errors.txt"
+if "$repository/tool/harness/agent.sh" \
+  integrate "$task_id" >/dev/null 2>"$post_review_errors"; then
+  printf 'Integration accepted payload added after review.\n' >&2
+  exit 1
+fi
+grep -q 'branch tip is not its immutable review commit' "$post_review_errors"
+"$repository/tool/harness/agent.sh" \
+  transition "$task_id" in_progress >/dev/null
+printf 'governance fixture\n' \
+  >"$task_worktree/protocol/testdata/governance-fixture.txt"
+git -C "$task_worktree" add protocol/testdata/governance-fixture.txt
+git -C "$task_worktree" commit \
+  -m "test(harness): restore reviewed fixture payload" >/dev/null
 "$repository/tool/harness/agent.sh" \
   transition "$task_id" review >/dev/null
 integration_base="$(git -C "$repository" rev-parse HEAD)"
@@ -711,7 +792,9 @@ assert set(record["risks"]) == {
     "platform",
     "persistence",
 }
-assert record["risks"]["functionality"]["gates"] == ["make verify"]
+assert record["risks"]["functionality"]["gates"] == ["verify"]
+assert record["verification"]["gates"] == ["verify"]
+assert record["verification"]["commands"] == ["true"]
 assert all(
     "TODO" in risk["rationale"] for risk in record["risks"].values()
 )
