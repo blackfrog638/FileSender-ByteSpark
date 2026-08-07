@@ -303,7 +303,8 @@
       "architecture_contract_required": true,
       "workstream": "native_core",
       "depends_on": [
-        "XT-018"
+        "XT-018",
+        "XT-050"
       ],
       "owned_paths": [
         "native/include/xnn_transfer/core/security/identity/**",
@@ -785,6 +786,30 @@
         "native/fuzz/protocol/**",
         "tool/harness/architecture_test.py",
         "tool/harness/architecture_test_test.py"
+      ]
+    },
+    {
+      "id": "XT-050",
+      "title": "Pinned linux secret service",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-046"
+      ],
+      "owned_paths": [
+        ".agents/**",
+        "vcpkg.json",
+        "cmake/dependencies/**",
+        "third_party/licenses/**",
+        "CMakeLists.txt",
+        "docs/adr/0006-p1-native-runtime.md",
+        "docs/roadmap.md",
+        "docs/testing.md",
+        "tool/harness/dependency_test.sh",
+        ".github/workflows/ci.yml"
       ]
     }
   ]

@@ -1,0 +1,120 @@
+{
+  "schema_version": 2,
+  "id": "XT-050",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-050.md",
+  "commit": {
+    "type": "build",
+    "scope": "deps",
+    "summary": "pin linux secret service"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "The Linux identity provider cannot compile or load its selected Secret Service client if the manifest target or transitive GLib graph is wrong.",
+      "gates": [
+        "make dependency-test",
+        "make verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "libsecret sits on the private identity storage boundary; floating provenance, system fallback, dynamic drift, or accidental non-Linux use is unacceptable.",
+      "gates": [
+        "make dependency-test",
+        "make security-test"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "libsecret and its GLib transitive graph materially affect Linux clean-build time, cache size, and packaged binary size.",
+      "gates": [
+        "make dependency-test",
+        "make verify"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "The Linux-only manifest expression and target must work in native, sanitizer, fuzz, and Flutter CMake entrypoints without changing macOS or Windows graphs.",
+      "gates": [
+        "make dependency-test",
+        "make security-test",
+        "make verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "Dependency resolution and link probes introduce no runtime threads, callbacks, shared mutable state, or synchronization contracts.",
+      "gates": []
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "libsecret is valid only on Linux while all three desktop platforms share the manifest and CI cache inputs.",
+      "gates": [
+        "make dependency-test",
+        "make verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "This task pins and probes a client library but does not create, read, migrate, or delete product records.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0006-p1-native-runtime.md"
+      ],
+      "rationale": "ADR 0006 already selects libsecret; this task records the exact landed dependency and keeps runtime qualification with XT-022."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The canonical identity module and private platform-provider boundary are unchanged; this task only supplies the selected dependency."
+    },
+    "roadmap": {
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "The P1 execution graph must make libsecret bootstrap an explicit prerequisite of protected identity storage."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make dependency-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
