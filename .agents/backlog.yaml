@@ -286,9 +286,13 @@
       ],
       "owned_paths": [
         "native/include/xnn_transfer/c_api.h",
+        "native/include/xnn_transfer/core/discovery/discovery.hpp",
         "native/src/bridge/**",
+        "native/src/discovery/service.cpp",
         "native/tests/bridge/**",
-        "apps/desktop/lib/core/native/**"
+        "apps/desktop/lib/core/native/**",
+        "apps/desktop/test/core/native/**",
+        "docs/adr/0008-p1-operation-c-abi.md"
       ]
     },
     {

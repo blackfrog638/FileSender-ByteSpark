@@ -8,9 +8,12 @@ depends_on:
   - XT-020
 owned_paths:
   - native/include/xnn_transfer/c_api.h
+  - native/include/xnn_transfer/core/discovery/discovery.hpp
   - native/src/bridge/**
+  - native/src/discovery/service.cpp
   - native/tests/bridge/**
   - apps/desktop/lib/core/native/**
+  - apps/desktop/test/core/native/**
   - docs/adr/0008-p1-operation-c-abi.md
 contract_changes:
   - Add discovery commands and peer lifecycle events to the stable C ABI.
@@ -26,6 +29,11 @@ events through the existing wakeup-and-drain ABI and Dart native adapter.
 
 XT-020 owns discovery behavior. ADR 0003 owns callback safety and
 `c_api.h` remains the only Flutter-facing native boundary.
+
+The integration owner authorizes XT-021 to add one production composition
+entry point to the existing discovery module. That entry point must hide Asio,
+reuse the XT-020 service and platform adapters, and must not change discovery
+wire or cache behavior.
 
 ## Constraints
 
