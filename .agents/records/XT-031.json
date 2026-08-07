@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "id": "XT-031",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-031.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The Flutter task consumes accepted native contracts and makes no public contract decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Presentation, application, and native-adapter dependency direction remains unchanged."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-032 owns milestone closure after cross-platform E2E evidence."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make flutter-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

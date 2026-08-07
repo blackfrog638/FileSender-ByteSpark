@@ -36,7 +36,8 @@
         "native/include/xnn_transfer/c_api.h",
         "native/src/bridge/**",
         "native/tests/bridge/**",
-        "apps/desktop/lib/core/native/**"
+        "apps/desktop/lib/core/native/**",
+        "docs/adr/0008-p1-operation-c-abi.md"
       ]
     },
     {
@@ -227,6 +228,355 @@
         ".agents/**",
         "tool/harness/**",
         "docs/adr/**"
+      ]
+    },
+    {
+      "id": "XT-018",
+      "title": "P1 native runtime boundaries",
+      "readiness": "ready",
+      "workstream": "integration",
+      "depends_on": [
+        "XT-017"
+      ],
+      "owned_paths": [
+        "docs/adr/0006-p1-native-runtime.md",
+        "docs/architecture.md",
+        "native/CMakeLists.txt",
+        "native/src/**/CMakeLists.txt",
+        "native/tests/**/CMakeLists.txt"
+      ]
+    },
+    {
+      "id": "XT-019",
+      "title": "Discovery v1 contract",
+      "readiness": "ready",
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-018"
+      ],
+      "owned_paths": [
+        "protocol/spec/discovery-v1.md",
+        "protocol/testdata/discovery/v1/**",
+        "docs/adr/0007-lan-discovery.md"
+      ]
+    },
+    {
+      "id": "XT-020",
+      "title": "Native discovery service",
+      "readiness": "ready",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-019"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/discovery/**",
+        "native/src/discovery/**",
+        "native/tests/discovery/**"
+      ]
+    },
+    {
+      "id": "XT-021",
+      "title": "Discovery c abi",
+      "readiness": "ready",
+      "workstream": "native_bridge",
+      "depends_on": [
+        "XT-020"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/c_api.h",
+        "native/src/bridge/**",
+        "native/tests/bridge/**",
+        "apps/desktop/lib/core/native/**"
+      ]
+    },
+    {
+      "id": "XT-022",
+      "title": "Protected identity storage",
+      "readiness": "ready",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-018"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/security/identity/**",
+        "native/src/security/identity/**",
+        "native/tests/security/identity/**",
+        "docs/adr/0009-protected-identity-storage.md"
+      ]
+    },
+    {
+      "id": "XT-023",
+      "title": "Tls13 security provider",
+      "readiness": "ready",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-018",
+        "XT-015"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/security/tls/**",
+        "native/src/security/tls/**",
+        "native/tests/security/tls/**"
+      ]
+    },
+    {
+      "id": "XT-024",
+      "title": "Security runtime review",
+      "readiness": "ready",
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-022",
+        "XT-023"
+      ],
+      "owned_paths": [
+        "protocol/security/XT-024-runtime-review.md",
+        "docs/adr/0002-pairing-and-transport-security.md",
+        "docs/adr/0006-p1-native-runtime.md"
+      ]
+    },
+    {
+      "id": "XT-025",
+      "title": "Authenticated pairing session",
+      "readiness": "ready",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-020",
+        "XT-024"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/session/**",
+        "native/src/session/**",
+        "native/tests/session/**"
+      ]
+    },
+    {
+      "id": "XT-026",
+      "title": "Pairing c abi",
+      "readiness": "ready",
+      "workstream": "native_bridge",
+      "depends_on": [
+        "XT-021",
+        "XT-025"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/c_api.h",
+        "native/src/bridge/**",
+        "native/tests/bridge/**",
+        "apps/desktop/lib/core/native/**",
+        "docs/adr/0008-p1-operation-c-abi.md"
+      ]
+    },
+    {
+      "id": "XT-027",
+      "title": "Safe one file storage",
+      "readiness": "ready",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-011",
+        "XT-018"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/storage/**",
+        "native/src/storage/**",
+        "native/tests/storage/**"
+      ]
+    },
+    {
+      "id": "XT-028",
+      "title": "One file transfer engine",
+      "readiness": "ready",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-006",
+        "XT-025",
+        "XT-027"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/transfer/**",
+        "native/src/transfer/**",
+        "native/tests/transfer/**"
+      ]
+    },
+    {
+      "id": "XT-029",
+      "title": "Cancellation cleanup",
+      "readiness": "ready",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-028"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/transfer/**",
+        "native/src/transfer/**",
+        "native/tests/transfer/**",
+        "native/src/storage/**",
+        "native/tests/storage/**",
+        "native/src/session/**",
+        "native/tests/session/**"
+      ]
+    },
+    {
+      "id": "XT-030",
+      "title": "Transfer c abi",
+      "readiness": "ready",
+      "workstream": "native_bridge",
+      "depends_on": [
+        "XT-026",
+        "XT-029"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/c_api.h",
+        "native/src/bridge/**",
+        "native/tests/bridge/**",
+        "apps/desktop/lib/core/native/**",
+        "docs/adr/0008-p1-operation-c-abi.md"
+      ]
+    },
+    {
+      "id": "XT-031",
+      "title": "Flutter p1 vertical slice",
+      "readiness": "ready",
+      "workstream": "flutter_desktop",
+      "depends_on": [
+        "XT-021",
+        "XT-026",
+        "XT-030"
+      ],
+      "owned_paths": [
+        "apps/desktop/lib/app/**",
+        "apps/desktop/lib/features/**",
+        "apps/desktop/test/features/**"
+      ]
+    },
+    {
+      "id": "XT-032",
+      "title": "P1 vertical slice acceptance",
+      "readiness": "ready",
+      "workstream": "integration",
+      "depends_on": [
+        "XT-031"
+      ],
+      "owned_paths": [
+        "docs/roadmap.md",
+        "docs/architecture.md",
+        "docs/testing.md",
+        ".github/workflows/**",
+        "tool/harness/**"
+      ]
+    },
+    {
+      "id": "XT-033",
+      "title": "Multi file manifests",
+      "readiness": "ready",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-032"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/storage/**",
+        "native/src/storage/**",
+        "native/tests/storage/**",
+        "native/include/xnn_transfer/core/transfer/**",
+        "native/src/transfer/**",
+        "native/tests/transfer/**",
+        "docs/adr/0010-resume-state.md"
+      ]
+    },
+    {
+      "id": "XT-034",
+      "title": "Transfer scheduling backpressure",
+      "readiness": "ready",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-033"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/transfer/**",
+        "native/src/transfer/**",
+        "native/tests/transfer/**",
+        "native/benchmarks/**"
+      ]
+    },
+    {
+      "id": "XT-035",
+      "title": "Destination collision policy",
+      "readiness": "ready",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-033"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/storage/**",
+        "native/src/storage/**",
+        "native/tests/storage/**"
+      ]
+    },
+    {
+      "id": "XT-036",
+      "title": "Resume persistence",
+      "readiness": "ready",
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-022",
+        "XT-034",
+        "XT-035"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/session/**",
+        "native/src/session/**",
+        "native/tests/session/**",
+        "native/include/xnn_transfer/core/storage/**",
+        "native/src/storage/**",
+        "native/tests/storage/**",
+        "native/include/xnn_transfer/core/transfer/**",
+        "native/src/transfer/**",
+        "native/tests/transfer/**"
+      ]
+    },
+    {
+      "id": "XT-037",
+      "title": "Production transfer adapters",
+      "readiness": "ready",
+      "workstream": "native_bridge",
+      "depends_on": [
+        "XT-036"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/c_api.h",
+        "native/src/bridge/**",
+        "native/tests/bridge/**",
+        "apps/desktop/lib/core/native/**",
+        "docs/adr/0008-p1-operation-c-abi.md"
+      ]
+    },
+    {
+      "id": "XT-038",
+      "title": "Flutter production transfer flow",
+      "readiness": "ready",
+      "workstream": "flutter_desktop",
+      "depends_on": [
+        "XT-037"
+      ],
+      "owned_paths": [
+        "apps/desktop/lib/app/**",
+        "apps/desktop/lib/features/**",
+        "apps/desktop/test/features/**"
+      ]
+    },
+    {
+      "id": "XT-039",
+      "title": "P1 production acceptance",
+      "readiness": "ready",
+      "workstream": "integration",
+      "depends_on": [
+        "XT-038"
+      ],
+      "owned_paths": [
+        "docs/roadmap.md",
+        "docs/architecture.md",
+        "docs/testing.md",
+        ".github/workflows/**",
+        "tool/harness/**"
       ]
     }
   ]

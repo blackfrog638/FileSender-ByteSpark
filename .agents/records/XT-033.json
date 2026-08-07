@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "XT-033",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-033.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements accepted protocol v1 manifest and storage contracts without changing them."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Multi-file behavior remains within existing native storage and transfer modules."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-039 owns production milestone closure after full integration evidence."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "XT-025",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-025.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements accepted ADR 0002 pairing semantics without changing the profile."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The architecture already assigns pairing and authenticated sessions to native session."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Native pairing is not user-visible until C ABI and Flutter tasks complete."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

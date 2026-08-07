@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "XT-035",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-035.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements receiver-local storage policy already required by protocol v1."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Destination enforcement remains within the existing native storage boundary."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-039 owns roadmap closure after public adapter and UI integration."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

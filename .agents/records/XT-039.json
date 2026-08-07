@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "id": "XT-039",
+  "task_type": "integration",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-039.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task accepts evidence against existing ADRs and introduces no new decision."
+    },
+    "architecture": {
+      "status": "updated",
+      "references": [
+        "docs/architecture.md",
+        "docs/testing.md"
+      ],
+      "rationale": "Architecture and testing must describe the accepted production transfer behavior and residual risks."
+    },
+    "roadmap": {
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "This is the sole task allowed to close the P1 production checklist."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make verify",
+      "make security-test"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

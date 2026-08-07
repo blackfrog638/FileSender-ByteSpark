@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "XT-022",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-022.md",
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0009-protected-identity-storage.md"
+      ],
+      "rationale": "Protected identity and pairing records introduce a persisted security-sensitive format."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "ADR 0006 owns the durable provider boundary; this task implements it."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Protected storage is a pairing prerequisite, not a complete P1 milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

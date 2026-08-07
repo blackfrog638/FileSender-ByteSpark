@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "XT-027",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-027.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements existing path, manifest, and atomic-commit contracts without changing persisted format."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The architecture already assigns safe filesystem behavior to native storage."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "One-file storage is a transfer prerequisite, not a complete roadmap item."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "XT-024",
+  "task_type": "review",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-024.md",
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "accepted",
+      "references": [
+        "docs/adr/0002-pairing-and-transport-security.md",
+        "docs/adr/0006-p1-native-runtime.md"
+      ],
+      "rationale": "The task records independent acceptance or blockers against the governing security decisions."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The review validates existing boundaries and does not introduce a new component."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Review acceptance unblocks pairing but does not complete it."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

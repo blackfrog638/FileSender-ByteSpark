@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "XT-028",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-028.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements accepted wire and security contracts without changing them."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The architecture already assigns transfer and integrity behavior to native core."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The one-file item closes only after public adapters, Flutter, and E2E acceptance."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

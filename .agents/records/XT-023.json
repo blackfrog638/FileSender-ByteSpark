@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "XT-023",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-023.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The provider implements accepted ADR 0002 and ADR 0006 requirements without changing the security profile."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "ADR 0006 owns the durable TLS provider boundary."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "TLS conformance is a prerequisite and does not complete pairing."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

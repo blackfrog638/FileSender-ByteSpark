@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "id": "XT-032",
+  "task_type": "integration",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-032.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task accepts evidence against existing ADRs and introduces no new decision."
+    },
+    "architecture": {
+      "status": "updated",
+      "references": [
+        "docs/architecture.md",
+        "docs/testing.md"
+      ],
+      "rationale": "Durable documentation must replace scaffold claims with accepted vertical-slice behavior and test coverage."
+    },
+    "roadmap": {
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "The task closes only the evidenced P1 vertical-slice checklist."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make verify",
+      "make security-test"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

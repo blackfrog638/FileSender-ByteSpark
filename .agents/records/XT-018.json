@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "XT-018",
+  "task_type": "architecture",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-018.md",
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0006-p1-native-runtime.md"
+      ],
+      "rationale": "Selecting cross-platform networking, TLS, crypto, storage, and dependency policy is expensive to reverse."
+    },
+    "architecture": {
+      "status": "updated",
+      "references": [
+        "docs/architecture.md"
+      ],
+      "rationale": "The task establishes durable P1 module and platform dependency boundaries."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "P1 milestones remain open until executable behavior is accepted."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "XT-034",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-034.md",
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements accepted protocol v1 credit semantics without changing wire compatibility."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Scheduling and backpressure remain inside the native transfer module."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-039 owns roadmap closure after adapter, UI, and platform evidence."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make native-test",
+      "make benchmark",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

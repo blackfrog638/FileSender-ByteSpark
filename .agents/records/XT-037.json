@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "XT-037",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-037.md",
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "accepted",
+      "references": [
+        "docs/adr/0008-p1-operation-c-abi.md"
+      ],
+      "rationale": "The task extends the accepted operation ABI for completed production transfer behavior."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The established native adapter boundary remains unchanged."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-039 owns roadmap closure after Flutter and platform acceptance."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make native-test",
+      "make flutter-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

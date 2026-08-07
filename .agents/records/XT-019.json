@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "XT-019",
+  "task_type": "protocol",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-019.md",
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0007-lan-discovery.md"
+      ],
+      "rationale": "The discovery datagram and compatibility policy are a public wire contract."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The existing architecture already defines discovery as untrusted reachability."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "A contract alone does not complete LAN peer discovery."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

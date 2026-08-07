@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "XT-021",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-021.md",
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0008-p1-operation-c-abi.md"
+      ],
+      "rationale": "The task adds the first public P1 operation and event extension to the C ABI."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The existing presentation-to-C-ABI dependency direction is unchanged."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "An adapter does not complete the discovery roadmap item without Flutter integration."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make native-test",
+      "make flutter-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
