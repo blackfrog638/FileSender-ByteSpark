@@ -638,6 +638,25 @@
         "tool/harness/**",
         ".github/workflows/ci.yml"
       ]
+    },
+    {
+      "id": "XT-043",
+      "title": "Abi compatibility gate",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-042"
+      ],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/**",
+        "Makefile",
+        "tool/harness/**",
+        ".github/workflows/ci.yml",
+        "native/CMakeLists.txt",
+        "native/tests/abi/**"
+      ]
     }
   ]
 }

@@ -1,0 +1,98 @@
+{
+  "schema_version": 2,
+  "id": "XT-043",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-043.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "A broken probe could miss ABI regressions or reject valid additive evolution across every native task.",
+      "gates": [
+        "make abi-compat-test",
+        "make verify"
+      ]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "C layout or signature mismatches can corrupt memory across the Flutter FFI trust boundary.",
+      "gates": [
+        "make abi-compat-test"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "ABI probes add a small compile, link, dynamic-load, and lifecycle test to every repository verification.",
+      "gates": [
+        "make abi-compat-test"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "The task defines executable evidence that existing ABI v1 callers remain source and binary compatible.",
+      "gates": [
+        "make abi-compat-test",
+        "make verify"
+      ]
+    },
+    "concurrency": {
+      "level": "low",
+      "rationale": "The legacy client exercises callback registration and shutdown but introduces no new concurrent runtime behavior.",
+      "gates": [
+        "make abi-compat-test"
+      ]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "Calling convention, symbol export, size_t, pointer layout, alignment, and dynamic loading differ by platform toolchain.",
+      "gates": [
+        "make abi-compat-test",
+        "make verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The gate freezes a test contract but creates no product persisted state or migration policy.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task enforces ABI v1 decisions already accepted by ADR 0001 and ADR 0003 without changing them."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The C ABI remains the only Flutter-facing native boundary; this task adds executable compatibility evidence."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "An ABI regression gate improves delivery quality but does not complete a product milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make abi-compat-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
