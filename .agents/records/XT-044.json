@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-044",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "abi-fixture-agent",
   "base_sha": "f6575f0000e433e7844b60f53fea4781db004933",
   "head_sha": "f8ee7890be081b52ba213e492fc05c0782bfa179",
@@ -92,7 +92,7 @@
     "source_patch_id": "d51b9519b800b6c32cc23e5a173d3e3189d0771c",
     "result": "7902ba8f6ec08b731fe6a3e5007d0359c300576f",
     "result_patch_id": "d51b9519b800b6c32cc23e5a173d3e3189d0771c",
-    "verified_sha": ""
+    "verified_sha": "7902ba8f6ec08b731fe6a3e5007d0359c300576f"
   },
   "verification": {
     "status": "passed",
@@ -100,11 +100,11 @@
       "make abi-compat-test",
       "make verify"
     ],
-    "reference": "local:f8ee7890be081b52ba213e492fc05c0782bfa179:2026-08-07T07:54:12Z"
+    "reference": "local:7902ba8f6ec08b731fe6a3e5007d0359c300576f:2026-08-07T08:01:11Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-07T16:05:12+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
