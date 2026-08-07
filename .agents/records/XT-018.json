@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-018",
   "task_type": "architecture",
-  "state": "integrated",
+  "state": "done",
   "owner": "p1-runtime-agent",
   "base_sha": "44afc31a559c41e7b3b1be455bde0feedcf10d96",
   "head_sha": "1f5e71b0317047736d74d211a8f320feb69f4092",
@@ -45,7 +45,7 @@
     "source_patch_id": "b4eaa9a4d1a8df8e24f2bee9ce826bf6343481d7",
     "result": "e9cd6e376d294a7ed7ae5cef3f11504b67707fa6",
     "result_patch_id": "b4eaa9a4d1a8df8e24f2bee9ce826bf6343481d7",
-    "verified_sha": ""
+    "verified_sha": "e9cd6e376d294a7ed7ae5cef3f11504b67707fa6"
   },
   "verification": {
     "status": "passed",
@@ -53,11 +53,11 @@
       "make verify",
       "make security-test"
     ],
-    "reference": "local:1f5e71b0317047736d74d211a8f320feb69f4092:2026-08-07T05:13:19Z"
+    "reference": "concurrent-plan:e9cd6e3"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-07T13:24:02+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
