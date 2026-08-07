@@ -213,6 +213,21 @@
         "protocol/testdata/security/v1/**",
         "native/tests/protocol/CMakeLists.txt"
       ]
+    },
+    {
+      "id": "XT-017",
+      "title": "Squash task integration",
+      "readiness": "ready",
+      "workstream": "integration",
+      "depends_on": [
+        "XT-008"
+      ],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/**",
+        "tool/harness/**",
+        "docs/adr/**"
+      ]
     }
   ]
 }

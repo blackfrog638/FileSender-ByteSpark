@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "XT-017",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-017.md",
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0005-squash-task-integration.md"
+      ],
+      "rationale": "The shared persisted task-record schema gains a new default integration strategy."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "This changes internal harness governance, not the product architecture."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "This changes development governance and does not alter a product milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
