@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-019",
   "task_type": "protocol",
-  "state": "integrated",
+  "state": "done",
   "owner": "p1-discovery-contract-agent",
   "base_sha": "710f44f0dd986f1100ebf44cb6aeb4567c78065e",
   "head_sha": "81364a0f7fd8c2b4cb7d7ab261d87265b2006258",
@@ -40,9 +40,9 @@
     ],
     "source_commits_sha256": "b22524a90026f64bdd7eb9ca25130256eff21d1ce2143c346d9af0fcaa280e46",
     "source_patch_id": "93d96ba0223cf1ee8b57e6e9bf8ee6930643409e",
-    "result": "",
+    "result": "88704b118318ff028610106a0864dcb0d54e778e",
     "result_patch_id": "93d96ba0223cf1ee8b57e6e9bf8ee6930643409e",
-    "verified_sha": ""
+    "verified_sha": "88704b118318ff028610106a0864dcb0d54e778e"
   },
   "verification": {
     "status": "passed",
@@ -50,11 +50,11 @@
       "python3 protocol/testdata/discovery/v1/validate_vectors.py",
       "make verify"
     ],
-    "reference": "local:81364a0f7fd8c2b4cb7d7ab261d87265b2006258:2026-08-07T05:52:11Z"
+    "reference": "local:88704b118318ff028610106a0864dcb0d54e778e:2026-08-07T05:56:32Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-07T13:56:32+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
