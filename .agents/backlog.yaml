@@ -736,6 +736,26 @@
         ".github/workflows/ci.yml",
         "docs/commit-policy.md"
       ]
+    },
+    {
+      "id": "XT-048",
+      "title": "Subtractive architecture",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-020",
+        "XT-042",
+        "XT-047"
+      ],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/**",
+        "tool/harness/**",
+        "docs/architecture.md"
+      ]
     }
   ]
 }
