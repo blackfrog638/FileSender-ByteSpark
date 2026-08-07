@@ -1,0 +1,101 @@
+{
+  "schema_version": 2,
+  "id": "XT-047",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-047.md",
+  "commit": {
+    "type": "ci",
+    "scope": "harness",
+    "summary": "enforce meaningful commit messages"
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "A false negative permits meaningless history while a false positive blocks every contributor and task transition.",
+      "gates": [
+        "make commit-message-test",
+        "make verify"
+      ]
+    },
+    "security": {
+      "level": "none",
+      "rationale": "The policy parses local Git metadata and does not process product trust-boundary input or credentials.",
+      "gates": []
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Message and range checks add bounded text parsing to commits and CI.",
+      "gates": [
+        "make commit-message-test"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Existing task records and history must remain valid while every future harness commit adopts the new format.",
+      "gates": [
+        "make commit-message-test",
+        "make verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "Commit validation is read-only and process-local; task locking and worktree ownership are unchanged.",
+      "gates": []
+    },
+    "platform": {
+      "level": "medium",
+      "rationale": "The hook and shell entrypoints must behave consistently on macOS, Linux, and Git for Windows.",
+      "gates": [
+        "make commit-message-test",
+        "make verify"
+      ]
+    },
+    "persistence": {
+      "level": "low",
+      "rationale": "Bootstrap writes repository-local core.hooksPath configuration but does not change product data.",
+      "gates": [
+        "make commit-message-test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "Commit hygiene is an internal engineering policy and changes no public or expensive-to-reverse architecture contract."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Runtime dependency boundaries are unchanged; the policy governs Git history and harness automation only."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task improves engineering governance without completing a product capability milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make commit-message-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

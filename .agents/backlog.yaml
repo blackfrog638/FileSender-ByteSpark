@@ -716,6 +716,26 @@
         "apps/desktop/windows/CMakeLists.txt",
         "apps/desktop/macos/build_native.sh"
       ]
+    },
+    {
+      "id": "XT-047",
+      "title": "Commit message governance",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-046"
+      ],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/**",
+        ".githooks/**",
+        "Makefile",
+        "tool/harness/**",
+        ".github/workflows/ci.yml",
+        "docs/commit-policy.md"
+      ]
     }
   ]
 }
