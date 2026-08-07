@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-045",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "abi-dll-agent",
   "base_sha": "a8ab0a20ca8b4a57abcd920b042787cfde526104",
   "head_sha": "4a3c914a80107c709ce9df81124f2a816bae6a4e",
@@ -89,9 +89,9 @@
     ],
     "source_commits_sha256": "8d3819973cffa209800af29760baa775c34c1c96dbd8ea9a03daeb94a54bf615",
     "source_patch_id": "ff6e57141982d099c3c19df27120fd68e686f509",
-    "result": "",
+    "result": "94a783671eda70367869424544251f5ccdcf37b2",
     "result_patch_id": "ff6e57141982d099c3c19df27120fd68e686f509",
-    "verified_sha": ""
+    "verified_sha": "94a783671eda70367869424544251f5ccdcf37b2"
   },
   "verification": {
     "status": "passed",
@@ -99,11 +99,11 @@
       "make abi-compat-test",
       "make verify"
     ],
-    "reference": "local:4a3c914a80107c709ce9df81124f2a816bae6a4e:2026-08-07T08:20:23Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31161342909"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-07T16:29:41+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
