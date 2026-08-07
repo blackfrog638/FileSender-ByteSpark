@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-051",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "linux-secret-dependency-agent",
   "base_sha": "32691d7a10422440e2da8acf3fa0a84ab27c0bf9",
   "head_sha": "3642972a73e4c1df489f23fe27f2e4f81a2efcc6",
@@ -117,9 +117,9 @@
     ],
     "source_commits_sha256": "46fcc09442613296a172ce1f2854c723d502333b27296871506ab73dc158267e",
     "source_patch_id": "97423912f8d07f82d44bed3d72c06521a4ef394c",
-    "result": "",
+    "result": "acb9a6aad9a213376bfa62b40c7d0ac9418d72f4",
     "result_patch_id": "97423912f8d07f82d44bed3d72c06521a4ef394c",
-    "verified_sha": ""
+    "verified_sha": "acb9a6aad9a213376bfa62b40c7d0ac9418d72f4"
   },
   "verification": {
     "status": "passed",
@@ -128,11 +128,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:3642972a73e4c1df489f23fe27f2e4f81a2efcc6:2026-08-07T23:24:38Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31227071377"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-08T07:52:12+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
