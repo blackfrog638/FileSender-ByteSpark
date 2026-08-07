@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-053",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "identity-policy-agent",
   "base_sha": "1130d0f88e4ff4d6b518a5ade220ed73ab0743f3",
   "head_sha": "0275eb8ed48232546fef61d79aaf239ffa62600e",
@@ -106,9 +106,9 @@
     ],
     "source_commits_sha256": "85b2696f72bec486b3711f8272fc019c926a57a00a682d0d172cf83b1f5f127f",
     "source_patch_id": "a9c49079e2c9d12eec2324c189384914ebec997f",
-    "result": "",
+    "result": "ae70708678f6d3f9f00e9dc03d86aa36db0d2b97",
     "result_patch_id": "a9c49079e2c9d12eec2324c189384914ebec997f",
-    "verified_sha": ""
+    "verified_sha": "ae70708678f6d3f9f00e9dc03d86aa36db0d2b97"
   },
   "verification": {
     "status": "passed",
@@ -120,11 +120,11 @@
       "make commit-message-test",
       "make verify"
     ],
-    "reference": "local:0275eb8ed48232546fef61d79aaf239ffa62600e:2026-08-07T21:05:17Z"
+    "reference": "local:0b49476-immutable-identity-verified"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-08T05:12:17+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
