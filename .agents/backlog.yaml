@@ -671,6 +671,20 @@
         ".agents/**",
         "native/tests/abi/**"
       ]
+    },
+    {
+      "id": "XT-045",
+      "title": "Windows abi dll search path",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-044"
+      ],
+      "owned_paths": [
+        ".agents/**",
+        "native/tests/abi/**"
+      ]
     }
   ]
 }
