@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 
-"""Validate meaningful Conventional Commit messages."""
+"""Validate repository commit messages and identities."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY_PATH = "docs/commit-policy.md"
+IDENTITY_POLICY_PATH = ".agents/commit-identity.json"
 ALLOWED_TYPES = {
     "feat",
     "fix",
@@ -42,10 +45,22 @@ VAGUE_SUMMARIES = (
     re.compile(r"^address (?:feedback|comments?|review comments?)$"),
     re.compile(r"^(?:plan|claim|deliver|accept|move|record) XT-[0-9]{3,}$"),
 )
+GIT_IDENT_PATTERN = re.compile(
+    r"^(?P<name>[^<>\r\n]+) <(?P<email>[^<>\s]+)> "
+    r"[0-9]+ [+-][0-9]{4}$"
+)
 
 
 class CommitMessageError(ValueError):
     pass
+
+
+class CommitIdentity(NamedTuple):
+    name: str
+    email: str
+
+    def display(self) -> str:
+        return f"{self.name} <{self.email}>"
 
 
 def git(
@@ -58,6 +73,140 @@ def git(
         check=check,
         capture_output=True,
         text=True,
+    )
+
+
+def parse_identity_policy(source: str) -> CommitIdentity:
+    try:
+        document = json.loads(source)
+    except json.JSONDecodeError as error:
+        raise CommitMessageError(
+            f"{IDENTITY_POLICY_PATH} is not valid JSON: {error}"
+        ) from error
+    if not isinstance(document, dict):
+        raise CommitMessageError(
+            f"{IDENTITY_POLICY_PATH} must contain a JSON object"
+        )
+    expected_fields = {"schema_version", "name", "email"}
+    if set(document) != expected_fields:
+        raise CommitMessageError(
+            f"{IDENTITY_POLICY_PATH} must contain exactly: "
+            + ", ".join(sorted(expected_fields))
+        )
+    if document["schema_version"] != 1:
+        raise CommitMessageError(
+            f"{IDENTITY_POLICY_PATH}.schema_version must be 1"
+        )
+
+    name = document["name"]
+    email = document["email"]
+    if (
+        not isinstance(name, str)
+        or not name
+        or name != name.strip()
+        or any(character in name for character in "<>\r\n")
+    ):
+        raise CommitMessageError(
+            f"{IDENTITY_POLICY_PATH}.name must be a canonical Git name"
+        )
+    if (
+        not isinstance(email, str)
+        or not email
+        or email != email.strip()
+        or any(character.isspace() for character in email)
+        or any(character in email for character in "<>")
+    ):
+        raise CommitMessageError(
+            f"{IDENTITY_POLICY_PATH}.email must be a canonical Git email"
+        )
+    return CommitIdentity(name=name, email=email)
+
+
+def load_identity_policy(
+    root: Path,
+    commit: str | None = None,
+) -> CommitIdentity:
+    if commit is None:
+        try:
+            source = (root / IDENTITY_POLICY_PATH).read_text(encoding="utf-8")
+        except OSError as error:
+            raise CommitMessageError(
+                f"cannot read {IDENTITY_POLICY_PATH}: {error}"
+            ) from error
+    else:
+        result = git(
+            root,
+            "show",
+            f"{commit}:{IDENTITY_POLICY_PATH}",
+            check=False,
+        )
+        if result.returncode != 0:
+            raise CommitMessageError(
+                f"{commit[:12]} cannot read {IDENTITY_POLICY_PATH}"
+            )
+        source = result.stdout
+    return parse_identity_policy(source)
+
+
+def parse_git_ident(value: str, label: str) -> CommitIdentity:
+    match = GIT_IDENT_PATTERN.fullmatch(value.rstrip("\n"))
+    if match is None:
+        raise CommitMessageError(f"cannot parse {label} identity from Git")
+    return CommitIdentity(
+        name=match.group("name"),
+        email=match.group("email"),
+    )
+
+
+def validate_identities(
+    expected: CommitIdentity,
+    author: CommitIdentity,
+    committer: CommitIdentity,
+) -> list[str]:
+    errors: list[str] = []
+    if author != expected:
+        errors.append(
+            "author identity must be "
+            f"{expected.display()}; got {author.display()}"
+        )
+    if committer != expected:
+        errors.append(
+            "committer identity must be "
+            f"{expected.display()}; got {committer.display()}"
+        )
+    return errors
+
+
+def current_identities(root: Path) -> tuple[CommitIdentity, CommitIdentity]:
+    author = parse_git_ident(
+        git(root, "var", "GIT_AUTHOR_IDENT").stdout,
+        "author",
+    )
+    committer = parse_git_ident(
+        git(root, "var", "GIT_COMMITTER_IDENT").stdout,
+        "committer",
+    )
+    return author, committer
+
+
+def commit_identities(
+    root: Path,
+    commit: str,
+) -> tuple[CommitIdentity, CommitIdentity]:
+    fields = git(
+        root,
+        "show",
+        "-s",
+        "--format=%an%x00%ae%x00%cn%x00%ce",
+        commit,
+    ).stdout.rstrip("\n").split("\0")
+    if len(fields) != 4:
+        raise CommitMessageError(
+            f"cannot read author and committer identity for {commit[:12]}"
+        )
+    return (
+        CommitIdentity(name=fields[0], email=fields[1]),
+        CommitIdentity(name=fields[2], email=fields[3]),
     )
 
 
@@ -125,7 +274,7 @@ def validate_message(message: str) -> list[str]:
     return errors
 
 
-def policy_activations(root: Path) -> list[str]:
+def path_activations(root: Path, path: str) -> list[str]:
     result = git(
         root,
         "log",
@@ -133,9 +282,13 @@ def policy_activations(root: Path) -> list[str]:
         "--format=%H",
         "--diff-filter=A",
         "--",
-        POLICY_PATH,
+        path,
     )
     return [line for line in result.stdout.splitlines() if line]
+
+
+def policy_activations(root: Path) -> list[str]:
+    return path_activations(root, POLICY_PATH)
 
 
 def policy_applies(root: Path, commit: str, activations: list[str]) -> bool:
@@ -155,15 +308,38 @@ def policy_applies(root: Path, commit: str, activations: list[str]) -> bool:
 
 def validate_range(root: Path, base: str, head: str) -> tuple[int, list[str]]:
     commits = git(root, "rev-list", "--reverse", f"{base}..{head}")
-    activations = policy_activations(root)
+    message_activations = policy_activations(root)
+    identity_activations = path_activations(root, IDENTITY_POLICY_PATH)
     checked = 0
     failures: list[str] = []
     for commit in commits.stdout.splitlines():
-        if not policy_applies(root, commit, activations):
+        check_message_policy = policy_applies(
+            root,
+            commit,
+            message_activations,
+        )
+        check_identity_policy = policy_applies(
+            root,
+            commit,
+            identity_activations,
+        )
+        if not check_message_policy and not check_identity_policy:
             continue
         checked += 1
         message = git(root, "show", "-s", "--format=%B", commit).stdout
-        errors = validate_message(message)
+        errors: list[str] = []
+        if check_message_policy:
+            errors.extend(validate_message(message))
+        if check_identity_policy:
+            try:
+                expected = load_identity_policy(root, commit)
+                author, committer = commit_identities(root, commit)
+            except CommitMessageError as error:
+                errors.append(str(error))
+            else:
+                errors.extend(
+                    validate_identities(expected, author, committer)
+                )
         if errors:
             subject = message.splitlines()[0] if message.splitlines() else ""
             failures.append(f"{commit[:12]} {subject}")
@@ -180,6 +356,20 @@ def check_message(path: Path) -> None:
     errors = validate_message(message)
     if errors:
         raise CommitMessageError("\n".join(f"- {error}" for error in errors))
+
+
+def check_current_identity(root: Path) -> None:
+    expected = load_identity_policy(root)
+    author, committer = current_identities(root)
+    errors = validate_identities(expected, author, committer)
+    if errors:
+        raise CommitMessageError("\n".join(f"- {error}" for error in errors))
+
+
+def configure_identity(root: Path) -> None:
+    expected = load_identity_policy(root)
+    git(root, "config", "--local", "user.name", expected.name)
+    git(root, "config", "--local", "user.email", expected.email)
 
 
 def check_range(root: Path, base: str, head: str) -> None:
@@ -201,19 +391,31 @@ def main() -> int:
     message_parser = subparsers.add_parser("message")
     message_parser.add_argument("path", type=Path)
 
+    hook_parser = subparsers.add_parser("hook")
+    hook_parser.add_argument("path", type=Path)
+    hook_parser.add_argument("--root", type=Path, default=ROOT)
+
     range_parser = subparsers.add_parser("range")
     range_parser.add_argument("base")
     range_parser.add_argument("head")
     range_parser.add_argument("--root", type=Path, default=ROOT)
 
+    configure_parser = subparsers.add_parser("configure")
+    configure_parser.add_argument("--root", type=Path, default=ROOT)
+
     args = parser.parse_args()
     try:
         if args.command == "message":
             check_message(args.path)
-        else:
+        elif args.command == "hook":
+            check_message(args.path)
+            check_current_identity(args.root.resolve())
+        elif args.command == "range":
             check_range(args.root.resolve(), args.base, args.head)
+        else:
+            configure_identity(args.root.resolve())
     except (CommitMessageError, OSError, subprocess.CalledProcessError) as error:
-        print(f"Commit message error:\n{error}", file=sys.stderr)
+        print(f"Commit policy error:\n{error}", file=sys.stderr)
         return 1
     return 0
 

@@ -14,8 +14,11 @@ cleanup() {
 trap cleanup EXIT
 
 git clone --quiet --shared "$root" "$repository"
-git -C "$repository" config user.name "Harness Test"
-git -C "$repository" config user.email "harness-test@example.invalid"
+python3 -B \
+  "$repository/tool/harness/commit_message.py" \
+  configure \
+  --root \
+  "$repository"
 git -C "$repository" checkout -B harness >/dev/null
 inherited_head="$(git -C "$repository" rev-parse HEAD)"
 
