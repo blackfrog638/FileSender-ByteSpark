@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <asio/executor_work_guard.hpp>
+#include <asio/io_context.hpp>
 #include <condition_variable>
 #include <cstddef>
 #include <cstdint>
@@ -11,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include "runtime.hpp"
 #include "xnn_transfer/core/discovery/discovery.hpp"
 
 namespace xnn_transfer::core::discovery {
@@ -662,5 +665,109 @@ bool DiscoveryService::UpdateAdvertisement(DiscoveryConfig config) {
 std::vector<Candidate> DiscoveryService::Snapshot() const { return impl_->Snapshot(); }
 
 bool DiscoveryService::running() const { return impl_->running(); }
+
+class SystemDiscoveryRuntime::Impl final {
+ public:
+  Impl(DiscoveryConfig config, DiscoveryService::EventHandler event_handler)
+      : work_(asio::make_work_guard(context_)),
+        service_(std::move(config), MakeUtf8procDisplayLabelValidator(),
+                 MakeSteadyMonotonicClock(), MakeOpenSslEntropySource(),
+                 MakeAsioDiscoveryTimer(context_.get_executor()),
+                 MakeAsioDatagramTransport(context_.get_executor()),
+                 MakeSystemInterfaceMonitor(context_.get_executor()),
+                 std::move(event_handler)) {}
+
+  ~Impl() { Stop(); }
+
+  [[nodiscard]] bool Start() {
+    std::unique_lock lock(mutex_);
+    if (start_attempted_) {
+      return false;
+    }
+    start_attempted_ = true;
+
+    try {
+      thread_ = std::thread([this] {
+        try {
+          context_.run();
+        } catch (...) {
+          // An asynchronous infrastructure failure must not terminate the
+          // process. A later stop still drains and destroys the service.
+        }
+      });
+    } catch (...) {
+      work_.reset();
+      context_.stop();
+      return false;
+    }
+
+    if (service_.Start()) {
+      running_ = true;
+      return true;
+    }
+
+    work_.reset();
+    context_.stop();
+    std::thread thread = std::move(thread_);
+    lock.unlock();
+    if (thread.joinable()) {
+      thread.join();
+    }
+    return false;
+  }
+
+  void Stop() {
+    std::thread thread;
+    {
+      const std::scoped_lock lock(mutex_);
+      if (stopped_) {
+        return;
+      }
+      stopped_ = true;
+      service_.Stop();
+      running_ = false;
+      work_.reset();
+      context_.stop();
+      thread = std::move(thread_);
+    }
+    if (thread.joinable()) {
+      thread.join();
+    }
+  }
+
+  [[nodiscard]] bool Wake() {
+    const std::scoped_lock lock(mutex_);
+    return running_ && service_.Wake();
+  }
+
+  [[nodiscard]] bool running() const {
+    const std::scoped_lock lock(mutex_);
+    return running_ && service_.running();
+  }
+
+ private:
+  mutable std::mutex mutex_;
+  asio::io_context context_;
+  asio::executor_work_guard<asio::io_context::executor_type> work_;
+  DiscoveryService service_;
+  std::thread thread_;
+  bool start_attempted_{};
+  bool running_{};
+  bool stopped_{};
+};
+
+SystemDiscoveryRuntime::SystemDiscoveryRuntime(
+    DiscoveryConfig config, DiscoveryService::EventHandler event_handler)
+    : impl_(std::make_unique<Impl>(std::move(config), std::move(event_handler))) {}
+
+SystemDiscoveryRuntime::~SystemDiscoveryRuntime() = default;
+
+bool SystemDiscoveryRuntime::Start() { return impl_->Start(); }
+
+void SystemDiscoveryRuntime::Stop() { impl_->Stop(); }
+
+bool SystemDiscoveryRuntime::Wake() { return impl_->Wake(); }
+
+bool SystemDiscoveryRuntime::running() const { return impl_->running(); }
 
 }  // namespace xnn_transfer::core::discovery

@@ -1,221 +1,106 @@
 #include "xnn_transfer/c_api.h"
 
-#include <array>
 #include <atomic>
-#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
+#include <memory>
 #include <mutex>
 #include <new>
-#include <thread>
+#include <optional>
+#include <span>
+#include <string>
+#include <utility>
 
+#include "discovery_bridge.hpp"
+#include "event_channel.hpp"
+#include "xnn_transfer/core/discovery/discovery.hpp"
 #include "xnn_transfer/core/engine.hpp"
 
 namespace {
 
-struct QueuedEvent {
-  uint64_t sequence = 0;
-  uint32_t type = 0;
-  uint32_t payload_version = 0;
-  uint32_t payload_size = 0;
-  uint32_t flags = XNN_TRANSFER_EVENT_FLAG_NONE;
-  std::array<uint8_t, XNN_TRANSFER_EVENT_PAYLOAD_MAX_SIZE> payload{};
-};
+using xnn_transfer::bridge::DiscoveryPeerRegistry;
+using xnn_transfer::bridge::EventChannel;
+using xnn_transfer::core::discovery::CandidateEvent;
+using xnn_transfer::core::discovery::DiscoveryConfig;
+using xnn_transfer::core::discovery::DisplayLabelValidator;
+using xnn_transfer::core::discovery::MakeUtf8procDisplayLabelValidator;
+using xnn_transfer::core::discovery::SystemDiscoveryRuntime;
 
-struct CallbackTarget {
-  xnn_transfer_event_wakeup_callback callback = nullptr;
-  void* user_data = nullptr;
-};
-
-class EventChannel final {
+class DiscoveryController final {
  public:
-  EventChannel() = default;
+  DiscoveryController() = default;
 
-  EventChannel(const EventChannel&) = delete;
-  EventChannel& operator=(const EventChannel&) = delete;
+  DiscoveryController(const DiscoveryController&) = delete;
+  DiscoveryController& operator=(const DiscoveryController&) = delete;
 
-  void EnqueueState(const xnn_transfer_engine_state state) {
-    static_assert(sizeof(xnn_transfer_engine_state_event_payload) <=
-                  XNN_TRANSFER_EVENT_PAYLOAD_MAX_SIZE);
-
-    xnn_transfer_engine_state_event_payload payload;
-    std::memset(&payload, 0, sizeof(payload));
-    payload.struct_size = sizeof(xnn_transfer_engine_state_event_payload);
-    payload.abi_version = XNN_TRANSFER_ABI_VERSION;
-    payload.state = static_cast<uint32_t>(state);
-    QueuedEvent event{
-        .type = XNN_TRANSFER_EVENT_TYPE_ENGINE_STATE_CHANGED,
-        .payload_version = XNN_TRANSFER_ENGINE_STATE_EVENT_PAYLOAD_VERSION,
-        .payload_size =
-            static_cast<uint32_t>(sizeof(xnn_transfer_engine_state_event_payload)),
-    };
-    std::memcpy(event.payload.data(), &payload, sizeof(payload));
-    Enqueue(event);
-  }
-
-  xnn_transfer_status SetCallback(
-      const xnn_transfer_event_callback_config* const config) {
-    CallbackTarget target;
-    {
-      std::unique_lock lock(mutex_);
-      if (config == nullptr) {
-        callback_ = nullptr;
-        callback_user_data_ = nullptr;
-        callback_pending_ = false;
-        if (callback_active_ && callback_thread_ != std::this_thread::get_id()) {
-          callback_finished_.wait(lock, [this] { return !callback_active_; });
-        }
-        return XNN_TRANSFER_STATUS_OK;
-      }
-
-      if (!callback_registration_open_ || callback_ != nullptr || callback_active_) {
-        return XNN_TRANSFER_STATUS_INVALID_STATE;
-      }
-
-      callback_ = config->callback;
-      callback_user_data_ = config->user_data;
-      if (size_ != 0) {
-        target = PrepareCallbackLocked();
-      }
+  [[nodiscard]] xnn_transfer_status Start(DiscoveryConfig config,
+                                          EventChannel& events) {
+    if (runtime_ != nullptr) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
     }
 
-    InvokeCallback(target);
+    EventChannel* const event_channel = &events;
+    auto runtime = std::make_unique<SystemDiscoveryRuntime>(
+        std::move(config), [this, event_channel](const CandidateEvent& event) {
+          const std::optional<xnn_transfer_discovery_peer_event_payload> payload =
+              registry_.Apply(event);
+          if (payload.has_value()) {
+            event_channel->EnqueueDiscovery(*payload);
+          }
+        });
+    if (!runtime->Start()) {
+      return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+    }
+    runtime_ = std::move(runtime);
     return XNN_TRANSFER_STATUS_OK;
   }
 
-  xnn_transfer_status Poll(xnn_transfer_event* const out_event) {
-    QueuedEvent event;
-    {
-      const std::scoped_lock lock(mutex_);
-      if (size_ == 0) {
-        return XNN_TRANSFER_STATUS_EVENT_QUEUE_EMPTY;
-      }
-
-      event = queue_[head_];
-      head_ = (head_ + 1) % queue_.size();
-      --size_;
+  void Stop(EventChannel& events) {
+    if (runtime_ != nullptr) {
+      runtime_->Stop();
+      runtime_.reset();
     }
-
-    const xnn_transfer_event output{
-        .struct_size = sizeof(xnn_transfer_event),
-        .abi_version = XNN_TRANSFER_ABI_VERSION,
-        .type = event.type,
-        .sequence = event.sequence,
-        .payload_version = event.payload_version,
-        .payload_size = event.payload_size,
-        .flags = event.flags,
-        .reserved = 0,
-        .payload = {},
-    };
-    *out_event = output;
-    std::memcpy(out_event->payload, event.payload.data(), event.payload_size);
-    return XNN_TRANSFER_STATUS_OK;
+    registry_.Clear(
+        XNN_TRANSFER_DISCOVERY_EXPIRY_DISCOVERY_STOPPED,
+        [&events](const xnn_transfer_discovery_peer_event_payload& payload) {
+          events.EnqueueDiscovery(payload);
+        });
   }
 
-  void BeginShutdown() {
-    const std::scoped_lock lock(mutex_);
-    callback_registration_open_ = false;
-  }
-
-  void FinishShutdown() {
-    std::unique_lock lock(mutex_);
-    callback_registration_open_ = false;
-    events_open_ = false;
-    if (callback_active_ && callback_thread_ != std::this_thread::get_id()) {
-      callback_finished_.wait(lock, [this] { return !callback_active_; });
-    }
-    callback_ = nullptr;
-    callback_user_data_ = nullptr;
-    callback_pending_ = false;
-  }
-
-  [[nodiscard]] bool IsCallbackThread() const {
-    const std::scoped_lock lock(mutex_);
-    return callback_active_ && callback_thread_ == std::this_thread::get_id();
+  [[nodiscard]] xnn_transfer_status Snapshot(
+      const std::uint64_t expected_revision, const std::uint32_t offset,
+      xnn_transfer_discovery_snapshot_page* const out_page) const {
+    return registry_.Snapshot(expected_revision, offset, out_page);
   }
 
  private:
-  void Enqueue(QueuedEvent event) {
-    CallbackTarget target;
-    {
-      const std::scoped_lock lock(mutex_);
-      if (!events_open_) {
-        return;
-      }
-
-      event.sequence = next_sequence_++;
-      if (size_ == queue_.size()) {
-        head_ = (head_ + 1) % queue_.size();
-        --size_;
-        event.flags |= XNN_TRANSFER_EVENT_FLAG_EVENTS_DROPPED_BEFORE;
-      }
-
-      const bool was_empty = size_ == 0;
-      const size_t tail = (head_ + size_) % queue_.size();
-      queue_[tail] = event;
-      ++size_;
-      if (was_empty) {
-        if (callback_active_) {
-          callback_pending_ = callback_ != nullptr;
-        } else {
-          target = PrepareCallbackLocked();
-        }
-      }
-    }
-
-    InvokeCallback(target);
-  }
-
-  CallbackTarget PrepareCallbackLocked() {
-    if (callback_ == nullptr || callback_active_) {
-      return {};
-    }
-
-    callback_active_ = true;
-    callback_thread_ = std::this_thread::get_id();
-    return CallbackTarget{
-        .callback = callback_,
-        .user_data = callback_user_data_,
-    };
-  }
-
-  void InvokeCallback(CallbackTarget target) {
-    while (target.callback != nullptr) {
-      try {
-        target.callback(target.user_data);
-      } catch (...) {
-        // A foreign callback must not unwind through the bridge.
-      }
-
-      {
-        const std::scoped_lock lock(mutex_);
-        callback_active_ = false;
-        callback_thread_ = {};
-        target = {};
-        if (callback_pending_) {
-          callback_pending_ = false;
-          target = PrepareCallbackLocked();
-        }
-      }
-    }
-    callback_finished_.notify_all();
-  }
-
-  mutable std::mutex mutex_;
-  std::condition_variable callback_finished_;
-  std::array<QueuedEvent, XNN_TRANSFER_EVENT_QUEUE_CAPACITY> queue_{};
-  size_t head_ = 0;
-  size_t size_ = 0;
-  uint64_t next_sequence_ = 1;
-  xnn_transfer_event_wakeup_callback callback_ = nullptr;
-  void* callback_user_data_ = nullptr;
-  std::thread::id callback_thread_;
-  bool callback_registration_open_ = true;
-  bool events_open_ = true;
-  bool callback_active_ = false;
-  bool callback_pending_ = false;
+  DiscoveryPeerRegistry registry_;
+  std::unique_ptr<SystemDiscoveryRuntime> runtime_;
 };
+
+[[nodiscard]] bool IsDiscoveryConfigValid(const xnn_transfer_discovery_config& config) {
+  if (config.service_port == 0 || config.reserved != 0 ||
+      config.display_label_size > XNN_TRANSFER_DISCOVERY_DISPLAY_LABEL_MAX_SIZE) {
+    return false;
+  }
+  if (config.display_label_size == 0) {
+    return true;
+  }
+
+  const std::shared_ptr<const DisplayLabelValidator> validator =
+      MakeUtf8procDisplayLabelValidator();
+  return validator != nullptr && validator->IsCanonical(std::span<const std::uint8_t>(
+                                     config.display_label, config.display_label_size));
+}
+
+[[nodiscard]] DiscoveryConfig CopyDiscoveryConfig(
+    const xnn_transfer_discovery_config& config) {
+  return DiscoveryConfig{
+      .service_port = config.service_port,
+      .display_label = std::string(reinterpret_cast<const char*>(config.display_label),
+                                   config.display_label_size),
+  };
+}
 
 }  // namespace
 
@@ -224,14 +109,16 @@ struct xnn_transfer_engine {
 
   xnn_transfer::core::Engine implementation;
   EventChannel events;
+  DiscoveryController discovery;
   std::mutex lifecycle_mutex;
   std::atomic<xnn_transfer_engine_state> state{XNN_TRANSFER_ENGINE_STATE_CREATED};
 };
 
 uint32_t xnn_transfer_abi_version(void) { return XNN_TRANSFER_ABI_VERSION; }
 
-xnn_transfer_status xnn_transfer_engine_create(const xnn_transfer_engine_config* config,
-                                               xnn_transfer_engine** out_engine) {
+xnn_transfer_status xnn_transfer_engine_create(
+    const xnn_transfer_engine_config* const config,
+    xnn_transfer_engine** const out_engine) {
   if (out_engine == nullptr) {
     return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
   }
@@ -257,7 +144,7 @@ xnn_transfer_status xnn_transfer_engine_create(const xnn_transfer_engine_config*
   }
 }
 
-void xnn_transfer_engine_destroy(xnn_transfer_engine* engine) {
+void xnn_transfer_engine_destroy(xnn_transfer_engine* const engine) {
   if (engine == nullptr) {
     return;
   }
@@ -274,7 +161,7 @@ void xnn_transfer_engine_destroy(xnn_transfer_engine* engine) {
   }
 }
 
-xnn_transfer_status xnn_transfer_engine_start(xnn_transfer_engine* engine) {
+xnn_transfer_status xnn_transfer_engine_start(xnn_transfer_engine* const engine) {
   if (engine == nullptr) {
     return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
   }
@@ -304,7 +191,7 @@ xnn_transfer_status xnn_transfer_engine_start(xnn_transfer_engine* engine) {
   }
 }
 
-xnn_transfer_status xnn_transfer_engine_stop(xnn_transfer_engine* engine) {
+xnn_transfer_status xnn_transfer_engine_stop(xnn_transfer_engine* const engine) {
   if (engine == nullptr) {
     return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
   }
@@ -322,8 +209,12 @@ xnn_transfer_status xnn_transfer_engine_stop(xnn_transfer_engine* engine) {
     engine->events.BeginShutdown();
     engine->state.store(XNN_TRANSFER_ENGINE_STATE_STOPPING);
     engine->events.EnqueueState(XNN_TRANSFER_ENGINE_STATE_STOPPING);
-
     xnn_transfer_status result = XNN_TRANSFER_STATUS_OK;
+    try {
+      engine->discovery.Stop(engine->events);
+    } catch (...) {
+      result = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+    }
     try {
       engine->implementation.Stop();
     } catch (...) {
@@ -340,7 +231,8 @@ xnn_transfer_status xnn_transfer_engine_stop(xnn_transfer_engine* engine) {
 }
 
 xnn_transfer_status xnn_transfer_engine_get_state(
-    const xnn_transfer_engine* engine, xnn_transfer_engine_state* out_state) {
+    const xnn_transfer_engine* const engine,
+    xnn_transfer_engine_state* const out_state) {
   if (engine == nullptr || out_state == nullptr) {
     return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
   }
@@ -354,7 +246,8 @@ xnn_transfer_status xnn_transfer_engine_get_state(
 }
 
 xnn_transfer_status xnn_transfer_engine_set_event_callback(
-    xnn_transfer_engine* engine, const xnn_transfer_event_callback_config* config) {
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_event_callback_config* const config) {
   if (engine == nullptr) {
     return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
   }
@@ -375,8 +268,8 @@ xnn_transfer_status xnn_transfer_engine_set_event_callback(
   }
 }
 
-xnn_transfer_status xnn_transfer_engine_poll_event(xnn_transfer_engine* engine,
-                                                   xnn_transfer_event* out_event) {
+xnn_transfer_status xnn_transfer_engine_poll_event(
+    xnn_transfer_engine* const engine, xnn_transfer_event* const out_event) {
   if (engine == nullptr || out_event == nullptr ||
       out_event->struct_size < sizeof(xnn_transfer_event)) {
     return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
@@ -387,6 +280,81 @@ xnn_transfer_status xnn_transfer_engine_poll_event(xnn_transfer_engine* engine,
 
   try {
     return engine->events.Poll(out_event);
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+xnn_transfer_status xnn_transfer_discovery_start(
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_discovery_config* const config) {
+  if (engine == nullptr || config == nullptr ||
+      config->struct_size < sizeof(xnn_transfer_discovery_config)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (config->abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    if (!IsDiscoveryConfigValid(*config)) {
+      return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+    }
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    if (engine->state.load() != XNN_TRANSFER_ENGINE_STATE_RUNNING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    return engine->discovery.Start(CopyDiscoveryConfig(*config), engine->events);
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+xnn_transfer_status xnn_transfer_discovery_stop(xnn_transfer_engine* const engine) {
+  if (engine == nullptr) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    if (engine->state.load() != XNN_TRANSFER_ENGINE_STATE_RUNNING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    engine->discovery.Stop(engine->events);
+    return XNN_TRANSFER_STATUS_OK;
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+xnn_transfer_status xnn_transfer_discovery_get_snapshot(
+    xnn_transfer_engine* const engine, const std::uint64_t expected_revision,
+    const std::uint32_t offset, xnn_transfer_discovery_snapshot_page* const out_page) {
+  if (engine == nullptr || out_page == nullptr ||
+      out_page->struct_size < sizeof(xnn_transfer_discovery_snapshot_page)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (out_page->abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    const xnn_transfer_engine_state state = engine->state.load();
+    if (state == XNN_TRANSFER_ENGINE_STATE_CREATED ||
+        state == XNN_TRANSFER_ENGINE_STATE_STOPPING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    return engine->discovery.Snapshot(expected_revision, offset, out_page);
   } catch (...) {
     return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   }
