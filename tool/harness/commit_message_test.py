@@ -108,12 +108,12 @@ class MessageValidationTest(unittest.TestCase):
 
 class IdentityValidationTest(unittest.TestCase):
     expected = commit_message.CommitIdentity(
-        name="blackfrog638",
-        email="blackfrog638@gmail.com",
-    )
-    wrong = commit_message.CommitIdentity(
         name="chenzhuoran",
         email="chenzhuoran.638@bytedance.com",
+    )
+    wrong = commit_message.CommitIdentity(
+        name="blackfrog638",
+        email="blackfrog638@gmail.com",
     )
 
     def policy_source(self) -> str:
@@ -137,6 +137,12 @@ class IdentityValidationTest(unittest.TestCase):
     def test_parses_canonical_identity_policy(self) -> None:
         self.assertEqual(
             commit_message.parse_identity_policy(self.policy_source()),
+            self.expected,
+        )
+
+    def test_repository_policy_matches_canonical_identity(self) -> None:
+        self.assertEqual(
+            commit_message.load_identity_policy(MODULE_PATH.parents[2]),
             self.expected,
         )
 
@@ -164,9 +170,9 @@ class IdentityValidationTest(unittest.TestCase):
                 self.expected,
             ),
             [
-                "author identity must be blackfrog638 "
-                "<blackfrog638@gmail.com>; got chenzhuoran "
-                "<chenzhuoran.638@bytedance.com>"
+                "author identity must be chenzhuoran "
+                "<chenzhuoran.638@bytedance.com>; got blackfrog638 "
+                "<blackfrog638@gmail.com>"
             ],
         )
         self.assertEqual(
@@ -176,9 +182,9 @@ class IdentityValidationTest(unittest.TestCase):
                 self.wrong,
             ),
             [
-                "committer identity must be blackfrog638 "
-                "<blackfrog638@gmail.com>; got chenzhuoran "
-                "<chenzhuoran.638@bytedance.com>"
+                "committer identity must be chenzhuoran "
+                "<chenzhuoran.638@bytedance.com>; got blackfrog638 "
+                "<blackfrog638@gmail.com>"
             ],
         )
 
@@ -254,10 +260,10 @@ class IdentityValidationTest(unittest.TestCase):
 
 
 class RangeValidationTest(unittest.TestCase):
-    expected_name = "blackfrog638"
-    expected_email = "blackfrog638@gmail.com"
-    wrong_name = "chenzhuoran"
-    wrong_email = "chenzhuoran.638@bytedance.com"
+    expected_name = "chenzhuoran"
+    expected_email = "chenzhuoran.638@bytedance.com"
+    wrong_name = "blackfrog638"
+    wrong_email = "blackfrog638@gmail.com"
 
     def git(self, root: Path, *args: str) -> str:
         result = subprocess.run(

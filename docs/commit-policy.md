@@ -61,7 +61,7 @@ additional `Xnn-*` trailers.
 repository author and committer:
 
 ```text
-blackfrog638 <blackfrog638@gmail.com>
+chenzhuoran <chenzhuoran.638@bytedance.com>
 ```
 
 Both identities must match exactly. A correct author does not excuse an

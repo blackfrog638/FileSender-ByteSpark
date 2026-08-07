@@ -10,7 +10,7 @@
   "commit": {
     "type": "fix",
     "scope": "harness",
-    "summary": "make commit identity policy immutable"
+    "summary": "make corrected commit identity immutable"
   },
   "architecture_change": {
     "mode": "none",
@@ -47,7 +47,7 @@
     },
     "compatibility": {
       "level": "medium",
-      "rationale": "The initial activation and pre-policy history must remain valid while later policy changes are rejected.",
+      "rationale": "Schema v1 history must remain valid while the first schema v2 activation freezes the corrected identity.",
       "gates": [
         "commit_message_test",
         "verify"
@@ -68,7 +68,7 @@
     },
     "persistence": {
       "level": "low",
-      "rationale": "The change makes the committed identity policy a permanent repository trust root.",
+      "rationale": "The change makes the corrected schema v2 identity policy a permanent repository trust root.",
       "gates": [
         "commit_message_test",
         "verify"
