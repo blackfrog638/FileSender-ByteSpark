@@ -1,5 +1,6 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "blackfrog638",
-  "email": "blackfrog638@gmail.com"
+  "email": "blackfrog638@gmail.com",
+  "immutable": true
 }
