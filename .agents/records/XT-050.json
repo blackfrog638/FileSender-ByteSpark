@@ -1,0 +1,115 @@
+{
+  "schema_version": 2,
+  "id": "XT-050",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-050.md",
+  "commit": {
+    "type": "fix",
+    "scope": "harness",
+    "summary": "bind reviews to trusted verification gates"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Incorrect payload or gate resolution could block valid tasks or allow unreviewed changes to integrate.",
+      "gates": [
+        "make governance-test",
+        "make verify"
+      ]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "Task-controlled commands and post-review payload changes are integrity boundary bypasses.",
+      "gates": [
+        "make governance-test",
+        "make verify"
+      ]
+    },
+    "performance": {
+      "level": "none",
+      "rationale": "The added comparisons and registry lookup run only during task lifecycle operations.",
+      "gates": []
+    },
+    "compatibility": {
+      "level": "medium",
+      "rationale": "Accepted schema v1 and v2 records must retain their registered verification commands.",
+      "gates": [
+        "make governance-test",
+        "make verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "Git refs and worktrees remain protected by the existing sequential lifecycle operations.",
+      "gates": []
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "Gate resolution and patch comparison must behave consistently in Bash and Python on CI hosts.",
+      "gates": [
+        "make governance-test",
+        "make verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The task preserves record schema and stores no new durable lifecycle field.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "This closes bypasses in already accepted review and verification policies."
+    },
+    "architecture": {
+      "status": "updated",
+      "references": [
+        "AGENTS.md",
+        ".agents/manifest.yaml",
+        ".agents/records/README.md"
+      ],
+      "rationale": "The documents identify the integration-owned gate registry and immutable reviewed payload."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task hardens delivery governance without changing product milestones."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

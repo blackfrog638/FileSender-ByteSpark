@@ -789,6 +789,25 @@
       ]
     },
     {
+      "id": "XT-050",
+      "title": "Trusted review gates",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-048"
+      ],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/manifest.yaml",
+        ".agents/records/README.md",
+        ".agents/tasks/TASK_TEMPLATE.md",
+        "tool/harness/**"
+      ]
+    },
+    {
       "id": "XT-051",
       "title": "Pinned linux secret service",
       "readiness": "ready",
