@@ -2,10 +2,10 @@
   "schema_version": 1,
   "id": "XT-016",
   "task_type": "implementation",
-  "state": "in_progress",
+  "state": "review",
   "owner": "windows-ci-agent",
   "base_sha": "87566460e044a012d065fb2699bd2a3ee1408475",
-  "head_sha": "",
+  "head_sha": "77ddc460756d645bf5bc8e76e4c4df2c79b17ee1",
   "handoff": ".agents/handoffs/XT-016.md",
   "impacts": {
     "adr": {
@@ -31,14 +31,14 @@
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "python3 protocol/testdata/security/v1/test_wordlist_line_endings.py",
       "python3 protocol/testdata/security/v1/validate_vectors.py",
       "make verify",
       "make security-test"
     ],
-    "reference": ""
+    "reference": "local:77ddc460756d645bf5bc8e76e4c4df2c79b17ee1:2026-08-07T03:13:52Z"
   },
   "acceptance": {
     "accepted_by": "",
