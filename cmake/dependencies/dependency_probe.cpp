@@ -2,10 +2,6 @@
 #include <openssl/ssl.h>
 #include <utf8proc.h>
 
-#if defined(XNN_TRANSFER_HAS_LIBSECRET)
-#include <libsecret/secret.h>
-#endif
-
 #include <asio/io_context.hpp>
 #include <asio/version.hpp>
 #include <cstring>
@@ -18,12 +14,6 @@ namespace {
 constexpr int kExpectedAsioVersion = 103'802;
 constexpr std::string_view kExpectedOpenSslPrefix = "OpenSSL 3.5.7 ";
 constexpr std::string_view kExpectedUtf8procVersion = "2.11.3";
-
-#if defined(XNN_TRANSFER_HAS_LIBSECRET)
-static_assert(SECRET_MAJOR_VERSION == 0);
-static_assert(SECRET_MINOR_VERSION == 21);
-static_assert(SECRET_MICRO_VERSION == 7);
-#endif
 
 }  // namespace
 
@@ -48,23 +38,7 @@ int main() {
     return 1;
   }
 
-#if defined(XNN_TRANSFER_HAS_LIBSECRET)
-  const GType libsecret_type = secret_service_get_type();
-  if (libsecret_type == G_TYPE_INVALID) {
-    std::cerr << "Pinned libsecret initialization failed.\n";
-    return 1;
-  }
-#endif
-
-  std::cout << "Asio 1.38.2, " << openssl_version << ", utf8proc "
-            << utf8proc_version();
-#if defined(XNN_TRANSFER_HAS_LIBSECRET)
-  std::cout << ", libsecret " << SECRET_MAJOR_VERSION << '.'
-            << SECRET_MINOR_VERSION << '.' << SECRET_MICRO_VERSION << " type "
-            << libsecret_type;
-#else
-  std::cout << ", libsecret not applicable";
-#endif
-  std::cout << '\n';
+  std::cout << "Asio 1.38.2, " << openssl_version << ", utf8proc " << utf8proc_version()
+            << '\n';
   return 0;
 }
