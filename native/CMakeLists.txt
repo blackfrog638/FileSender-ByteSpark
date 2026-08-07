@@ -79,6 +79,7 @@ if(XNN_TRANSFER_ENABLE_ASAN_UBSAN OR XNN_TRANSFER_BUILD_FUZZERS)
 endif()
 
 if(XNN_TRANSFER_BUILD_TESTS)
+  add_subdirectory(tests/abi)
   add_subdirectory(tests/protocol)
   add_subdirectory(tests/discovery)
   add_subdirectory(tests/security)

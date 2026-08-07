@@ -35,6 +35,13 @@ jobs:
       - name: Build
         run: cmake --build out/build/ci
 
+      - name: ABI v1 compatibility
+        run: >-
+          ctest --test-dir out/build/ci
+          --output-on-failure
+          --no-tests=error
+          -R '^xnn_transfer_abi_'
+
       - name: Test
         run: >-
           ctest --test-dir out/build/ci

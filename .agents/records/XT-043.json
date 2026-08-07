@@ -2,10 +2,10 @@
   "schema_version": 2,
   "id": "XT-043",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "abi-gate-agent",
+  "base_sha": "a67320a1b36f696cd149c67abb82bc2232bc09bf",
+  "head_sha": "b687ba4cf07e8deb22f34fca70d5dc20f85d4d55",
   "handoff": ".agents/handoffs/XT-043.md",
   "risks": {
     "functionality": {
@@ -78,17 +78,29 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "a67320a1b36f696cd149c67abb82bc2232bc09bf",
+    "source_head": "318adce730b4a0be12f6131a8ad4d8a5335a3daa",
+    "source_commits": [
+      "f3e09681be4ba260a71b9fc24dab9a8ffbcda43d",
+      "0e6895849a3a9cb8039a3403405438dd65e64169",
+      "5f8ee0db6d19772436fde5ad972ed9632f9c81a1",
+      "b687ba4cf07e8deb22f34fca70d5dc20f85d4d55",
+      "318adce730b4a0be12f6131a8ad4d8a5335a3daa"
+    ],
+    "source_commits_sha256": "201df0dd18c46e6f26c1ab7afb42f422a82cbedecf612c14e99b23a9cb6ab5c3",
+    "source_patch_id": "cf951f88912cf60ae8630bde6eccdc72468fc53e",
+    "result": "",
+    "result_patch_id": "cf951f88912cf60ae8630bde6eccdc72468fc53e",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make abi-compat-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:b687ba4cf07e8deb22f34fca70d5dc20f85d4d55:2026-08-07T07:25:18Z"
   },
   "acceptance": {
     "accepted_by": "",

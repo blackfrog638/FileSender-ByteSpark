@@ -1,4 +1,7 @@
-.PHONY: architecture-test benchmark bootstrap doctor flutter-test format governance-test macos-bundle-test native-test security-test verify
+.PHONY: abi-compat-test architecture-test benchmark bootstrap doctor flutter-test format governance-test macos-bundle-test native-test security-test verify
+
+abi-compat-test:
+	@tool/harness/abi_compat_test.sh
 
 architecture-test:
 	@tool/harness/architecture_test.sh

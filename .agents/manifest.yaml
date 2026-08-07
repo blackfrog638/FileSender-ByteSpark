@@ -15,6 +15,7 @@ source_of_truth:
 integration_branch: harness
 
 commands:
+  abi_compat_test: make abi-compat-test
   architecture_test: make architecture-test
   doctor: make doctor
   bootstrap: make bootstrap
@@ -81,6 +82,7 @@ quality_gates:
     - no whitespace errors
     - repository layout check
     - architecture dependency direction
+    - C ABI v1 compatibility
     - task governance and integration provenance
     - native build and tests
     - flutter static analysis and tests

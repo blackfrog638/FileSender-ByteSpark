@@ -100,7 +100,9 @@ squash or cherry-pick is not sufficient evidence.
 - Flutter changes: `flutter analyze` and `flutter test`.
 - Protocol changes: update the versioned specification and compatibility
   section; add parser or golden tests with the implementation.
-- C ABI changes: preserve struct-size/version negotiation and add ABI tests.
+- C ABI changes: preserve struct-size/version negotiation and pass
+  `make abi-compat-test`, which compiles the frozen v1 caller, checks layout
+  prefixes and signatures, and resolves required exports from the built library.
 - Security-sensitive changes: document trust boundaries and negative tests.
 
 If a required SDK is unavailable, report the skipped gate explicitly. A
