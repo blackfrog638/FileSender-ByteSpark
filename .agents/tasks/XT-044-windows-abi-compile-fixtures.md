@@ -46,7 +46,8 @@ non-none risk must name commands that also appear in `verification.commands`.
 
 - [ ] Configure-time fixtures accept additive evolution and reject all four
   breaking mutations with the existing shared assertions.
-- [ ] No ABI CTest starts Python, CMake, a compiler, or a nested build.
+- [ ] No compile-fixture CTest remains; runtime tests do not start CMake, a
+  compiler, or a nested build.
 - [ ] Layout, legacy client, and export probes have explicit timeouts.
 - [ ] `make abi-compat-test` and the three native CI platforms complete.
 - [ ] No production contract changes.
