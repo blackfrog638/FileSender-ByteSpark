@@ -7,6 +7,7 @@ source_of_truth:
   backlog: .agents/backlog.yaml
   task_specs: .agents/tasks
   task_records: .agents/records
+  module_inventory: .agents/architecture/modules.json
   architecture: docs/architecture.md
   roadmap: docs/roadmap.md
   decisions: docs/adr
@@ -86,6 +87,7 @@ quality_gates:
     - meaningful Conventional Commit messages
     - repository layout check
     - architecture dependency direction
+    - canonical module replacement and temporary-code leases
     - C ABI v1 compatibility
     - task governance and integration provenance
     - native build and tests

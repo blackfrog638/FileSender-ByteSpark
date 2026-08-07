@@ -32,6 +32,8 @@ ADR 0002 and protocol v1 own all transcript and binding semantics.
   transcripts, exporter values, roles, or trust state.
 - Bound concurrent attempts, pre-auth bytes/messages, source rate, and timeouts.
 - Every failure closes partial transport and zeroizes ephemeral material.
+- Replace the canonical `xnn_transfer_session` placeholder in place; do not add
+  a parallel session provider target.
 
 ## Acceptance criteria
 

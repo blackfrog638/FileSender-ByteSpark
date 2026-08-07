@@ -92,10 +92,42 @@ xnn_transfer_core
 
 Each P1 module and its tests own a leaf CMake entry point. The pinned vcpkg
 manifest, Asio/OpenSSL overlays, utf8proc registry version, static triplets,
-and compiled dependency probe are implemented. Product leaf targets remain
-empty build boundaries until their owning tasks replace them. Installing the
-dependencies does not implement protected storage, discovery sockets, pairing,
-TLS policy, or transfer behavior.
+and compiled dependency probe are implemented. Discovery is a concrete leaf.
+Identity, TLS, session, storage, and transfer remain empty build boundaries
+until their registered replacement tasks make those same targets concrete.
+Installing dependencies does not implement those remaining capabilities.
+
+## Subtractive evolution
+
+`.agents/architecture/modules.json` is the machine-readable inventory of
+canonical native modules. It assigns each capability exactly one production
+CMake target, definition path, owned implementation roots, allowed project
+dependencies, and optional placeholder replacement task.
+
+A capability evolves in place. A replacement task converts the registered
+`INTERFACE` placeholder to its declared concrete target type and keeps the
+canonical target name. A second provider such as `*_v2`, `new_*`, or a parallel
+adapter is not a migration strategy; undeclared production targets fail
+`make architecture-test`.
+
+Architecture-governed task records declare one change mode:
+
+- `none`: no canonical runtime boundary changes;
+- `add`: introduce a reviewed inventory module;
+- `replace`: replace a registered placeholder or implementation in place;
+- `remove`: delete a module, path, symbol, target, or temporary lease;
+- `refactor`: reorganize an existing boundary without creating a provider.
+
+The declared modules must exactly match changed inventory roots. Superseded
+paths, symbols, and targets are absence claims: they must be gone before
+review. This is intentionally stronger than a deleted-line count, which can be
+gamed and does not prove that an obsolete path disappeared.
+
+Temporary production code uses `XNN-TEMPORARY(lease-id)` and a task-record
+lease naming the exact path, rationale, and removal task. The removal task
+declares `retires_leases`. Missing, duplicate, unregistered, or overdue leases
+fail architecture verification. Unleased `TODO` and `FIXME` markers are not
+allowed in production roots.
 
 ## Flutter modules
 

@@ -32,6 +32,8 @@ protocol v1 defines offer, acceptance, chunks, acknowledgements, and commit.
 - Transfer starts only after explicit receiver acceptance.
 - Bound chunk size, unacknowledged bytes, queues, counters, and arithmetic.
 - Keep all file bytes inside the authenticated TLS channel.
+- Replace the canonical `xnn_transfer_transfer` placeholder in place; do not
+  add a parallel transfer engine target.
 
 ## Acceptance criteria
 

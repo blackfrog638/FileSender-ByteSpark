@@ -15,6 +15,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+sys.dont_write_bytecode = True
+HARNESS_DIR = Path(__file__).resolve().parent
+if str(HARNESS_DIR) not in sys.path:
+    sys.path.insert(0, str(HARNESS_DIR))
+import architecture_change
+
 
 ROOT = Path(__file__).resolve().parents[2]
 BACKLOG = ROOT / ".agents" / "backlog.yaml"
@@ -59,6 +65,8 @@ COMMIT_TYPES = {
 COMMIT_SCOPE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9.-]*$")
 COMMIT_SUMMARY_PATTERN = re.compile(r"^[a-z][^\t\r\n]{11,}$")
 TASK_ID_IN_TEXT_PATTERN = re.compile(r"\bXT-[0-9]{3,}\b", re.IGNORECASE)
+ARCHITECTURE_SCHEMA_MIN_TASK_NUMBER = 48
+ARCHITECTURE_MODULES = ROOT / ".agents" / "architecture" / "modules.json"
 
 
 class GovernanceError(RuntimeError):
@@ -557,10 +565,36 @@ def validate_risks(
                 )
 
 
+def architecture_module_ids() -> set[str]:
+    try:
+        return architecture_change.module_ids(ARCHITECTURE_MODULES)
+    except architecture_change.ArchitectureChangeError as error:
+        raise GovernanceError(str(error)) from error
+
+
+def validate_architecture_change(
+    errors: list[str],
+    task: dict[str, Any],
+    record: dict[str, Any],
+    tasks: dict[str, dict[str, Any]],
+    module_ids: set[str],
+) -> None:
+    architecture_change.validate_change(
+        errors,
+        task,
+        record,
+        tasks,
+        module_ids,
+        path_allowed,
+    )
+
+
 def validate_record(
     task: dict[str, Any],
     record: dict[str, Any],
     records: dict[str, dict[str, Any]],
+    tasks: dict[str, dict[str, Any]],
+    module_ids: set[str],
     *,
     verify_git: bool,
 ) -> list[str]:
@@ -670,6 +704,14 @@ def validate_record(
                     f"{task_id}.title produces a lifecycle subject over "
                     "72 characters"
                 )
+    if task.get("architecture_contract_required") is True:
+        validate_architecture_change(
+            errors,
+            task,
+            record,
+            tasks,
+            module_ids,
+        )
 
     impacts = record.get("impacts")
     if not isinstance(impacts, dict):
@@ -772,6 +814,11 @@ def validate_record(
 def validate_repository(*, verify_git: bool = True) -> None:
     document, tasks = load_backlog()
     errors: list[str] = []
+    try:
+        module_ids = architecture_module_ids()
+    except GovernanceError as error:
+        errors.append(str(error))
+        module_ids = set()
     if document.get("schema_version") != 1:
         errors.append("backlog schema_version must be 1")
 
@@ -800,6 +847,23 @@ def validate_repository(*, verify_git: bool = True) -> None:
             commit_policy_required, bool
         ):
             errors.append(f"{task_id}.commit_policy_required must be boolean")
+        architecture_contract_required = task.get(
+            "architecture_contract_required"
+        )
+        if architecture_contract_required is not None and not isinstance(
+            architecture_contract_required, bool
+        ):
+            errors.append(
+                f"{task_id}.architecture_contract_required must be boolean"
+            )
+        if (
+            task_number >= ARCHITECTURE_SCHEMA_MIN_TASK_NUMBER
+            and architecture_contract_required is not True
+        ):
+            errors.append(
+                f"{task_id}.architecture_contract_required must be true "
+                "for new tasks"
+            )
         dependencies = task.get("depends_on")
         if not isinstance(dependencies, list):
             errors.append(f"{task_id}.depends_on must be an array")
@@ -831,6 +895,50 @@ def validate_repository(*, verify_git: bool = True) -> None:
         except GovernanceError as error:
             errors.append(str(error))
 
+    try:
+        module_document = load_json(ARCHITECTURE_MODULES)
+        raw_modules = module_document.get("modules", [])
+    except GovernanceError as error:
+        errors.append(str(error))
+        raw_modules = []
+    for module in raw_modules:
+        if not isinstance(module, dict):
+            continue
+        replacement_task = module.get("placeholder_until")
+        module_id = module.get("id")
+        if replacement_task is None:
+            continue
+        task = tasks.get(replacement_task)
+        record = records.get(replacement_task)
+        if task is None or record is None:
+            errors.append(
+                f"Module {module_id} references unknown replacement task "
+                f"{replacement_task}"
+            )
+            continue
+        if task.get("architecture_contract_required") is not True:
+            errors.append(
+                f"{replacement_task}.architecture_contract_required must "
+                f"be true for placeholder module {module_id}"
+            )
+        change = record.get("architecture_change")
+        if not isinstance(change, dict):
+            errors.append(
+                f"{replacement_task}.architecture_change must bind "
+                f"placeholder module {module_id}"
+            )
+        else:
+            if change.get("mode") != "replace":
+                errors.append(
+                    f"{replacement_task}.architecture_change.mode must be "
+                    f"replace for placeholder module {module_id}"
+                )
+            if module_id not in change.get("modules", []):
+                errors.append(
+                    f"{replacement_task}.architecture_change.modules must "
+                    f"contain {module_id}"
+                )
+
     active_owners: dict[str, str] = {}
     for task_id, record in records.items():
         owner = record.get("owner")
@@ -844,6 +952,8 @@ def validate_repository(*, verify_git: bool = True) -> None:
                 tasks[task_id],
                 record,
                 records,
+                tasks,
+                module_ids,
                 verify_git=verify_git,
             )
         )
@@ -872,6 +982,23 @@ def path_allowed(path: str, patterns: list[str], task_id: str) -> bool:
     if path in always_allowed:
         return True
     return any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
+
+
+def validate_architecture_review(
+    task: dict[str, Any],
+    record: dict[str, Any],
+    worktree: Path,
+    changed_paths: list[str],
+) -> None:
+    try:
+        architecture_change.validate_review(
+            task,
+            record,
+            worktree,
+            changed_paths,
+        )
+    except architecture_change.ArchitectureChangeError as error:
+        raise GovernanceError(str(error)) from error
 
 
 def validate_handoff(path: Path) -> None:
@@ -928,17 +1055,24 @@ def prepare_review(task_id: str) -> None:
     base_sha = record.get("base_sha", "")
     head_sha = git_text("rev-parse", "HEAD", cwd=worktree)
     changed = git_text("diff", "--name-only", f"{base_sha}..{head_sha}", cwd=worktree)
+    changed_paths = [path for path in changed.splitlines() if path]
     patterns = tasks[task_id]["owned_paths"]
     outside = [
         path
-        for path in changed.splitlines()
-        if path and not path_allowed(path, patterns, task_id)
+        for path in changed_paths
+        if not path_allowed(path, patterns, task_id)
     ]
     if outside:
         raise GovernanceError(
             "Changed paths outside task ownership:\n"
             + "\n".join(f"- {path}" for path in outside)
         )
+    validate_architecture_review(
+        tasks[task_id],
+        record,
+        worktree,
+        changed_paths,
+    )
 
     commit_check = subprocess.run(
         [

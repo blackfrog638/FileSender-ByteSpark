@@ -53,6 +53,7 @@ backlog["tasks"].append(
         "readiness": "ready",
         "risk_profile_required": True,
         "commit_policy_required": True,
+        "architecture_contract_required": True,
         "workstream": "integration",
         "depends_on": [],
         "owned_paths": ["protocol/testdata/governance-fixture.txt"],
@@ -94,6 +95,13 @@ record = {
         "type": "test",
         "scope": "harness",
         "summary": "exercise governance lifecycle",
+    },
+    "architecture_change": {
+        "mode": "none",
+        "modules": [],
+        "supersedes": {"paths": [], "symbols": [], "targets": []},
+        "temporary_leases": [],
+        "retires_leases": [],
     },
     "risks": {
         "functionality": {
@@ -216,6 +224,23 @@ def gate_on_none(record):
     record["risks"]["security"]["gates"] = ["true"]
 
 
+def missing_architecture_change(record):
+    record.pop("architecture_change")
+
+
+def invalid_architecture_mode(record):
+    record["architecture_change"]["mode"] = "expand"
+
+
+def none_with_module(record):
+    record["architecture_change"]["modules"] = ["tls"]
+
+
+def unsafe_superseded_path(record):
+    record["architecture_change"]["mode"] = "remove"
+    record["architecture_change"]["supersedes"]["paths"] = ["../outside.cpp"]
+
+
 cases = (
     ("missing dimension", remove_dimension, "is missing dimensions"),
     ("invalid level", invalid_level, "level must be one of"),
@@ -224,6 +249,26 @@ cases = (
     ("duplicate gates", duplicate_gates, "gates contains duplicates"),
     ("unexecuted gate", unexecuted_gate, "unexecuted command"),
     ("gate on none", gate_on_none, "gates must be empty"),
+    (
+        "missing architecture change",
+        missing_architecture_change,
+        "architecture_change must be an object",
+    ),
+    (
+        "invalid architecture mode",
+        invalid_architecture_mode,
+        "mode must be one of",
+    ),
+    (
+        "none mode with module",
+        none_with_module,
+        "mode none cannot declare",
+    ),
+    (
+        "unsafe superseded path",
+        unsafe_superseded_path,
+        "has unsafe path",
+    ),
 )
 
 try:
@@ -503,11 +548,15 @@ test "$(
 )" = "done"
 "$repository/tool/harness/agent.sh" validate >/dev/null
 
-python3 - "$repository/tool/harness/governance.py" "$task_id" <<'PY'
+python3 - \
+  "$repository/tool/harness/governance.py" \
+  "$repository" \
+  "$task_id" <<'PY'
 import importlib.util
 import sys
+from pathlib import Path
 
-module_path, task_id = sys.argv[1:]
+module_path, repository, task_id = sys.argv[1:]
 spec = importlib.util.spec_from_file_location("governance", module_path)
 if spec is None or spec.loader is None:
     raise SystemExit("Cannot load governance module")
@@ -523,6 +572,40 @@ assert not module.path_allowed(
 assert not module.path_allowed(
     ".agents/records/XT-998.json", patterns, task_id
 )
+try:
+    module.validate_architecture_review(
+        {"id": task_id, "architecture_contract_required": True},
+        {
+            "architecture_change": {
+                "mode": "none",
+                "modules": [],
+                "supersedes": {"paths": [], "symbols": [], "targets": []},
+            }
+        },
+        Path(repository),
+        ["native/src/security/tls/provider.cpp"],
+    )
+except module.GovernanceError as error:
+    assert "undeclared affected modules: tls" in str(error)
+else:
+    raise AssertionError("Architecture review accepted an undeclared module")
+try:
+    module.validate_architecture_review(
+        {"id": task_id, "architecture_contract_required": True},
+        {
+            "architecture_change": {
+                "mode": "add",
+                "modules": [],
+                "supersedes": {"paths": [], "symbols": [], "targets": []},
+            }
+        },
+        Path(repository),
+        ["native/src/parallel/provider.cpp"],
+    )
+except module.GovernanceError as error:
+    assert "no canonical module" in str(error)
+else:
+    raise AssertionError("Architecture review accepted an unowned source path")
 PY
 
 test "$(
@@ -585,6 +668,7 @@ fi
   --commit-type test \
   --commit-scope harness \
   --commit-summary 'exercise generated task governance' \
+  --architecture-mode none \
   --owned '.agents/handoffs/XT-998.md' >/dev/null
 test -f "$repository/.agents/tasks/XT-998-no-dependency-fixture.md"
 test -f "$repository/.agents/records/XT-998.json"
@@ -600,6 +684,7 @@ with (root / ".agents" / "backlog.yaml").open(encoding="utf-8") as source:
 task = next(item for item in backlog["tasks"] if item["id"] == "XT-998")
 assert task["risk_profile_required"] is True
 assert task["commit_policy_required"] is True
+assert task["architecture_contract_required"] is True
 
 record = json.loads(
     (root / ".agents" / "records" / "XT-998.json").read_text(encoding="utf-8")
@@ -609,6 +694,13 @@ assert record["commit"] == {
     "type": "test",
     "scope": "harness",
     "summary": "exercise generated task governance",
+}
+assert record["architecture_change"] == {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {"paths": [], "symbols": [], "targets": []},
+    "temporary_leases": [],
+    "retires_leases": [],
 }
 assert set(record["risks"]) == {
     "functionality",
@@ -627,6 +719,7 @@ spec = (
     root / ".agents" / "tasks" / "XT-998-no-dependency-fixture.md"
 ).read_text(encoding="utf-8")
 assert "## Risk profile" in spec
+assert "## Architecture change" in spec
 PY
 
 generated_errors="$temporary/generated-task-errors.txt"

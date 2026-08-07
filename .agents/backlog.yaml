@@ -296,6 +296,7 @@
       "title": "Protected identity storage",
       "readiness": "ready",
       "risk_profile_required": true,
+      "architecture_contract_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-018"
@@ -312,6 +313,7 @@
       "title": "Tls13 security provider",
       "readiness": "ready",
       "risk_profile_required": true,
+      "architecture_contract_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-018",
@@ -344,6 +346,7 @@
       "title": "Authenticated pairing session",
       "readiness": "ready",
       "risk_profile_required": true,
+      "architecture_contract_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-020",
@@ -378,6 +381,7 @@
       "title": "Safe one file storage",
       "readiness": "ready",
       "risk_profile_required": true,
+      "architecture_contract_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-011",
@@ -394,6 +398,7 @@
       "title": "One file transfer engine",
       "readiness": "ready",
       "risk_profile_required": true,
+      "architecture_contract_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-006",

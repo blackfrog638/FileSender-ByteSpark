@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "modules": [
+    {
+      "id": "core",
+      "target": "xnn_transfer_core",
+      "definition": "native/CMakeLists.txt",
+      "concrete_type": "SHARED",
+      "owned_roots": [
+        "native/include/xnn_transfer/c_api.h",
+        "native/include/xnn_transfer/core/engine.hpp",
+        "native/src/bridge",
+        "native/src/core",
+        "native/src/security/CMakeLists.txt"
+      ],
+      "allowed_project_dependencies": [
+        "xnn_transfer_discovery",
+        "xnn_transfer_identity",
+        "xnn_transfer_protocol",
+        "xnn_transfer_session",
+        "xnn_transfer_storage",
+        "xnn_transfer_tls",
+        "xnn_transfer_transfer"
+      ],
+      "placeholder_until": null
+    },
+    {
+      "id": "protocol",
+      "target": "xnn_transfer_protocol",
+      "definition": "native/src/protocol/CMakeLists.txt",
+      "concrete_type": "STATIC",
+      "owned_roots": [
+        "native/src/protocol"
+      ],
+      "allowed_project_dependencies": [],
+      "placeholder_until": null
+    },
+    {
+      "id": "discovery",
+      "target": "xnn_transfer_discovery",
+      "definition": "native/src/discovery/CMakeLists.txt",
+      "concrete_type": "STATIC",
+      "owned_roots": [
+        "native/include/xnn_transfer/core/discovery",
+        "native/src/discovery"
+      ],
+      "allowed_project_dependencies": [
+        "xnn_transfer_protocol"
+      ],
+      "placeholder_until": null
+    },
+    {
+      "id": "identity",
+      "target": "xnn_transfer_identity",
+      "definition": "native/src/security/identity/CMakeLists.txt",
+      "concrete_type": "STATIC",
+      "owned_roots": [
+        "native/include/xnn_transfer/core/security/identity",
+        "native/src/security/identity"
+      ],
+      "allowed_project_dependencies": [],
+      "placeholder_until": "XT-022"
+    },
+    {
+      "id": "tls",
+      "target": "xnn_transfer_tls",
+      "definition": "native/src/security/tls/CMakeLists.txt",
+      "concrete_type": "STATIC",
+      "owned_roots": [
+        "native/include/xnn_transfer/core/security/tls",
+        "native/src/security/tls"
+      ],
+      "allowed_project_dependencies": [
+        "xnn_transfer_identity"
+      ],
+      "placeholder_until": "XT-023"
+    },
+    {
+      "id": "session",
+      "target": "xnn_transfer_session",
+      "definition": "native/src/session/CMakeLists.txt",
+      "concrete_type": "STATIC",
+      "owned_roots": [
+        "native/include/xnn_transfer/core/session",
+        "native/src/session"
+      ],
+      "allowed_project_dependencies": [
+        "xnn_transfer_identity",
+        "xnn_transfer_protocol",
+        "xnn_transfer_tls"
+      ],
+      "placeholder_until": "XT-025"
+    },
+    {
+      "id": "storage",
+      "target": "xnn_transfer_storage",
+      "definition": "native/src/storage/CMakeLists.txt",
+      "concrete_type": "STATIC",
+      "owned_roots": [
+        "native/include/xnn_transfer/core/storage",
+        "native/src/storage"
+      ],
+      "allowed_project_dependencies": [],
+      "placeholder_until": "XT-027"
+    },
+    {
+      "id": "transfer",
+      "target": "xnn_transfer_transfer",
+      "definition": "native/src/transfer/CMakeLists.txt",
+      "concrete_type": "STATIC",
+      "owned_roots": [
+        "native/include/xnn_transfer/core/transfer",
+        "native/src/transfer"
+      ],
+      "allowed_project_dependencies": [
+        "xnn_transfer_protocol",
+        "xnn_transfer_session",
+        "xnn_transfer_storage"
+      ],
+      "placeholder_until": "XT-028"
+    }
+  ]
+}

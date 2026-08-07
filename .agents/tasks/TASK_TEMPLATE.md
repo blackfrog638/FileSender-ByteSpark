@@ -39,6 +39,26 @@ Declare the delivery commit metadata in that record:
 The summary is the user-visible repository outcome, not an XT identifier or a
 task lifecycle phrase. See `docs/commit-policy.md`.
 
+Declare whether the task changes a canonical architecture boundary:
+
+```json
+{
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {"paths": [], "symbols": [], "targets": []},
+    "temporary_leases": [],
+    "retires_leases": []
+  }
+}
+```
+
+Allowed modes are `none`, `add`, `replace`, `remove`, and `refactor`. Affected
+module IDs come from `.agents/architecture/modules.json`. Replacement and
+removal tasks name obsolete paths, symbols, or targets; review proves those
+claims against the resulting tree. Temporary production code uses a registered
+`XNN-TEMPORARY(lease-id)` marker and a later removal task.
+
 ## Constraints
 
 - State security, compatibility, platform, and performance constraints.

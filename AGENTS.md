@@ -44,6 +44,13 @@ native include, and production CMake target dependency matrices. A new module
 or legal dependency requires updating that gate and its positive and negative
 fixtures in the same reviewed task.
 
+`.agents/architecture/modules.json` assigns each runtime capability one
+canonical target and implementation boundary. Replace placeholders in place;
+do not add parallel providers. Architecture-governed tasks declare
+`none`, `add`, `replace`, `remove`, or `refactor`, affected modules, and
+concrete supersession claims. Temporary production code requires an
+`XNN-TEMPORARY(lease-id)` marker and a task-record removal lease.
+
 ## Task workflow
 
 1. Run `tool/harness/agent.sh list` from the integration worktree.
@@ -102,6 +109,10 @@ squash or cherry-pick is not sufficient evidence.
 - Commit-governed task records declare the delivery `type`, `scope`, and
   imperative `summary`. Harness lifecycle commits derive meaningful subjects
   from that metadata instead of using the task number as the message.
+- Architecture-governed task records declare affected canonical modules,
+  superseded paths/symbols/targets, temporary leases, and lease retirements.
+  Review rejects declarations that do not match the diff or leave claimed
+  obsolete code behind.
 - A passing generic repository gate is not evidence for a specialized claim.
   Reviewers must reject security, performance, interoperability, or recovery
   gates that do not exercise the behavior named in the risk rationale.

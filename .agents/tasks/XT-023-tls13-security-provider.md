@@ -32,6 +32,8 @@ XT-018 selects the provider and pins its dependency version.
 - Validate public keys before transcript or possession use.
 - Keep keys, exporter values, SAS material, and precise trust failures secret.
 - Use production randomness only; deterministic inputs are test-only.
+- Replace the canonical `xnn_transfer_tls` placeholder in place; do not add a
+  parallel TLS provider target.
 
 ## Acceptance criteria
 

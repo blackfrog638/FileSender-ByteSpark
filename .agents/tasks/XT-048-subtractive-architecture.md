@@ -55,23 +55,23 @@ non-none risk must name commands that also appear in `verification.commands`.
 
 ## Acceptance criteria
 
-- [ ] A versioned module inventory defines canonical target, CMake definition,
+- [x] A versioned module inventory defines canonical target, CMake definition,
   implementation roots, allowed project dependencies, and replacement task.
-- [ ] The architecture gate rejects duplicate or undeclared providers,
+- [x] The architecture gate rejects duplicate or undeclared providers,
   premature placeholder retention, and concrete targets outside their declared
   definition path.
-- [ ] Temporary lease validation rejects missing markers, unknown tasks,
+- [x] Temporary lease validation rejects missing markers, unknown tasks,
   duplicate lease IDs, and leases whose removal task is complete.
-- [ ] Task governance validates explicit architecture change declarations and
+- [x] Task governance validates explicit architecture change declarations and
   absence claims for superseded paths and symbols before review.
-- [ ] XT-022, XT-023, XT-025, XT-027, and XT-028 are bound to their existing
+- [x] XT-022, XT-023, XT-025, XT-027, and XT-028 are bound to their existing
   placeholder replacement obligations without changing their owned paths.
-- [ ] New task generation requires an explicit architecture change mode.
-- [ ] Architecture documentation and agent instructions describe the
+- [x] New task generation requires an explicit architecture change mode.
+- [x] Architecture documentation and agent instructions describe the
   single-provider, replacement, and lease rules.
-- [ ] `make architecture-test` passes.
-- [ ] `make governance-test` passes.
-- [ ] Repository verification passes.
+- [x] `make architecture-test` passes.
+- [x] `make governance-test` passes.
+- [x] Repository verification passes.
 
 ## Verification
 

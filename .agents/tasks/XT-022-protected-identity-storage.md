@@ -32,6 +32,8 @@ XT-018 selects the supported platform facilities and dependency policy.
   states without silently regenerating trusted relationships.
 - Keep private key material out of logs, exceptions, and Flutter-visible data.
 - Use injectable test stores; production adapters must target all three OSes.
+- Replace the canonical `xnn_transfer_identity` placeholder in place; do not
+  add a parallel identity provider target.
 
 ## Acceptance criteria
 

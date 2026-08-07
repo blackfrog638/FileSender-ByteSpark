@@ -14,6 +14,8 @@ version 2 and contain:
 - `handoff`: the tracked handoff document;
 - `commit`: Conventional Commit type, scope, and delivery summary for
   commit-governed tasks;
+- `architecture_change`: explicit add/replace/remove/refactor intent, affected
+  canonical modules, supersession claims, and temporary-code lease lifecycle;
 - `risks`: functionality, security, performance, compatibility, concurrency,
   platform, and persistence levels, rationales, and executable gates;
 - `impacts`: explicit ADR, architecture, and roadmap dispositions;
@@ -57,3 +59,16 @@ commits use the task title and stable workstream scope. In both cases the
 subject explains the repository or governance action while the task number is
 stored only in the `Xnn-Task` trailer. Pre-policy records without `commit`
 metadata use their workstream and title as a compatibility fallback.
+
+Architecture-governed tasks use module IDs from
+`.agents/architecture/modules.json`. A `replace` task must touch exactly its
+declared module roots and convert the registered placeholder target in place.
+`supersedes.paths`, `supersedes.symbols`, and `supersedes.targets` are absence
+claims checked before review.
+
+Temporary production code is not an informal comment. The introducing task
+records a unique lease ID, exact path, rationale, and `remove_by_task`, and the
+source carries `XNN-TEMPORARY(lease-id)`. The removal task lists the ID in
+`retires_leases`. Architecture verification rejects unregistered markers,
+missing active markers, duplicate leases, and markers surviving their removal
+task.

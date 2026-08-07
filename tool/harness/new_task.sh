@@ -9,6 +9,7 @@ if [[ "$#" -lt 5 ]]; then
     "Usage: $0 XT-008 task-slug workstream \\" \
     "  --commit-type feat --commit-scope native \\" \
     "  --commit-summary 'implement concrete outcome' \\" \
+    "  --architecture-mode none|add|replace|remove|refactor \\" \
     "  --owned 'path/**' [--owned path] [--depends-on XT-001]" >&2
   exit 2
 fi
@@ -23,6 +24,12 @@ dependencies=()
 commit_type=""
 commit_scope=""
 commit_summary=""
+architecture_mode=""
+architecture_modules=()
+supersedes_paths=()
+supersedes_symbols=()
+supersedes_targets=()
+retires_leases=()
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --owned)
@@ -63,6 +70,54 @@ while [[ "$#" -gt 0 ]]; do
         exit 2
       }
       commit_summary="$2"
+      shift 2
+      ;;
+    --architecture-mode)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires an architecture change mode.\n' "$1" >&2
+        exit 2
+      }
+      architecture_mode="$2"
+      shift 2
+      ;;
+    --architecture-module)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires a module id.\n' "$1" >&2
+        exit 2
+      }
+      architecture_modules+=("$2")
+      shift 2
+      ;;
+    --supersedes-path)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires a repository path.\n' "$1" >&2
+        exit 2
+      }
+      supersedes_paths+=("$2")
+      shift 2
+      ;;
+    --supersedes-symbol)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires path::symbol.\n' "$1" >&2
+        exit 2
+      }
+      supersedes_symbols+=("$2")
+      shift 2
+      ;;
+    --supersedes-target)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires a CMake target.\n' "$1" >&2
+        exit 2
+      }
+      supersedes_targets+=("$2")
+      shift 2
+      ;;
+    --retires-lease)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires a lease id.\n' "$1" >&2
+        exit 2
+      }
+      retires_leases+=("$2")
       shift 2
       ;;
     *)
@@ -107,6 +162,21 @@ if [[ "$subject_length" -gt 72 ]]; then
   printf 'Generated commit subject exceeds 72 characters.\n' >&2
   exit 2
 fi
+case "$architecture_mode" in
+  none | add | replace | remove | refactor) ;;
+  *)
+    printf 'Invalid or missing architecture change mode.\n' >&2
+    exit 2
+    ;;
+esac
+if [[ "${#supersedes_symbols[@]}" -gt 0 ]]; then
+  for symbol in "${supersedes_symbols[@]}"; do
+    if [[ "$symbol" != *::* || "$symbol" == ::* || "$symbol" == *:: ]]; then
+      printf 'Superseded symbol must use path::symbol: %s\n' "$symbol" >&2
+      exit 2
+    fi
+  done
+fi
 title_summary="${slug//-/ }"
 review_subject_length=$((
   ${#commit_scope} + ${#title_summary} + 27
@@ -149,9 +219,34 @@ if [[ "${#dependencies[@]}" -gt 0 ]]; then
   dependencies_text="$(printf '%s\n' "${dependencies[@]}")"
 fi
 owned_paths_text="$(printf '%s\n' "${owned_paths[@]}")"
+architecture_modules_text=""
+supersedes_paths_text=""
+supersedes_symbols_text=""
+supersedes_targets_text=""
+retires_leases_text=""
+if [[ "${#architecture_modules[@]}" -gt 0 ]]; then
+  architecture_modules_text="$(printf '%s\n' "${architecture_modules[@]}")"
+fi
+if [[ "${#supersedes_paths[@]}" -gt 0 ]]; then
+  supersedes_paths_text="$(printf '%s\n' "${supersedes_paths[@]}")"
+fi
+if [[ "${#supersedes_symbols[@]}" -gt 0 ]]; then
+  supersedes_symbols_text="$(printf '%s\n' "${supersedes_symbols[@]}")"
+fi
+if [[ "${#supersedes_targets[@]}" -gt 0 ]]; then
+  supersedes_targets_text="$(printf '%s\n' "${supersedes_targets[@]}")"
+fi
+if [[ "${#retires_leases[@]}" -gt 0 ]]; then
+  retires_leases_text="$(printf '%s\n' "${retires_leases[@]}")"
+fi
 DEPENDENCIES="$dependencies_text" OWNED_PATHS="$owned_paths_text" \
   COMMIT_TYPE="$commit_type" COMMIT_SCOPE="$commit_scope" \
-  COMMIT_SUMMARY="$commit_summary" \
+  COMMIT_SUMMARY="$commit_summary" ARCHITECTURE_MODE="$architecture_mode" \
+  ARCHITECTURE_MODULES="$architecture_modules_text" \
+  SUPERSEDES_PATHS="$supersedes_paths_text" \
+  SUPERSEDES_SYMBOLS="$supersedes_symbols_text" \
+  SUPERSEDES_TARGETS="$supersedes_targets_text" \
+  RETIRES_LEASES="$retires_leases_text" \
   python3 - \
     "$root" "$task_id" "$slug" "$workstream" "$destination" "$record" <<'PY'
 import json
@@ -175,6 +270,37 @@ commit = {
     "scope": os.environ["COMMIT_SCOPE"],
     "summary": os.environ["COMMIT_SUMMARY"],
 }
+architecture_change = {
+    "mode": os.environ["ARCHITECTURE_MODE"],
+    "modules": [
+        value
+        for value in os.environ["ARCHITECTURE_MODULES"].splitlines()
+        if value
+    ],
+    "supersedes": {
+        "paths": [
+            value
+            for value in os.environ["SUPERSEDES_PATHS"].splitlines()
+            if value
+        ],
+        "symbols": [
+            {"path": value.split("::", 1)[0], "name": value.split("::", 1)[1]}
+            for value in os.environ["SUPERSEDES_SYMBOLS"].splitlines()
+            if value
+        ],
+        "targets": [
+            value
+            for value in os.environ["SUPERSEDES_TARGETS"].splitlines()
+            if value
+        ],
+    },
+    "temporary_leases": [],
+    "retires_leases": [
+        value
+        for value in os.environ["RETIRES_LEASES"].splitlines()
+        if value
+    ],
+}
 
 backlog_path = root / ".agents" / "backlog.yaml"
 with backlog_path.open(encoding="utf-8") as source:
@@ -192,6 +318,7 @@ backlog["tasks"].append(
         "readiness": "ready",
         "risk_profile_required": True,
         "commit_policy_required": True,
+        "architecture_contract_required": True,
         "workstream": workstream,
         "depends_on": dependencies,
         "owned_paths": owned_paths,
@@ -232,6 +359,12 @@ TODO: link architecture, ADR, protocol, and predecessor tasks.
 
 - TODO: define security, compatibility, platform, and performance constraints.
 
+## Architecture change
+
+The record declares `{architecture_change["mode"]}` mode. Keep affected modules,
+superseded paths/symbols/targets, temporary leases, and lease retirements
+machine-readable in `architecture_change`.
+
 ## Risk profile
 
 Resolve every schema version 2 risk dimension in the task record. Every
@@ -262,6 +395,7 @@ record = {
     "head_sha": "",
     "handoff": f".agents/handoffs/{task_id}.md",
     "commit": commit,
+    "architecture_change": architecture_change,
     "risks": {
         "functionality": {
             "level": "medium",
