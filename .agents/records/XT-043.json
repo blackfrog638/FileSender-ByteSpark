@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-043",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "abi-gate-agent",
   "base_sha": "a67320a1b36f696cd149c67abb82bc2232bc09bf",
   "head_sha": "b687ba4cf07e8deb22f34fca70d5dc20f85d4d55",
@@ -90,9 +90,9 @@
     ],
     "source_commits_sha256": "201df0dd18c46e6f26c1ab7afb42f422a82cbedecf612c14e99b23a9cb6ab5c3",
     "source_patch_id": "cf951f88912cf60ae8630bde6eccdc72468fc53e",
-    "result": "",
+    "result": "742e648a6a04533769c3a429c0575f2b10610ec2",
     "result_patch_id": "cf951f88912cf60ae8630bde6eccdc72468fc53e",
-    "verified_sha": ""
+    "verified_sha": "742e648a6a04533769c3a429c0575f2b10610ec2"
   },
   "verification": {
     "status": "passed",
@@ -100,11 +100,11 @@
       "make abi-compat-test",
       "make verify"
     ],
-    "reference": "local:b687ba4cf07e8deb22f34fca70d5dc20f85d4d55:2026-08-07T07:25:18Z"
+    "reference": "local:742e648a6a04533769c3a429c0575f2b10610ec2:2026-08-07T07:31:19Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-07T15:36:02+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
