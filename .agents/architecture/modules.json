@@ -30,6 +30,7 @@
       "definition": "native/src/protocol/CMakeLists.txt",
       "concrete_type": "STATIC",
       "owned_roots": [
+        "native/include/xnn_transfer/protocol",
         "native/src/protocol"
       ],
       "allowed_project_dependencies": [],

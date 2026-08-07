@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import sys
 from pathlib import Path, PurePosixPath
 from typing import Mapping
@@ -32,6 +33,10 @@ DART_DIRECTIVE = re.compile(
 CPP_INCLUDE = re.compile(r'(?m)^\s*#\s*include\s*[<"]([^>"]+)[>"]')
 CMAKE_LINK = re.compile(
     r"target_link_libraries\s*\(\s*([A-Za-z0-9_]+)(.*?)\)",
+    flags=re.IGNORECASE | re.DOTALL,
+)
+CMAKE_INCLUDE_DIRECTORIES = re.compile(
+    r"target_include_directories\s*\(\s*([A-Za-z0-9_]+)(.*?)\)",
     flags=re.IGNORECASE | re.DOTALL,
 )
 PROJECT_TARGET = re.compile(r"\bxnn_transfer_[a-z0-9_]+\b")
@@ -235,6 +240,69 @@ def strip_cmake_comments(text: str) -> str:
     return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
 
 
+def resolve_cmake_include(
+    cmake_path: PurePosixPath, value: str
+) -> PurePosixPath | None:
+    if value.startswith("$<INSTALL_INTERFACE:") and value.endswith(">"):
+        return None
+    if value.startswith("$<BUILD_INTERFACE:") and value.endswith(">"):
+        value = value.removeprefix("$<BUILD_INTERFACE:")[:-1]
+
+    current_directory = cmake_path.parent.as_posix()
+    replacements = {
+        "${CMAKE_CURRENT_LIST_DIR}": current_directory,
+        "${CMAKE_CURRENT_SOURCE_DIR}": current_directory,
+        "${CMAKE_SOURCE_DIR}": ".",
+        "${PROJECT_SOURCE_DIR}": ".",
+    }
+    for variable, replacement in replacements.items():
+        value = value.replace(variable, replacement)
+    if "$<" in value or "${" in value:
+        return None
+    if value.startswith("/") or re.match(r"^[a-zA-Z]:[/\\]", value):
+        return None
+    return normalize_relative(PurePosixPath(value.replace("\\", "/")))
+
+
+def scan_cmake_include_directories(
+    path: PurePosixPath,
+    text: str,
+    runtime_links: Mapping[str, set[str]],
+) -> list[Violation]:
+    violations: list[Violation] = []
+    for match in CMAKE_INCLUDE_DIRECTORIES.finditer(text):
+        target = match.group(1).lower()
+        if target not in runtime_links:
+            continue
+        try:
+            tokens = shlex.split(match.group(2), comments=False, posix=True)
+        except ValueError:
+            continue
+        visibility = ""
+        for token in tokens:
+            upper = token.upper()
+            if upper in {"PRIVATE", "PUBLIC", "INTERFACE"}:
+                visibility = upper
+                continue
+            if upper in {"AFTER", "BEFORE", "SYSTEM"}:
+                continue
+            if visibility not in {"PUBLIC", "INTERFACE"}:
+                continue
+            for value in token.split(";"):
+                resolved = resolve_cmake_include(path, value)
+                if resolved is None or resolved.parts[:2] != ("native", "src"):
+                    continue
+                violations.append(
+                    Violation(
+                        path.as_posix(),
+                        line_number(text, match.start()),
+                        f"{target} must not expose {resolved} through "
+                        f"{visibility}",
+                    )
+                )
+    return violations
+
+
 def scan_cmake_text(
     path: PurePosixPath,
     text: str,
@@ -249,6 +317,9 @@ def scan_cmake_text(
             return module_violations
         runtime_links = target_links(modules)
     uncommented = strip_cmake_comments(text)
+    violations.extend(
+        scan_cmake_include_directories(path, uncommented, runtime_links)
+    )
     for match in CMAKE_LINK.finditer(uncommented):
         source = match.group(1).lower()
         allowed = runtime_links.get(source)

@@ -2,10 +2,10 @@
   "schema_version": 2,
   "id": "XT-049",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "protocol-boundary-agent",
+  "base_sha": "2e4fdb40b09fb0c29f3629c4f1677696efb98fe9",
+  "head_sha": "aea6c790eac3fd824fead5bedcad4e373a147cfa",
   "handoff": ".agents/handoffs/XT-049.md",
   "commit": {
     "type": "refactor",
@@ -94,18 +94,30 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "2e4fdb40b09fb0c29f3629c4f1677696efb98fe9",
+    "source_head": "9de799a7d8a1fd6b8d9aba8dea97ae4df0a3e254",
+    "source_commits": [
+      "966be033fe5110ef8508b2c09ecf01af47db58f3",
+      "39490ed0394002fc61c452508e7dc496f060f4a6",
+      "852457ab2d808f8eb536332cb5a4c576048f0d50",
+      "aea6c790eac3fd824fead5bedcad4e373a147cfa",
+      "9de799a7d8a1fd6b8d9aba8dea97ae4df0a3e254"
+    ],
+    "source_commits_sha256": "cc1737d54f18d1e782158d1908a803bba5aa22f94213c1d68321e694ded1ce07",
+    "source_patch_id": "84ca55f436541f9ce4c3de9a76fdf183440207e4",
+    "result": "",
+    "result_patch_id": "84ca55f436541f9ce4c3de9a76fdf183440207e4",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make architecture-test",
       "make native-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:aea6c790eac3fd824fead5bedcad4e373a147cfa:2026-08-07T17:58:55Z"
   },
   "acceptance": {
     "accepted_by": "",
