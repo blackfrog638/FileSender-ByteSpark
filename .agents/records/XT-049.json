@@ -1,0 +1,115 @@
+{
+  "schema_version": 2,
+  "id": "XT-049",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-049.md",
+  "commit": {
+    "type": "refactor",
+    "scope": "protocol",
+    "summary": "publish protocol headers outside source tree"
+  },
+  "architecture_change": {
+    "mode": "refactor",
+    "modules": [
+      "protocol"
+    ],
+    "supersedes": {
+      "paths": [
+        "native/src/protocol/v1_parser.hpp"
+      ],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "low",
+      "rationale": "Header relocation can break parser, test, or fuzz compilation if any consumer keeps the obsolete include path.",
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
+    },
+    "security": {
+      "level": "none",
+      "rationale": "The refactor changes no hostile-input validation or parser behavior.",
+      "gates": []
+    },
+    "performance": {
+      "level": "none",
+      "rationale": "Header placement and include visibility do not affect runtime execution.",
+      "gates": []
+    },
+    "compatibility": {
+      "level": "medium",
+      "rationale": "The canonical C++ include path changes while parser signatures and wire behavior must remain identical.",
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "The refactor changes no mutable state, callbacks, threads, or synchronization.",
+      "gates": []
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "CMake include visibility and path handling must remain valid on macOS, Linux, and Windows.",
+      "gates": [
+        "make architecture-test",
+        "make verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The refactor changes no persisted product or governance format.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The accepted module boundaries and protocol contract are unchanged."
+    },
+    "architecture": {
+      "status": "updated",
+      "references": [
+        ".agents/architecture/modules.json"
+      ],
+      "rationale": "The protocol module inventory gains its canonical public include root."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "This internal boundary repair completes no product milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make architecture-test",
+      "make native-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
