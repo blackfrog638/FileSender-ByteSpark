@@ -15,6 +15,9 @@ required=(
   "native/include/xnn_transfer/c_api.h"
   "apps/desktop/pubspec.yaml"
   "tool/harness/verify.sh"
+  "tool/harness/architecture_test.py"
+  "tool/harness/architecture_test_test.py"
+  "tool/harness/architecture_test.sh"
   "tool/harness/governance.py"
   "tool/harness/governance_test.sh"
 )

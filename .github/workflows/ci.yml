@@ -137,6 +137,9 @@ jobs:
       - name: Layout
         run: tool/harness/check_layout.sh
 
+      - name: Architecture dependencies
+        run: make architecture-test
+
       - name: Whitespace
         env:
           EVENT_NAME: ${{ github.event_name }}

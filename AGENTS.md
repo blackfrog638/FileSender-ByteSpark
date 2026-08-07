@@ -39,6 +39,11 @@ Flutter presentation -> Flutter application -> native adapter -> C ABI
 C ABI bridge -> C++ application -> C++ domain <- C++ infrastructure
 ```
 
+`make architecture-test` mechanically enforces the reviewed Flutter import,
+native include, and production CMake target dependency matrices. A new module
+or legal dependency requires updating that gate and its positive and negative
+fixtures in the same reviewed task.
+
 ## Task workflow
 
 1. Run `tool/harness/agent.sh list` from the integration worktree.

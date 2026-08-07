@@ -1,4 +1,7 @@
-.PHONY: benchmark bootstrap doctor flutter-test format governance-test macos-bundle-test native-test security-test verify
+.PHONY: architecture-test benchmark bootstrap doctor flutter-test format governance-test macos-bundle-test native-test security-test verify
+
+architecture-test:
+	@tool/harness/architecture_test.sh
 
 benchmark:
 	@tool/harness/performance_test.sh

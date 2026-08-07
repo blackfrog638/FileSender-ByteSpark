@@ -22,6 +22,7 @@ cd "$root"
 
 git diff --check
 "$root/tool/harness/check_layout.sh"
+"$root/tool/harness/architecture_test.sh"
 "$root/tool/harness/agent.sh" validate
 "$root/tool/harness/governance_test.sh"
 

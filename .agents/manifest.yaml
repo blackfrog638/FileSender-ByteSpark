@@ -15,6 +15,7 @@ source_of_truth:
 integration_branch: harness
 
 commands:
+  architecture_test: make architecture-test
   doctor: make doctor
   bootstrap: make bootstrap
   verify: make verify
@@ -79,6 +80,7 @@ quality_gates:
   required:
     - no whitespace errors
     - repository layout check
+    - architecture dependency direction
     - task governance and integration provenance
     - native build and tests
     - flutter static analysis and tests
