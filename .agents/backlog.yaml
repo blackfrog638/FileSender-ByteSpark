@@ -304,7 +304,7 @@
       "workstream": "native_core",
       "depends_on": [
         "XT-018",
-        "XT-050"
+        "XT-051"
       ],
       "owned_paths": [
         "native/include/xnn_transfer/core/security/identity/**",
@@ -789,7 +789,7 @@
       ]
     },
     {
-      "id": "XT-050",
+      "id": "XT-051",
       "title": "Pinned linux secret service",
       "readiness": "ready",
       "risk_profile_required": true,
