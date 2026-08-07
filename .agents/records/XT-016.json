@@ -2,9 +2,9 @@
   "schema_version": 1,
   "id": "XT-016",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
+  "state": "claimed",
+  "owner": "windows-ci-agent",
+  "base_sha": "87566460e044a012d065fb2699bd2a3ee1408475",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-016.md",
   "impacts": {
