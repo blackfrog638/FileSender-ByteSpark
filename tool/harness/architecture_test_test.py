@@ -215,6 +215,43 @@ target_link_libraries(
 """
         self.assertEqual(self.scan(source), [])
 
+    def test_allows_public_headers_and_private_source_directories(self) -> None:
+        source = """
+target_include_directories(
+  xnn_transfer_session
+  PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../include>"
+    "$<INSTALL_INTERFACE:include>"
+  PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+"""
+        self.assertEqual(self.scan(source), [])
+
+    def test_rejects_public_native_source_directories(self) -> None:
+        cases = (
+            """
+target_include_directories(
+  xnn_transfer_session
+  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>"
+)
+""",
+            """
+target_include_directories(
+  xnn_transfer_session
+  INTERFACE "${PROJECT_SOURCE_DIR}/native/src/protocol"
+)
+""",
+        )
+        for source in cases:
+            with self.subTest(source=source):
+                self.assertTrue(
+                    any(
+                        "must not expose native/src" in message
+                        for message in messages(self.scan(source))
+                    )
+                )
+
     def test_ignores_test_target_links(self) -> None:
         source = """
 target_link_libraries(
