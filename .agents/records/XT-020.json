@@ -2,41 +2,57 @@
   "schema_version": 2,
   "id": "XT-020",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "p1-native-discovery-agent",
+  "base_sha": "fb10005e4a9d7fb083b5d050ac99d71de5be8b3f",
+  "head_sha": "59afdca177612f3b333f6fbd718a519192ea37bb",
   "handoff": ".agents/handoffs/XT-020.md",
   "risks": {
     "functionality": {
       "level": "high",
       "rationale": "Discovery expiry, duplicate handling, or interface recovery defects would hide peers or retain stale endpoints.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "security": {
       "level": "high",
       "rationale": "Hostile LAN datagrams must not create unbounded state or trusted peer identity.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "performance": {
       "level": "medium",
       "rationale": "Advertisement rate, peer count, cache growth, and parser allocation must remain bounded under LAN load.",
-      "gates": ["make native-test"]
+      "gates": [
+        "make native-test"
+      ]
     },
     "compatibility": {
       "level": "medium",
       "rationale": "The service must implement the accepted discovery v1 contract without changing its wire behavior.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "concurrency": {
       "level": "high",
       "rationale": "Interface changes, expiry timers, datagrams, and shutdown race on the engine-owned runtime.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "platform": {
       "level": "high",
       "rationale": "Discovery adapters and interface-change behavior differ across macOS, Windows, and Linux.",
-      "gates": ["make verify"]
+      "gates": [
+        "make verify"
+      ]
     },
     "persistence": {
       "level": "none",
@@ -63,18 +79,48 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "fb10005e4a9d7fb083b5d050ac99d71de5be8b3f",
+    "source_head": "2bdb280bd846e1aa12de4a9b56c7188d33f834b2",
+    "source_commits": [
+      "4e1b9509494e6ee4ca456f4c76df7d243cbabc64",
+      "25d1052186a5a875b364ec4b35b87168bd6547a0",
+      "d35b9f206394f656a2b14f71bb36654470cc9215",
+      "621681a6fbe8cc382910d9b82044f2053d0fa079",
+      "6f27aa3c15b2f5ec18253b016b0f55bc231fd24a",
+      "ddae8fcb05990ba28ca08d326e73c1c37ec49e68",
+      "443704c6f23b7a50582b4a12d81b84e8787bb2a4",
+      "aa1b52b217123fc3f57b8f1f6ef63a9ae735fc76",
+      "d59e27592938dddfcae1ea6016c7636a83525572",
+      "a0051cbe4eb74b3650dcdbd7eed6322bda2a0e26",
+      "3c057c9eb4122d051ec33568beafb9e30461a157",
+      "f44ce3fdf83d82b4afb903690278725c7227baaa",
+      "9835ff6c8ee9f0422eaaea49e77a74f15f24ff0d",
+      "ae467c19d85369641bfb041d7b6fc45225cf1057",
+      "83be2cdbf90735bebdda5b7108d906138b141fba",
+      "8b9fb2e1995778a2906f15a4946e81f2372f72a0",
+      "381332a5fca8c3204b4dcf6ec020a6ee3d3c2d7b",
+      "18ae8278e8e757466368313d70c3df4ad42b1bc0",
+      "d9277923e4f6d560c3e6f1b4a2065d4845b35dee",
+      "08c38fdf26363df0a36b509aafa307a61d5b555b",
+      "5a688662fcf570f05b407eb2d773228b06897257",
+      "59afdca177612f3b333f6fbd718a519192ea37bb",
+      "2bdb280bd846e1aa12de4a9b56c7188d33f834b2"
+    ],
+    "source_commits_sha256": "c53cf5d442e1618d139f67762ac8b14de34ff546af7e603cf17d0ea6910d782b",
+    "source_patch_id": "2e735928413c7ab192a39169a0c87c6590c450db",
+    "result": "",
+    "result_patch_id": "2e735928413c7ab192a39169a0c87c6590c450db",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make native-test",
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:59afdca177612f3b333f6fbd718a519192ea37bb:2026-08-07T12:46:27Z"
   },
   "acceptance": {
     "accepted_by": "",
