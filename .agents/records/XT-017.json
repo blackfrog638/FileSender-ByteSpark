@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "XT-017",
   "task_type": "governance",
-  "state": "integrated",
+  "state": "done",
   "owner": "squash-integration-agent",
   "base_sha": "fb6cb5b507363e84a72fca9d85a6b28ff3ea36b8",
   "head_sha": "08700b32d98090852dd9efd1c7bf106ad50cc069",
@@ -47,20 +47,20 @@
     ],
     "source_commits_sha256": "c0d737819521df6336acbd35942ac240c053f1b2a63fe1f2738ef8fb8037f75d",
     "source_patch_id": "c511ddd7407574ef60c83bb5e4f8cd558107fce3",
-    "result": "",
+    "result": "0e3eeefd5ae9d74d0207aee63a16324a02874488",
     "result_patch_id": "c511ddd7407574ef60c83bb5e4f8cd558107fce3",
-    "verified_sha": ""
+    "verified_sha": "0e3eeefd5ae9d74d0207aee63a16324a02874488"
   },
   "verification": {
     "status": "passed",
     "commands": [
       "make verify"
     ],
-    "reference": "local:08700b32d98090852dd9efd1c7bf106ad50cc069:2026-08-07T04:18:39Z"
+    "reference": "local:0e3eeefd5ae9d74d0207aee63a16324a02874488:2026-08-07T04:22:31Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-07T12:22:31+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
