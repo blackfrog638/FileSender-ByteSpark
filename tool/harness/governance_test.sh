@@ -52,6 +52,7 @@ backlog["tasks"].append(
         "title": "Exercise governance lifecycle",
         "readiness": "ready",
         "risk_profile_required": True,
+        "commit_policy_required": True,
         "workstream": "integration",
         "depends_on": [],
         "owned_paths": ["protocol/testdata/governance-fixture.txt"],
@@ -89,6 +90,11 @@ record = {
     "base_sha": "",
     "head_sha": "",
     "handoff": f".agents/handoffs/{task_id}.md",
+    "commit": {
+        "type": "test",
+        "scope": "harness",
+        "summary": "exercise governance lifecycle",
+    },
     "risks": {
         "functionality": {
             "level": "low",
@@ -160,7 +166,8 @@ git -C "$repository" add \
   .agents/backlog.yaml \
   ".agents/tasks/$task_id-governance-lifecycle.md" \
   .agents/records
-git -C "$repository" commit -m "test: register governance fixture" >/dev/null
+git -C "$repository" commit \
+  -m "test(harness): register governance fixture" >/dev/null
 
 "$repository/tool/harness/agent.sh" validate >/dev/null
 
@@ -316,9 +323,11 @@ fixture.parent.mkdir(parents=True, exist_ok=True)
 fixture.write_text("governance fixture\n", encoding="utf-8")
 PY
 git -C "$task_worktree" add protocol/testdata/governance-fixture.txt
-git -C "$task_worktree" commit -m "test: deliver governance fixture" >/dev/null
+git -C "$task_worktree" commit \
+  -m "test(harness): deliver governance fixture" >/dev/null
 git -C "$task_worktree" add ".agents/handoffs/$task_id.md"
-git -C "$task_worktree" commit -m "docs: hand off governance fixture" >/dev/null
+git -C "$task_worktree" commit \
+  -m "docs(harness): document governance fixture handoff" >/dev/null
 
 "$repository/tool/harness/agent.sh" \
   transition "$task_id" review >/dev/null
@@ -337,7 +346,24 @@ test "$(
 )" = "1"
 test "$(
   git -C "$repository" show -s --format=%s "$delivery"
-)" = "harness: deliver $task_id"
+)" = "test(harness): exercise governance lifecycle"
+python3 - "$repository" "$delivery" "$task_id" <<'PY'
+import subprocess
+import sys
+
+root, delivery, task_id = sys.argv[1:]
+message = subprocess.run(
+    ["git", "-C", root, "show", "-s", "--format=%B", delivery],
+    check=True,
+    capture_output=True,
+    text=True,
+).stdout
+lines = message.rstrip().splitlines()
+assert lines[0] == "test(harness): exercise governance lifecycle"
+assert f"Xnn-Task: {task_id}" in lines
+assert "Xnn-Lifecycle: delivery" in lines
+assert lines.count(f"Xnn-Task: {task_id}") == 1
+PY
 
 python3 - \
   "$repository/.agents/records/$task_id.json" \
@@ -451,6 +477,9 @@ acceptance="$(git -C "$repository" rev-parse HEAD)"
 test "$(
   git -C "$repository" rev-list --count "$integration_base..$acceptance"
 )" = "2"
+test "$(
+  git -C "$repository" show -s --format=%s "$acceptance"
+)" = "chore(harness): accept exercise governance lifecycle"
 python3 - "$record" "$delivery" <<'PY'
 import json
 import sys
@@ -553,6 +582,9 @@ fi
 
 "$repository/tool/harness/new_task.sh" \
   XT-998 no-dependency-fixture integration \
+  --commit-type test \
+  --commit-scope harness \
+  --commit-summary 'exercise generated task governance' \
   --owned '.agents/handoffs/XT-998.md' >/dev/null
 test -f "$repository/.agents/tasks/XT-998-no-dependency-fixture.md"
 test -f "$repository/.agents/records/XT-998.json"
@@ -567,11 +599,17 @@ with (root / ".agents" / "backlog.yaml").open(encoding="utf-8") as source:
     backlog = json.load(source)
 task = next(item for item in backlog["tasks"] if item["id"] == "XT-998")
 assert task["risk_profile_required"] is True
+assert task["commit_policy_required"] is True
 
 record = json.loads(
     (root / ".agents" / "records" / "XT-998.json").read_text(encoding="utf-8")
 )
 assert record["schema_version"] == 2
+assert record["commit"] == {
+    "type": "test",
+    "scope": "harness",
+    "summary": "exercise generated task governance",
+}
 assert set(record["risks"]) == {
     "functionality",
     "security",

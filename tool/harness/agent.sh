@@ -51,6 +51,93 @@ raise SystemExit(f"Unknown task: {task_id}")
 PY
 }
 
+task_commit_metadata() {
+  local task_id="$1"
+  python3 - "$backlog" "$root/.agents/records/$task_id.json" "$task_id" <<'PY'
+import json
+import sys
+
+backlog_path, record_path, task_id = sys.argv[1:]
+with open(backlog_path, encoding="utf-8") as source:
+    task = next(
+        item for item in json.load(source)["tasks"] if item["id"] == task_id
+    )
+with open(record_path, encoding="utf-8") as source:
+    record = json.load(source)
+
+title = task["title"]
+title_summary = title[:1].lower() + title[1:]
+commit = record.get("commit")
+if not isinstance(commit, dict):
+    type_by_workstream = {
+        "documentation": "docs",
+        "integration": "ci",
+    }
+    scope_by_workstream = {
+        "documentation": "docs",
+        "flutter_desktop": "desktop",
+        "integration": "harness",
+        "native_bridge": "abi",
+        "native_core": "native",
+        "protocol": "protocol",
+    }
+    commit = {
+        "type": type_by_workstream.get(task["workstream"], "feat"),
+        "scope": scope_by_workstream[task["workstream"]],
+        "summary": title_summary,
+    }
+print(
+    "\t".join(
+        (
+            commit["type"],
+            commit["scope"],
+            commit["summary"],
+            title_summary,
+        )
+    )
+)
+PY
+}
+
+task_delivery_subject() {
+  local task_id="$1"
+  local commit_type scope summary title
+  IFS=$'\t' read -r commit_type scope summary title < <(
+    task_commit_metadata "$task_id"
+  )
+  printf '%s(%s): %s\n' "$commit_type" "$scope" "$summary"
+}
+
+task_lifecycle_subject() {
+  local task_id="$1"
+  local lifecycle="$2"
+  local commit_type scope summary title verb suffix
+  IFS=$'\t' read -r commit_type scope summary title < <(
+    task_commit_metadata "$task_id"
+  )
+  suffix=""
+  case "$lifecycle" in
+    claim) verb="claim" ;;
+    start) verb="start" ;;
+    resume) verb="resume" ;;
+    review)
+      verb="submit"
+      suffix=" for review"
+      ;;
+    blocked) verb="block" ;;
+    integration)
+      verb="record"
+      suffix=" integration"
+      ;;
+    acceptance) verb="accept" ;;
+    *)
+      printf 'Unknown commit lifecycle: %s\n' "$lifecycle" >&2
+      exit 2
+      ;;
+  esac
+  printf 'chore(%s): %s %s%s\n' "$scope" "$verb" "$title" "$suffix"
+}
+
 task_branch() {
   printf 'task/%s\n' "$1"
 }
@@ -86,9 +173,13 @@ ensure_integration_worktree() {
 commit_record() {
   local worktree="$1"
   local task_id="$2"
-  local message="$3"
+  local lifecycle="$3"
+  local subject="$4"
   git -C "$worktree" add ".agents/records/$task_id.json"
-  git -C "$worktree" commit -m "$message" >/dev/null
+  git -C "$worktree" commit \
+    -m "$subject" \
+    -m "Xnn-Task: $task_id
+Xnn-Lifecycle: $lifecycle" >/dev/null
 }
 
 run_verification() {
@@ -288,7 +379,8 @@ claim() {
   commit_record \
     "$destination" \
     "$task_id" \
-    "harness: claim $task_id for $owner"
+    claim \
+    "$(task_lifecycle_subject "$task_id" claim)"
 
   printf 'Claimed %s for %s\n' "$task_id" "$owner"
   printf 'Worktree: %s\n' "$destination"
@@ -303,7 +395,7 @@ transition() {
 
   local task_id="$1"
   local next="$2"
-  local branch current allowed worktree head reference
+  local branch current allowed worktree head reference lifecycle
   branch="$(task_branch "$task_id")"
   if ! git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
     printf '%s is not claimed.\n' "$task_id" >&2
@@ -350,10 +442,22 @@ transition() {
     "$worktree/tool/harness/governance.py" \
       update-state "$task_id" "$current" "$next"
   fi
+  case "$next" in
+    in_progress)
+      if [[ "$current" == "claimed" ]]; then
+        lifecycle="start"
+      else
+        lifecycle="resume"
+      fi
+      ;;
+    review) lifecycle="review" ;;
+    blocked) lifecycle="blocked" ;;
+  esac
   commit_record \
     "$worktree" \
     "$task_id" \
-    "harness: move $task_id to $next"
+    "$lifecycle" \
+    "$(task_lifecycle_subject "$task_id" "$lifecycle")"
   git -C "$root" config "branch.$branch.xnnState" "$next"
   printf '%s: %s -> %s\n' "$task_id" "$current" "$next"
 }
@@ -422,7 +526,8 @@ PY
   commit_record \
     "$root" \
     "$task_id" \
-    "harness: record $task_id integration"
+    integration \
+    "$(task_lifecycle_subject "$task_id" integration)"
   rm -f "$mapping_rows" "$provenance_json"
 }
 
@@ -582,13 +687,14 @@ PY
     exit 1
   fi
   git -C "$root" commit \
-    -m "harness: deliver $task_id" \
-    -m "Xnn-Task: $task_id" \
-    -m "Xnn-Integration-Strategy: squash" \
-    -m "Xnn-Source-Base: $base" \
-    -m "Xnn-Source-Head: $source_head" \
-    -m "Xnn-Source-Commits-SHA256: $source_commits_sha256" \
-    -m "Xnn-Source-Patch-Id: $source_patch" >/dev/null
+    -m "$(task_delivery_subject "$task_id")" \
+    -m "Xnn-Task: $task_id
+Xnn-Lifecycle: delivery
+Xnn-Integration-Strategy: squash
+Xnn-Source-Base: $base
+Xnn-Source-Head: $source_head
+Xnn-Source-Commits-SHA256: $source_commits_sha256
+Xnn-Source-Patch-Id: $source_patch" >/dev/null
 
   result="$(git -C "$root" rev-parse HEAD)"
   result_patch="$(
@@ -689,6 +795,14 @@ PY
     exit 1
   fi
   base="$("$worktree/tool/harness/governance.py" get "$task_id" base_sha)"
+  if [[ -f "$worktree/tool/harness/commit_message.py" ]]; then
+    python3 -B \
+      "$worktree/tool/harness/commit_message.py" \
+      range \
+      --root "$worktree" \
+      "$base" \
+      "$branch"
+  fi
 
   if [[ "$strategy" == "squash" ]]; then
     integrate_squash \
@@ -748,7 +862,8 @@ accept() {
   commit_record \
     "$root" \
     "$task_id" \
-    "harness: accept $task_id"
+    acceptance \
+    "$(task_lifecycle_subject "$task_id" acceptance)"
   git -C "$root" config "branch.$branch.xnnState" done
   printf '%s: integrated -> done\n' "$task_id"
 }

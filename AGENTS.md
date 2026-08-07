@@ -61,6 +61,12 @@ fixtures in the same reviewed task.
    task to `in_progress` for a new reviewed source range.
 9. Run `agent.sh cleanup <task>` only after the durable record is `done`.
 
+All new commits follow `docs/commit-policy.md`. Subjects use
+`type(scope): imperative summary` and describe repository impact without an XT
+identifier. Task IDs remain available in the final `Xnn-Task` trailer block.
+Run `make commit-message-test` for the focused gate; `make verify`, review
+preparation, and CI also enforce governed commit ranges.
+
 The backlog is a reviewed catalogue. `.agents/records/XT-NNN.json` is the
 versioned source of truth for lifecycle, verification, document impact,
 integration provenance, and acceptance. Git task branches and worktrees provide
@@ -93,6 +99,9 @@ squash or cherry-pick is not sufficient evidence.
   compatibility, concurrency, platform, and persistence risk. Every non-none
   risk names at least one gate that exactly matches an executable
   `verification.commands` entry.
+- Commit-governed task records declare the delivery `type`, `scope`, and
+  imperative `summary`. Harness lifecycle commits derive meaningful subjects
+  from that metadata instead of using the task number as the message.
 - A passing generic repository gate is not evidence for a specialized claim.
   Reviewers must reject security, performance, interoperability, or recovery
   gates that do not exercise the behavior named in the risk rationale.

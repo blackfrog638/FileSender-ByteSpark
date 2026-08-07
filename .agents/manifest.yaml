@@ -25,6 +25,7 @@ commands:
   security_test: make security-test
   benchmark: make benchmark
   dependency_test: make dependency-test
+  commit_message_test: make commit-message-test
   vcpkg_bootstrap: make vcpkg-bootstrap
   agent_list: tool/harness/agent.sh list
   governance_test: tool/harness/governance_test.sh
@@ -82,6 +83,7 @@ shared_contracts:
 quality_gates:
   required:
     - no whitespace errors
+    - meaningful Conventional Commit messages
     - repository layout check
     - architecture dependency direction
     - C ABI v1 compatibility

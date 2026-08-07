@@ -22,6 +22,7 @@ cd "$root"
 
 git diff --check
 "$root/tool/harness/check_layout.sh"
+"$root/tool/harness/commit_message_test.sh"
 "$root/tool/harness/vcpkg_bootstrap.sh"
 python3 -B "$root/tool/harness/dependency_manifest_test_test.py"
 python3 -B "$root/tool/harness/dependency_manifest_test.py" \

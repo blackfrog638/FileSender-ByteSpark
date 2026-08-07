@@ -24,6 +24,21 @@ Create the matching machine-readable `.agents/records/XT-000.json`. Declare
 ADR, architecture, and roadmap impact there. Use `not_required` only with a
 concrete rationale.
 
+Declare the delivery commit metadata in that record:
+
+```json
+{
+  "commit": {
+    "type": "feat",
+    "scope": "native",
+    "summary": "implement one concrete outcome"
+  }
+}
+```
+
+The summary is the user-visible repository outcome, not an XT identifier or a
+task lifecycle phrase. See `docs/commit-policy.md`.
+
 ## Constraints
 
 - State security, compatibility, platform, and performance constraints.

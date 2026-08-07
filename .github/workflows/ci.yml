@@ -17,6 +17,30 @@ env:
   VCPKG_DISABLE_METRICS: "1"
 
 jobs:
+  commit-policy:
+    name: Commit message policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Validate pushed commit range
+        env:
+          RANGE_BASE: >-
+            ${{ github.event.pull_request.base.sha || github.event.before }}
+          RANGE_HEAD: >-
+            ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          base="$RANGE_BASE"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
+            base="$(git rev-parse "$RANGE_HEAD^")"
+          fi
+          XNN_TRANSFER_COMMIT_BASE="$base" \
+            XNN_TRANSFER_COMMIT_HEAD="$RANGE_HEAD" \
+            make commit-message-test
+
   native:
     name: Native (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

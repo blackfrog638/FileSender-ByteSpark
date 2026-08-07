@@ -12,6 +12,8 @@ version 2 and contain:
   `integrated`, or `done`;
 - `base_sha` and `head_sha`: the task branch range reviewed for delivery;
 - `handoff`: the tracked handoff document;
+- `commit`: Conventional Commit type, scope, and delivery summary for
+  commit-governed tasks;
 - `risks`: functionality, security, performance, compatibility, concurrency,
   platform, and persistence levels, rationales, and executable gates;
 - `impacts`: explicit ADR, architecture, and roadmap dispositions;
@@ -49,3 +51,9 @@ source cleanup.
 Legacy `cherry-pick` and `merge` records retain `integration.mappings`, where
 each source/result pair must have the same stable patch ID. Only
 `agent.sh accept` can move an integrated task to `done`.
+
+The harness uses `commit` metadata for squash delivery subjects. Lifecycle
+commits use the task title and stable workstream scope. In both cases the
+subject explains the repository or governance action while the task number is
+stored only in the `Xnn-Task` trailer. Pre-policy records without `commit`
+metadata use their workstream and title as a compatibility fallback.
