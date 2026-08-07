@@ -6,6 +6,7 @@ workstream: native_core
 initial_owner: unassigned
 depends_on:
   - XT-018
+  - XT-050
 owned_paths:
   - native/include/xnn_transfer/core/security/identity/**
   - native/src/security/identity/**
