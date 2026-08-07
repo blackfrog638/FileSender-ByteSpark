@@ -822,12 +822,15 @@
         ".agents/**",
         "vcpkg.json",
         "cmake/dependencies/**",
+        "cmake/XnnDependencies.cmake",
         "third_party/licenses/**",
         "CMakeLists.txt",
         "docs/adr/0006-p1-native-runtime.md",
         "docs/roadmap.md",
         "docs/testing.md",
         "tool/harness/dependency_test.sh",
+        "tool/harness/dependency_manifest_test.py",
+        "tool/harness/dependency_manifest_test_test.py",
         ".github/workflows/ci.yml"
       ]
     },
