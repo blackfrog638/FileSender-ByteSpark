@@ -1,0 +1,114 @@
+{
+  "schema_version": 2,
+  "id": "XT-052",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-052.md",
+  "commit": {
+    "type": "fix",
+    "scope": "harness",
+    "summary": "enforce repository commit identity"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "medium",
+      "rationale": "An incorrect identity check could reject every valid commit or allow misattributed commits to continue.",
+      "gates": [
+        "make commit-message-test",
+        "make verify"
+      ]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "Untrusted attribution weakens the audit trail used to review and accept governed changes.",
+      "gates": [
+        "make commit-message-test",
+        "make verify"
+      ]
+    },
+    "performance": {
+      "level": "none",
+      "rationale": "Identity validation adds only constant-size config and commit metadata reads.",
+      "gates": []
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "The activation boundary must preserve older multi-contributor history while governing every new commit.",
+      "gates": [
+        "make commit-message-test",
+        "make verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "The policy reads immutable commit metadata and does not add shared runtime state.",
+      "gates": []
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "Hook execution and Git identity formatting must behave consistently on macOS, Linux, and Windows Git environments.",
+      "gates": [
+        "make commit-message-test",
+        "make verify"
+      ]
+    },
+    "persistence": {
+      "level": "low",
+      "rationale": "Bootstrap deliberately rewrites repository-local name, email, and hooksPath configuration.",
+      "gates": [
+        "make commit-message-test",
+        "make verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "This extends an existing internal commit governance policy without changing a product or cross-workstream contract."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The change affects development-time Git enforcement and does not alter runtime module boundaries."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Commit attribution enforcement completes no product delivery milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make commit-message-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

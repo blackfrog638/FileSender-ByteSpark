@@ -811,6 +811,26 @@
         "tool/harness/dependency_test.sh",
         ".github/workflows/ci.yml"
       ]
+    },
+    {
+      "id": "XT-052",
+      "title": "Enforce repository commit identity",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-047"
+      ],
+      "owned_paths": [
+        ".agents/**",
+        ".githooks/**",
+        "tool/harness/bootstrap.sh",
+        "tool/harness/commit_message.py",
+        "tool/harness/commit_message_test.py",
+        "docs/commit-policy.md"
+      ]
     }
   ]
 }
