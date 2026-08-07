@@ -31,6 +31,8 @@ boundaries. This task performs no networking and accepts no file automatically.
 - Bound declared size, actual bytes, temporary usage, and free-space checks.
 - Keep incomplete data non-visible and clean it idempotently on failure.
 - Preserve platform-native Unicode and collision semantics for later policy.
+- Replace the canonical `xnn_transfer_storage` placeholder in place; do not add
+  a parallel storage provider target.
 
 ## Acceptance criteria
 

@@ -4,8 +4,10 @@
 
 from __future__ import annotations
 
+import json
+import tempfile
 import unittest
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 
 import architecture_test as architecture
 
@@ -243,6 +245,201 @@ target_link_libraries(
         for source, expected in cases:
             with self.subTest(source=source):
                 self.assertIn(expected, messages(self.scan(source)))
+
+
+class ModuleInventoryTests(unittest.TestCase):
+    def module(self, replacement: str | None = None) -> architecture.Module:
+        return architecture.Module(
+            id="tls",
+            target="xnn_transfer_tls",
+            definition=PurePosixPath(
+                "native/src/security/tls/CMakeLists.txt"
+            ),
+            concrete_type="STATIC",
+            owned_roots=(
+                PurePosixPath("native/src/security/tls"),
+            ),
+            allowed_project_dependencies=frozenset(),
+            placeholder_until=replacement,
+        )
+
+    def repository(
+        self, cmake: str, state: str = "ready"
+    ) -> tuple[tempfile.TemporaryDirectory[str], Path, Path]:
+        temporary = tempfile.TemporaryDirectory()
+        root = Path(temporary.name)
+        cmake_path = (
+            root / "native" / "src" / "security" / "tls" / "CMakeLists.txt"
+        )
+        cmake_path.parent.mkdir(parents=True)
+        cmake_path.write_text(cmake, encoding="utf-8")
+        record_path = root / ".agents" / "records" / "XT-023.json"
+        record_path.parent.mkdir(parents=True)
+        record_path.write_text(
+            json.dumps({"id": "XT-023", "state": state}) + "\n",
+            encoding="utf-8",
+        )
+        return temporary, root, cmake_path
+
+    def test_placeholder_must_be_replaced_after_task_starts(self) -> None:
+        temporary, root, cmake_path = self.repository(
+            "add_library(xnn_transfer_tls INTERFACE)\n",
+            state="in_progress",
+        )
+        with temporary:
+            violations = architecture.validate_module_inventory(
+                root,
+                [self.module("XT-023")],
+                [cmake_path],
+                architecture.load_records(root),
+            )
+        self.assertIn(
+            "XT-023 started but xnn_transfer_tls is still an INTERFACE placeholder",
+            messages(violations),
+        )
+
+    def test_concrete_replacement_is_accepted_in_progress(self) -> None:
+        temporary, root, cmake_path = self.repository(
+            "add_library(xnn_transfer_tls STATIC tls.cpp)\n",
+            state="in_progress",
+        )
+        with temporary:
+            violations = architecture.validate_module_inventory(
+                root,
+                [self.module("XT-023")],
+                [cmake_path],
+                architecture.load_records(root),
+            )
+        self.assertEqual(violations, [])
+
+    def test_rejects_duplicate_and_undeclared_providers(self) -> None:
+        temporary, root, cmake_path = self.repository(
+            "add_library(xnn_transfer_tls STATIC tls.cpp)\n"
+            "add_library(xnn_transfer_tls STATIC duplicate.cpp)\n"
+            "add_library(xnn_transfer_tls_v2 STATIC v2.cpp)\n",
+            state="in_progress",
+        )
+        with temporary:
+            violations = architecture.validate_module_inventory(
+                root,
+                [self.module("XT-023")],
+                [cmake_path],
+                architecture.load_records(root),
+            )
+        rendered = messages(violations)
+        self.assertTrue(
+            any("exactly one add_library definition" in item for item in rendered)
+        )
+        self.assertTrue(
+            any("not declared in the module inventory" in item for item in rendered)
+        )
+
+
+class TemporaryLeaseTests(unittest.TestCase):
+    def repository(
+        self,
+        source: str,
+        *,
+        removal_state: str = "ready",
+        retires: bool = False,
+    ) -> tuple[tempfile.TemporaryDirectory[str], Path, dict[str, dict]]:
+        temporary = tempfile.TemporaryDirectory()
+        root = Path(temporary.name)
+        source_path = root / "native" / "src" / "session" / "shim.cpp"
+        source_path.parent.mkdir(parents=True)
+        source_path.write_text(source, encoding="utf-8")
+        records = {
+            "XT-100": {
+                "id": "XT-100",
+                "state": "done",
+                "architecture_change": {
+                    "temporary_leases": [
+                        {
+                            "id": "session-shim",
+                            "path": "native/src/session/shim.cpp",
+                            "remove_by_task": "XT-101",
+                            "reason": "Keep one reviewed compatibility shim.",
+                        }
+                    ],
+                    "retires_leases": [],
+                },
+            },
+            "XT-101": {
+                "id": "XT-101",
+                "state": removal_state,
+                "architecture_change": {
+                    "temporary_leases": [],
+                    "retires_leases": (
+                        ["session-shim"] if retires else []
+                    ),
+                },
+            },
+        }
+        return temporary, root, records
+
+    def test_accepts_active_registered_lease(self) -> None:
+        temporary, root, records = self.repository(
+            "// XNN-TEMPORARY(session-shim)\n"
+        )
+        with temporary:
+            self.assertEqual(
+                architecture.validate_temporary_leases(root, records),
+                [],
+            )
+
+    def test_rejects_unregistered_marker_and_unleased_todo(self) -> None:
+        temporary, root, records = self.repository(
+            "// XNN-TEMPORARY(other-shim)\n// TODO remove fallback\n"
+        )
+        with temporary:
+            violations = architecture.validate_temporary_leases(root, records)
+        rendered = messages(violations)
+        self.assertTrue(
+            any("has no registered lease" in item for item in rendered)
+        )
+        self.assertTrue(
+            any("TODO/FIXME" in item for item in rendered)
+        )
+
+    def test_rejects_marker_after_removal_task_starts(self) -> None:
+        temporary, root, records = self.repository(
+            "// XNN-TEMPORARY(session-shim)\n",
+            removal_state="done",
+            retires=True,
+        )
+        with temporary:
+            violations = architecture.validate_temporary_leases(root, records)
+        self.assertTrue(
+            any("survived removal task" in item for item in messages(violations))
+        )
+
+    def test_accepts_declared_lease_retirement(self) -> None:
+        temporary, root, records = self.repository(
+            "",
+            removal_state="in_progress",
+            retires=True,
+        )
+        with temporary:
+            self.assertEqual(
+                architecture.validate_temporary_leases(root, records),
+                [],
+            )
+
+    def test_rejects_unknown_lease_retirement(self) -> None:
+        temporary, root, records = self.repository(
+            "// XNN-TEMPORARY(session-shim)\n"
+        )
+        records["XT-101"]["architecture_change"]["retires_leases"] = [
+            "unknown-shim"
+        ]
+        with temporary:
+            violations = architecture.validate_temporary_leases(root, records)
+        self.assertTrue(
+            any(
+                "retires unknown temporary lease" in item
+                for item in messages(violations)
+            )
+        )
 
 
 if __name__ == "__main__":

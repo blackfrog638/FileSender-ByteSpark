@@ -7,6 +7,19 @@
   "base_sha": "",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-027.md",
+  "architecture_change": {
+    "mode": "replace",
+    "modules": [
+      "storage"
+    ],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
   "risks": {
     "functionality": {
       "level": "high",

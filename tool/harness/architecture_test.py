@@ -5,11 +5,26 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
-from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import Mapping
 
+sys.dont_write_bytecode = True
+HARNESS_DIR = Path(__file__).resolve().parent
+if str(HARNESS_DIR) not in sys.path:
+    sys.path.insert(0, str(HARNESS_DIR))
+from module_inventory import (
+    Module,
+    Violation,
+    load_records,
+    parse_modules,
+    schema_violation,
+    target_links,
+    validate_module_inventory,
+    validate_temporary_leases,
+)
 
 DART_DIRECTIVE = re.compile(
     r"""(?m)^\s*(?:import|export|part)\s+(['"])([^'"]+)\1"""
@@ -20,33 +35,6 @@ CMAKE_LINK = re.compile(
     flags=re.IGNORECASE | re.DOTALL,
 )
 PROJECT_TARGET = re.compile(r"\bxnn_transfer_[a-z0-9_]+\b")
-
-RUNTIME_TARGET_LINKS = {
-    "xnn_transfer_core": {
-        "xnn_transfer_discovery",
-        "xnn_transfer_identity",
-        "xnn_transfer_protocol",
-        "xnn_transfer_session",
-        "xnn_transfer_storage",
-        "xnn_transfer_tls",
-        "xnn_transfer_transfer",
-    },
-    "xnn_transfer_protocol": set(),
-    "xnn_transfer_discovery": {"xnn_transfer_protocol"},
-    "xnn_transfer_identity": set(),
-    "xnn_transfer_tls": {"xnn_transfer_identity"},
-    "xnn_transfer_session": {
-        "xnn_transfer_identity",
-        "xnn_transfer_protocol",
-        "xnn_transfer_tls",
-    },
-    "xnn_transfer_storage": set(),
-    "xnn_transfer_transfer": {
-        "xnn_transfer_protocol",
-        "xnn_transfer_session",
-        "xnn_transfer_storage",
-    },
-}
 
 FLUTTER_LAYER_LINKS = {
     "main": {"app"},
@@ -75,17 +63,6 @@ PUBLIC_CORE_FORBIDDEN_INCLUDES = (
     "dart_api",
     "flutter",
 )
-
-
-@dataclass(frozen=True, order=True)
-class Violation:
-    path: str
-    line: int
-    message: str
-
-    def render(self) -> str:
-        return f"{self.path}:{self.line}: {self.message}"
-
 
 def line_number(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
@@ -258,12 +235,23 @@ def strip_cmake_comments(text: str) -> str:
     return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
 
 
-def scan_cmake_text(path: PurePosixPath, text: str) -> list[Violation]:
+def scan_cmake_text(
+    path: PurePosixPath,
+    text: str,
+    runtime_links: Mapping[str, set[str]] | None = None,
+) -> list[Violation]:
     violations: list[Violation] = []
+    if runtime_links is None:
+        modules, module_violations = parse_modules(
+            Path(__file__).resolve().parents[2]
+        )
+        if module_violations:
+            return module_violations
+        runtime_links = target_links(modules)
     uncommented = strip_cmake_comments(text)
     for match in CMAKE_LINK.finditer(uncommented):
         source = match.group(1).lower()
-        allowed = RUNTIME_TARGET_LINKS.get(source)
+        allowed = runtime_links.get(source)
         if allowed is None:
             continue
         dependencies = {
@@ -285,7 +273,15 @@ def scan_cmake_text(path: PurePosixPath, text: str) -> list[Violation]:
 
 
 def scan_repository(root: Path) -> list[Violation]:
-    violations: list[Violation] = []
+    modules, violations = parse_modules(root)
+    try:
+        records = load_records(root)
+    except (OSError, json.JSONDecodeError) as error:
+        violations.append(
+            schema_violation(f"cannot read task records: {error}")
+        )
+        records = {}
+    runtime_links = target_links(modules)
     flutter_root = root / "apps" / "desktop" / "lib"
     for path in sorted(flutter_root.rglob("*.dart")):
         relative = PurePosixPath(path.relative_to(flutter_root).as_posix())
@@ -307,8 +303,16 @@ def scan_repository(root: Path) -> list[Violation]:
     for path in cmake_paths:
         relative = PurePosixPath(path.relative_to(root).as_posix())
         violations.extend(
-            scan_cmake_text(relative, path.read_text(encoding="utf-8"))
+            scan_cmake_text(
+                relative,
+                path.read_text(encoding="utf-8"),
+                runtime_links,
+            )
         )
+    violations.extend(
+        validate_module_inventory(root, modules, cmake_paths, records)
+    )
+    violations.extend(validate_temporary_leases(root, records))
     return sorted(set(violations))
 
 
