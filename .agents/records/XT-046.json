@@ -1,0 +1,107 @@
+{
+  "schema_version": 2,
+  "id": "XT-046",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-046.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Every P1 native module will consume this graph; a wrong target, version, or build mode can break all runtime work.",
+      "gates": [
+        "make dependency-test",
+        "make verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "OpenSSL and source provenance sit on the authenticated transport trust boundary; floating sources or system fallback are unacceptable.",
+      "gates": [
+        "make dependency-test",
+        "make security-test"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Static dependency builds affect clean-build time and packaged size, so content-addressed caches and bundle verification must remain effective.",
+      "gates": [
+        "make dependency-test",
+        "make verify"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "The pinned targets must remain consumable by existing native CMake, sanitizer, fuzz, and Flutter runner build shapes.",
+      "gates": [
+        "make dependency-test",
+        "make security-test",
+        "make verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "This task installs and links dependencies but introduces no executor, socket, callback, or mutable runtime state.",
+      "gates": []
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "OpenSSL toolchains, static library formats, CRT selection, target architecture, and Flutter build entrypoints differ across all three desktop platforms.",
+      "gates": [
+        "make dependency-test",
+        "make security-test",
+        "make verify"
+      ]
+    },
+    "persistence": {
+      "level": "low",
+      "rationale": "Only reproducible build caches are persisted under ignored output directories; no product data or migration format changes.",
+      "gates": [
+        "make dependency-test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0006-p1-native-runtime.md"
+      ],
+      "rationale": "Complete discovery label validation requires selecting utf8proc 2.11.3 alongside the already accepted Asio/OpenSSL dependency profile."
+    },
+    "architecture": {
+      "status": "updated",
+      "references": [
+        "docs/architecture.md"
+      ],
+      "rationale": "The documented future vcpkg boundary becomes an implemented static dependency and build-entrypoint boundary."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Dependency bootstrap unblocks P1 tasks but does not itself complete a user-visible roadmap milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make dependency-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
