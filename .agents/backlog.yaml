@@ -621,6 +621,23 @@
         ".agents/**",
         "tool/harness/**"
       ]
+    },
+    {
+      "id": "XT-042",
+      "title": "Architecture dependency gate",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-041"
+      ],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/**",
+        "Makefile",
+        "tool/harness/**",
+        ".github/workflows/ci.yml"
+      ]
     }
   ]
 }

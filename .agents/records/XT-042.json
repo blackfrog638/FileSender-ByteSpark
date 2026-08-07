@@ -1,0 +1,96 @@
+{
+  "schema_version": 2,
+  "id": "XT-042",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-042.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "A scanner defect could either admit architecture erosion or block all future feature work with false positives.",
+      "gates": [
+        "make architecture-test",
+        "make verify"
+      ]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "Dependency direction keeps hostile input and FFI access inside native validation boundaries.",
+      "gates": [
+        "make architecture-test"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "The scanner runs on every verification and must finish with bounded repository-local file traversal.",
+      "gates": [
+        "make architecture-test"
+      ]
+    },
+    "compatibility": {
+      "level": "medium",
+      "rationale": "The initial allow-list must preserve all current legal imports, includes, and CMake target links.",
+      "gates": [
+        "make architecture-test",
+        "make verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "The scanner is a synchronous read-only process and adds no shared runtime state.",
+      "gates": []
+    },
+    "platform": {
+      "level": "medium",
+      "rationale": "Path normalization and source discovery must behave consistently on macOS, Linux, and Windows CI.",
+      "gates": [
+        "make architecture-test",
+        "make verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The gate reads tracked source and creates no product or governance persisted format.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task enforces already accepted internal dependency direction without changing a public contract."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The durable architecture is unchanged; AGENTS.md records the new enforcement command."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "A dependency gate improves engineering quality but does not complete a product milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make architecture-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
