@@ -3,8 +3,7 @@
 - Status: accepted
 - Date: 2026-08-07
 - Accepted by task: XT-018
-- Amended by tasks: XT-046 (utf8proc and initial dependency provenance),
-  XT-051 (pinned Linux libsecret dependency)
+- Amended by task: XT-046 (utf8proc and landed dependency provenance)
 - Security profile: `docs/adr/0002-pairing-and-transport-security.md`
 
 ## Context
@@ -124,7 +123,6 @@ Release and CI builds use vcpkg manifest mode with:
 - a pinned vcpkg tool/registry commit and `builtin-baseline`;
 - project-owned overlay ports for exactly Asio 1.38.2 and OpenSSL 3.5.7;
 - utf8proc 2.11.3 from the same pinned built-in registry;
-- Linux-only libsecret 0.21.7 from the same pinned built-in registry;
 - upstream release archives, SHA-256 verification, and committed license
   notices;
 - static dependency triplets matching each application architecture;
@@ -133,11 +131,10 @@ Release and CI builds use vcpkg manifest mode with:
 
 The public registry did not contain both selected Asio and OpenSSL releases at
 this decision point, so a floating registry branch is not an acceptable
-substitute for the overlay ports. The pinned registry contains utf8proc 2.11.3
-and Linux-only libsecret 0.21.7. Release builds must not discover system
-OpenSSL or libsecret. A populated, content-addressed vcpkg binary or source
-cache is the supported offline build path; vendored untracked source trees are
-not.
+substitute for the overlay ports. The pinned registry does contain utf8proc
+2.11.3. Release builds must not discover a system OpenSSL. A populated,
+content-addressed vcpkg binary or source cache is the supported offline build
+path; vendored untracked source trees are not.
 
 Sanitizer and fuzz configurations build dependencies from the same pinned
 sources with sanitizer-compatible flags. Release assembly optimizations may
@@ -145,8 +142,7 @@ remain enabled, while fuzz configurations may use a reviewed no-assembly
 variant to improve instrumentation. A dependency update is a reviewed task:
 patch updates within the accepted Asio, OpenSSL, and utf8proc lines rerun all
 security and packaging gates; a different OpenSSL minor/major, TLS provider,
-I/O runtime, Unicode provider, libsecret minor line, or storage backend
-requires an ADR update.
+I/O runtime, Unicode provider, or storage backend requires an ADR update.
 
 ### Module and build ownership
 
@@ -222,5 +218,3 @@ infrastructure details.
   `https://learn.microsoft.com/vcpkg/consume/manifest-mode`
 - Secret Service API:
   `https://specifications.freedesktop.org/secret-service/latest/`
-- libsecret:
-  `https://gitlab.gnome.org/GNOME/libsecret/`
