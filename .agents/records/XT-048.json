@@ -1,0 +1,117 @@
+{
+  "schema_version": 2,
+  "id": "XT-048",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-048.md",
+  "commit": {
+    "type": "ci",
+    "scope": "architecture",
+    "summary": "enforce subtractive architecture changes"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    }
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "A false negative permits parallel implementations while a false positive blocks every replacement task.",
+      "gates": [
+        "make architecture-test",
+        "make governance-test",
+        "make verify"
+      ]
+    },
+    "security": {
+      "level": "low",
+      "rationale": "The gate protects ownership of security module boundaries but does not process secrets or security protocol input.",
+      "gates": [
+        "make architecture-test"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Repository scans add bounded JSON and source parsing to architecture verification.",
+      "gates": [
+        "make architecture-test"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Archived records and existing ready tasks must remain valid while declared placeholder replacement tasks become strict.",
+      "gates": [
+        "make architecture-test",
+        "make governance-test",
+        "make verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "The implementation is a read-only deterministic repository scan with no shared runtime state.",
+      "gates": []
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "Path and CMake parsing must remain host-independent across macOS, Linux, and Windows CI.",
+      "gates": [
+        "make architecture-test",
+        "make verify"
+      ]
+    },
+    "persistence": {
+      "level": "low",
+      "rationale": "The task adds versioned governance manifests but changes no product persisted format.",
+      "gates": [
+        "make governance-test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The change mechanizes an existing single-owner architecture policy and changes no public or expensive-to-reverse product contract."
+    },
+    "architecture": {
+      "status": "updated",
+      "references": [
+        "docs/architecture.md"
+      ],
+      "rationale": "Architecture documentation now defines canonical providers, replacement obligations, and temporary-code leases."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task improves engineering governance without completing a product milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make architecture-test",
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
