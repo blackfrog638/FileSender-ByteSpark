@@ -854,7 +854,7 @@
     },
     {
       "id": "XT-053",
-      "title": "Make commit identity policy immutable",
+      "title": "Immutable corrected commit identity",
       "readiness": "ready",
       "risk_profile_required": true,
       "commit_policy_required": true,

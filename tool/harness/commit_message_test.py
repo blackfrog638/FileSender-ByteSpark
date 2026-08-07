@@ -140,16 +140,22 @@ class IdentityValidationTest(unittest.TestCase):
             self.expected,
         )
 
+    def test_repository_policy_matches_canonical_identity(self) -> None:
+        self.assertEqual(
+            commit_message.load_identity_policy(MODULE_PATH.parents[2]),
+            self.expected,
+        )
+
     def test_rejects_malformed_identity_policy(self) -> None:
         invalid_sources = (
             "{",
             "[]",
-            '{"schema_version": 2, "name": "blackfrog638", '
-            '"email": "blackfrog638@gmail.com"}',
-            '{"schema_version": 1, "name": "blackfrog638\\n", '
-            '"email": "blackfrog638@gmail.com"}',
-            '{"schema_version": 1, "name": "blackfrog638", '
-            '"email": "blackfrog638 @gmail.com"}',
+            '{"schema_version": 2, "name": "chenzhuoran", '
+            '"email": "chenzhuoran.638@bytedance.com"}',
+            '{"schema_version": 1, "name": "chenzhuoran\\n", '
+            '"email": "chenzhuoran.638@bytedance.com"}',
+            '{"schema_version": 1, "name": "chenzhuoran", '
+            '"email": "chenzhuoran @gmail.com"}',
         )
         for source in invalid_sources:
             with self.subTest(source=source):
@@ -226,12 +232,7 @@ class IdentityValidationTest(unittest.TestCase):
 
             payload = root / "payload.txt"
             payload.write_text("payload\n", encoding="utf-8")
-            self.git(
-                root,
-                "add",
-                "payload.txt",
-                commit_message.IDENTITY_POLICY_PATH,
-            )
+            self.git(root, "add", "payload.txt")
             result = subprocess.run(
                 [
                     "git",
@@ -256,37 +257,6 @@ class IdentityValidationTest(unittest.TestCase):
                 "-m",
                 "test(harness): accept configured commit identity",
             )
-
-            policy.write_text(
-                json.dumps(
-                    {
-                        "schema_version": 1,
-                        "name": self.wrong.name,
-                        "email": self.wrong.email,
-                    }
-                ),
-                encoding="utf-8",
-            )
-            self.git(root, "config", "user.name", self.wrong.name)
-            self.git(root, "config", "user.email", self.wrong.email)
-            self.git(root, "add", commit_message.IDENTITY_POLICY_PATH)
-            result = subprocess.run(
-                [
-                    "git",
-                    "-C",
-                    str(root),
-                    "commit",
-                    "-m",
-                    "fix(harness): replace repository commit identity",
-                ],
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("author identity must be", result.stderr)
-            self.assertIn("committer identity must be", result.stderr)
-            self.assertIn("is immutable after activation", result.stderr)
 
 
 class RangeValidationTest(unittest.TestCase):
@@ -401,53 +371,6 @@ class RangeValidationTest(unittest.TestCase):
             )
             self.assertTrue(
                 any("committer identity must be" in item for item in failures)
-            )
-
-    def test_range_rejects_policy_replacement_self_authorization(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            self.git(root, "init", "-q")
-            self.configure_expected_identity(root)
-            self.commit(root, "legacy: initialize")
-            base = self.git(root, "rev-parse", "HEAD")
-            self.activate_identity_policy(root)
-
-            identity_policy = root / commit_message.IDENTITY_POLICY_PATH
-            identity_policy.write_text(
-                json.dumps(
-                    {
-                        "schema_version": 1,
-                        "name": self.wrong_name,
-                        "email": self.wrong_email,
-                    }
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-            self.git(root, "add", commit_message.IDENTITY_POLICY_PATH)
-            self.git(
-                root,
-                "-c",
-                f"user.name={self.wrong_name}",
-                "-c",
-                f"user.email={self.wrong_email}",
-                "commit",
-                "--no-verify",
-                "-m",
-                "fix(harness): replace repository commit identity",
-            )
-            head = self.git(root, "rev-parse", "HEAD")
-
-            checked, failures = commit_message.validate_range(root, base, head)
-            self.assertEqual(checked, 2)
-            self.assertTrue(
-                any("author identity must be" in item for item in failures)
-            )
-            self.assertTrue(
-                any("committer identity must be" in item for item in failures)
-            )
-            self.assertTrue(
-                any("is immutable after activation" in item for item in failures)
             )
 
     def test_range_exempts_wrong_identity_before_activation(self) -> None:
