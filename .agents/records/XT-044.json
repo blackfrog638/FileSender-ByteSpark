@@ -1,0 +1,98 @@
+{
+  "schema_version": 2,
+  "id": "XT-044",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-044.md",
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Moving fixtures between CTest and configure must preserve every positive and negative assertion.",
+      "gates": [
+        "make abi-compat-test",
+        "make verify"
+      ]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "A false-positive fixture result could allow memory-unsafe ABI layout or signature drift.",
+      "gates": [
+        "make abi-compat-test"
+      ]
+    },
+    "performance": {
+      "level": "high",
+      "rationale": "The repair exists because runtime recursive compilation did not terminate promptly on Windows.",
+      "gates": [
+        "make abi-compat-test"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "All ABI v1 positive and breaking compile fixtures must retain their original verdicts.",
+      "gates": [
+        "make abi-compat-test",
+        "make verify"
+      ]
+    },
+    "concurrency": {
+      "level": "low",
+      "rationale": "The change removes nested subprocess trees but retains independent configure-time compiler probes.",
+      "gates": [
+        "make abi-compat-test"
+      ]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "CMake try_compile and compile failure diagnostics must behave consistently with AppleClang, Clang, and MSVC.",
+      "gates": [
+        "make abi-compat-test",
+        "make verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The repair creates no product persisted data or migration behavior.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The repair preserves the ABI v1 policy already accepted by ADR 0001 and ADR 0003."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Only the execution phase of internal ABI compile fixtures changes."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The repair restores a quality gate and does not complete a product milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "commands": [
+      "make abi-compat-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

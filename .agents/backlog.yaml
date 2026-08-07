@@ -657,6 +657,20 @@
         "native/CMakeLists.txt",
         "native/tests/abi/**"
       ]
+    },
+    {
+      "id": "XT-044",
+      "title": "Windows abi compile fixtures",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-043"
+      ],
+      "owned_paths": [
+        ".agents/**",
+        "native/tests/abi/**"
+      ]
     }
   ]
 }
