@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-052",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "commit-identity-agent",
   "base_sha": "736ada31274df95e1aabc29e20ea3193b079e7d6",
   "head_sha": "4f3278ebc14fe1280c86d8eb18e008c6f19a8815",
@@ -106,9 +106,9 @@
     ],
     "source_commits_sha256": "51e5c0cc09547135c1184a6481e6f849385743775123a240c706977f2632fc42",
     "source_patch_id": "0267c294f454dbd7f5e5a5a932ad1704f68fb08f",
-    "result": "",
+    "result": "9e83ec4e02bec7b4946f9b43ed0e21c429d14b41",
     "result_patch_id": "0267c294f454dbd7f5e5a5a932ad1704f68fb08f",
-    "verified_sha": ""
+    "verified_sha": "9e83ec4e02bec7b4946f9b43ed0e21c429d14b41"
   },
   "verification": {
     "status": "passed",
@@ -116,11 +116,11 @@
       "make commit-message-test",
       "make verify"
     ],
-    "reference": "local:4f3278ebc14fe1280c86d8eb18e008c6f19a8815:2026-08-07T19:49:22Z"
+    "reference": "local:9e83ec4-identity-gate-verified"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-08T04:19:36+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
