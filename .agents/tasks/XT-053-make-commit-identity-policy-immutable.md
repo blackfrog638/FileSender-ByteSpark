@@ -1,6 +1,6 @@
 ---
 id: XT-053
-title: Make commit identity policy immutable
+title: Immutable corrected commit identity
 state: ready
 workstream: integration
 owner: unassigned
@@ -10,33 +10,45 @@ owned_paths:
   - .agents/**
   - tool/harness/commit_message.py
   - tool/harness/commit_message_test.py
+  - tool/harness/governance_test.sh
   - docs/commit-policy.md
 contract_changes:
-  - The activated repository identity policy is immutable
+  - The canonical repository identity is blackfrog638
+    <blackfrog638@gmail.com>
+  - The schema v2 repository identity policy is immutable after activation
   - Hooks trust committed policy instead of mutable working-tree content
 handoff: .agents/handoffs/XT-053.md
 ---
 
 ## Outcome
 
-Reject attempts to change `.agents/commit-identity.json` after its activation,
-even when the same commit uses the proposed replacement identity.
+Restore `blackfrog638 <blackfrog638@gmail.com>` as the canonical
+repository identity, then reject attempts to change the schema v2 policy after
+its activation.
 
 ## Context
 
-XT-052 added repository identity checks, but both hook and range validation
-read the policy from the content being committed. That lets a policy-changing
-commit authorize its own identity. This task pins trust to the committed
-parent for hooks and the first activation commit for range validation.
+XT-052 added repository identity checks but encoded
+`chenzhuoran <chenzhuoran.638@bytedance.com>` as canonical, reversing the previously
+confirmed repository identity. The current implementation also lets a
+policy-changing commit authorize itself because hook and range validation read
+the proposed content. This corrected plan restores the intended identity
+before claim, then makes the task delivery upgrade that policy to an immutable
+schema v2 trust anchor.
 
 ## Constraints
 
-- The activation commit remains valid and defines the permanent identity.
-- Hooks use `HEAD:.agents/commit-identity.json` once that path exists.
-- Range checks reject modification, deletion, or re-addition after activation.
+- Schema v1 history remains valid and is evaluated against the policy stored in
+  each historical commit.
+- The first schema v2 policy commit defines the permanent identity.
+- Hooks use `HEAD:.agents/commit-identity.json` once schema v2 is active.
+- Range checks reject modification, deletion, or re-addition after schema v2
+  activation.
 - Bootstrap reads committed policy when available and working content only for
-  the initial activation.
+  the schema v2 activation.
 - Preserve pre-activation history and existing message-policy behavior.
+- Resolve inherited trusted gates from the manifest in isolated lifecycle
+  fixtures instead of maintaining a partial command map.
 - Add actual Git hook and `--no-verify` range bypass fixtures.
 
 ## Architecture change
@@ -53,10 +65,13 @@ non-none risk must name trusted gate IDs that also appear in
 
 ## Acceptance criteria
 
+- [ ] The schema v2 policy names `blackfrog638
+      <blackfrog638@gmail.com>`.
 - [ ] A working-tree policy replacement cannot authorize a wrong local identity.
 - [ ] A policy replacement committed with `--no-verify` fails range validation.
 - [ ] Bootstrap continues to repair local identity from committed policy.
-- [ ] The original activation commit and all existing valid history pass.
+- [ ] Schema v1 history and the schema v2 activation commit pass.
+- [ ] Governance fixtures accept inherited records with any registered gate.
 - [ ] Repository verification passes.
 
 ## Verification

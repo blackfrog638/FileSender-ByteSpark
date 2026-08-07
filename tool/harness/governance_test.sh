@@ -29,6 +29,9 @@ from pathlib import Path
 
 root = Path(sys.argv[1])
 task_id, inherited_head = sys.argv[2:]
+sys.path.insert(0, str(root / "tool" / "harness"))
+from trusted_gates import load_gate_registry
+
 manifest_path = root / ".agents" / "manifest.yaml"
 manifest = manifest_path.read_text(encoding="utf-8")
 manifest = manifest.replace(
@@ -36,6 +39,7 @@ manifest = manifest.replace(
     "  legacy_verify: make verify\n  verify: true\n",
 )
 manifest_path.write_text(manifest, encoding="utf-8")
+gate_registry = load_gate_registry(manifest_path)
 for path in sorted((root / ".agents" / "records").glob("XT-*.json")):
     record = json.loads(path.read_text(encoding="utf-8"))
     verification = record.get("verification", {})
@@ -48,12 +52,9 @@ for path in sorted((root / ".agents" / "records").glob("XT-*.json")):
             else:
                 expanded.append(gate)
         verification["gates"] = expanded
-        commands = {
-            "governance_test": "make governance-test",
-            "legacy_verify": "make verify",
-            "verify": "true",
-        }
-        verification["commands"] = [commands[gate] for gate in expanded]
+        verification["commands"] = [
+            gate_registry[gate] for gate in expanded
+        ]
         for risk in record.get("risks", {}).values():
             risk["gates"] = [
                 "legacy_verify" if gate == "verify" else gate

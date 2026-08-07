@@ -140,16 +140,22 @@ class IdentityValidationTest(unittest.TestCase):
             self.expected,
         )
 
+    def test_repository_policy_matches_canonical_identity(self) -> None:
+        self.assertEqual(
+            commit_message.load_identity_policy(MODULE_PATH.parents[2]),
+            self.expected,
+        )
+
     def test_rejects_malformed_identity_policy(self) -> None:
         invalid_sources = (
             "{",
             "[]",
-            '{"schema_version": 2, "name": "blackfrog638", '
-            '"email": "blackfrog638@gmail.com"}',
-            '{"schema_version": 1, "name": "blackfrog638\\n", '
-            '"email": "blackfrog638@gmail.com"}',
-            '{"schema_version": 1, "name": "blackfrog638", '
-            '"email": "blackfrog638 @gmail.com"}',
+            '{"schema_version": 2, "name": "chenzhuoran", '
+            '"email": "chenzhuoran.638@bytedance.com"}',
+            '{"schema_version": 1, "name": "chenzhuoran\\n", '
+            '"email": "chenzhuoran.638@bytedance.com"}',
+            '{"schema_version": 1, "name": "chenzhuoran", '
+            '"email": "chenzhuoran @gmail.com"}',
         )
         for source in invalid_sources:
             with self.subTest(source=source):
