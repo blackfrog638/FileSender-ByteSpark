@@ -2,10 +2,10 @@
   "schema_version": 2,
   "id": "XT-045",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "abi-dll-agent",
+  "base_sha": "90ee43f1636affcb15f32b027b39bba930a2ec96",
+  "head_sha": "4a3c914a80107c709ce9df81124f2a816bae6a4e",
   "handoff": ".agents/handoffs/XT-045.md",
   "risks": {
     "functionality": {
@@ -76,17 +76,30 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "90ee43f1636affcb15f32b027b39bba930a2ec96",
+    "source_head": "6bded049f1ad5052732a96761478696968896c50",
+    "source_commits": [
+      "97942685ec199e2312e20e13e7363ee696b19a8b",
+      "5fa9a0d3632b3bc911b3a638436977d45ac4b34a",
+      "cb44e110608af9b67258e047ec612a71e87530eb",
+      "4b07b7d7bc25a47ade1d00a6373226c8c3f41b7b",
+      "4a3c914a80107c709ce9df81124f2a816bae6a4e",
+      "6bded049f1ad5052732a96761478696968896c50"
+    ],
+    "source_commits_sha256": "8d3819973cffa209800af29760baa775c34c1c96dbd8ea9a03daeb94a54bf615",
+    "source_patch_id": "ff6e57141982d099c3c19df27120fd68e686f509",
+    "result": "",
+    "result_patch_id": "ff6e57141982d099c3c19df27120fd68e686f509",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make abi-compat-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:4a3c914a80107c709ce9df81124f2a816bae6a4e:2026-08-07T08:20:23Z"
   },
   "acceptance": {
     "accepted_by": "",

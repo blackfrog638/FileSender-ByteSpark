@@ -124,4 +124,20 @@ if(NOT XNN_TRANSFER_ENABLE_ASAN_UBSAN)
   list(APPEND abi_runtime_tests xnn_transfer_abi_v1_exports)
 endif()
 
+if(WIN32)
+  set(windows_dll_path
+      "PATH=path_list_prepend:$<TARGET_FILE_DIR:xnn_transfer_core>"
+  )
+  set_tests_properties(
+    xnn_transfer_abi_v1_legacy_client
+    PROPERTIES ENVIRONMENT_MODIFICATION "${windows_dll_path}"
+  )
+  if(TEST xnn_transfer_abi_v1_exports)
+    set_tests_properties(
+      xnn_transfer_abi_v1_exports
+      PROPERTIES ENVIRONMENT_MODIFICATION "${windows_dll_path}"
+    )
+  endif()
+endif()
+
 set_tests_properties(${abi_runtime_tests} PROPERTIES TIMEOUT 30)
