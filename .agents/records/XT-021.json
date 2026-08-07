@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-021",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "p1-discovery-abi-agent",
   "base_sha": "ed1ba4479f97fee9fa5c4006a5ab24180c3d1a81",
   "head_sha": "e93f3f181eabdc0819f5218d10fab2f1a2970a1b",
@@ -99,7 +99,7 @@
     "source_patch_id": "c8a4c9bbe8460ee1b01d4b5b5d033d95ab0e0f54",
     "result": "406b36562c465fd672c308aaa68dab2cb67ed61f",
     "result_patch_id": "c8a4c9bbe8460ee1b01d4b5b5d033d95ab0e0f54",
-    "verified_sha": ""
+    "verified_sha": "79ed5eddda5ab7da9e98f6b5cc5a434272e3d11c"
   },
   "verification": {
     "status": "passed",
@@ -109,11 +109,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:e93f3f181eabdc0819f5218d10fab2f1a2970a1b:2026-08-07T18:27:38Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31207898851"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-08T02:52:03+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
