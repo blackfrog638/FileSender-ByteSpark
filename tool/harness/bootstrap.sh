@@ -18,6 +18,7 @@ if command -v fvm >/dev/null 2>&1 &&
   )
 fi
 
+"$root/tool/harness/vcpkg_bootstrap.sh"
 "$root/tool/harness/doctor.sh"
 
 if "$root/tool/harness/sdk.sh" flutter --version >/dev/null 2>&1; then

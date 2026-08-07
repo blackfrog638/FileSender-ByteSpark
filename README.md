@@ -39,11 +39,18 @@ Required for a full local verification:
 - CMake 3.24+
 - A C++20 compiler
 - Flutter 3.32.x with desktop support enabled
+- Git, Perl, and pkg-config for the pinned vcpkg dependency build
 
-The native core has no third-party runtime dependency in the harness phase.
-On macOS, install the reproducible toolchain with `brew bundle`, then run
-`make bootstrap`. FVM reads `apps/desktop/.fvmrc` and installs Flutter 3.32.8.
-`XNN_TRANSFER_INSTALL_TOOLS=1 make bootstrap` combines those two steps.
+`make bootstrap` checks out the exact vcpkg commit under `out/tools/`, then
+resolves static Asio 1.38.2, OpenSSL 3.5.7, and utf8proc 2.11.3 dependencies
+from committed manifests and hashes. On macOS, install the reproducible
+toolchain with `brew bundle` first. FVM reads `apps/desktop/.fvmrc` and
+installs Flutter 3.32.8. `XNN_TRANSFER_INSTALL_TOOLS=1 make bootstrap`
+combines Homebrew and project bootstrap.
+
+Use `make dependency-test` to validate provenance, compile and link all three
+dependencies, and reject dynamic dependency artifacts. This supplies build
+infrastructure only; it does not claim discovery, TLS, or transfer behavior.
 
 ## Run parallel agents
 

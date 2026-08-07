@@ -67,6 +67,7 @@ PUBLIC_CORE_FORBIDDEN_INCLUDES = (
     "asio/",
     "boost/asio",
     "openssl/",
+    "utf8proc",
     "windows.h",
     "security/security.h",
     "libsecret",

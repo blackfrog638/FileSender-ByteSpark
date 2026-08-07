@@ -13,6 +13,7 @@
       "binaryDir": "${sourceDir}/out/build/dev",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_MANIFEST_INSTALL": "ON",
         "XNN_TRANSFER_BUILD_TESTS": "ON"
       }
     },
@@ -23,6 +24,7 @@
       "binaryDir": "${sourceDir}/out/build/release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
+        "VCPKG_MANIFEST_INSTALL": "ON",
         "XNN_TRANSFER_BUILD_TESTS": "OFF"
       }
     },
