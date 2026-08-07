@@ -22,6 +22,11 @@ add_library(
 )
 
 target_compile_features(xnn_transfer_discovery PUBLIC cxx_std_20)
+set_target_properties(
+  xnn_transfer_discovery
+  PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
 
 target_include_directories(
   xnn_transfer_discovery

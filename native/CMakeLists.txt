@@ -107,6 +107,7 @@ if(XNN_TRANSFER_BUILD_TESTS)
     PRIVATE
       Threads::Threads
       xnn_transfer_core
+      xnn_transfer_discovery
   )
   if(XNN_TRANSFER_ENABLE_ASAN_UBSAN)
     xnn_transfer_enable_sanitizers(xnn_transfer_bridge_event_tests)
