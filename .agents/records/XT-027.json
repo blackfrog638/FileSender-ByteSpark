@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-027",
   "task_type": "implementation",
-  "state": "claimed",
+  "state": "in_progress",
   "owner": "safe-storage-agent",
   "base_sha": "b519d6ac1e6d49c8e11cf316496657ba8b6220e8",
   "head_sha": "",
