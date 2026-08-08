@@ -1,0 +1,123 @@
+{
+  "schema_version": 3,
+  "id": "XT-058",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-058.md",
+  "commit": {
+    "type": "fix",
+    "scope": "harness",
+    "summary": "bind defect proof to failure fingerprint"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Incorrect attribution can either accept an unrelated failure as defect evidence or reject a valid bugfix lifecycle.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "A forged reproduction result can make a security fix appear proven while the reported behavior was never exercised.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Attributed proof adds one baseline execution of the trusted regression gate during review.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "The defect and generated proof objects gain fields while already accepted legacy bugfix records must remain valid.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "Proof executions remain synchronous and task review already serializes record mutation.",
+      "gates": []
+    },
+    "platform": {
+      "level": "medium",
+      "rationale": "Detached worktree environment construction and trusted tool paths must behave consistently across supported hosts.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "Attributed proof fields become durable immutable review and integration provenance.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0013-attributed-defect-proof.md"
+      ],
+      "rationale": "This changes the persisted deterministic proof contract and its compatibility policy."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The change remains inside repository governance and does not alter product runtime modules or dependencies."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Defect proof integrity is repository governance rather than a product delivery milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
