@@ -65,6 +65,7 @@ constexpr ACCESS_MASK kRegularFileAccess =
     FILE_GENERIC_READ | FILE_GENERIC_WRITE | DELETE | READ_CONTROL | SYNCHRONIZE;
 constexpr ACCESS_MASK kCleanupAccess =
     DELETE | FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES | READ_CONTROL | SYNCHRONIZE;
+constexpr ULONG kDirectoryShareAccess = FILE_SHARE_READ | FILE_SHARE_WRITE;
 
 using NtCreateFileFunction = NTSTATUS(NTAPI*)(PHANDLE, ACCESS_MASK, POBJECT_ATTRIBUTES,
                                               PIO_STATUS_BLOCK, PLARGE_INTEGER, ULONG,
@@ -797,8 +798,9 @@ class WindowsFilesystemBackend final : public PlatformBackend {
       }
       const HANDLE current = result.handle(root_.get());
       RelativeOpenResult opened = OpenRelative(
-          *api_, current, component, kDirectoryAccess, FILE_SHARE_READ, kFileOpenIf,
-          kFileDirectoryFile | kFileOpenForBackupIntent, security_->descriptor());
+          *api_, current, component, kDirectoryAccess, kDirectoryShareAccess,
+          kFileOpenIf, kFileDirectoryFile | kFileOpenForBackupIntent,
+          security_->descriptor());
       if (!opened.handle.valid()) {
         result.error =
             opened.error == ERROR_DIRECTORY || opened.error == ERROR_CANT_ACCESS_FILE
@@ -908,8 +910,9 @@ FilesystemBackendOpenResult OpenWindowsFilesystemBackend(
   }
 
   UniqueHandle root(::CreateFileW(
-      root_path.c_str(), kDirectoryAccess, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
-      FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr));
+      root_path.c_str(), kDirectoryAccess, kDirectoryShareAccess, nullptr,
+      OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+      nullptr));
   if (!root.valid()) {
     const DWORD error = ::GetLastError();
     return {
@@ -928,7 +931,7 @@ FilesystemBackendOpenResult OpenWindowsFilesystemBackend(
   }
 
   RelativeOpenResult temporary = OpenRelative(
-      *api, root.get(), kTemporaryDirectory, kDirectoryAccess, FILE_SHARE_READ,
+      *api, root.get(), kTemporaryDirectory, kDirectoryAccess, kDirectoryShareAccess,
       kFileOpenIf, kFileDirectoryFile | kFileOpenForBackupIntent,
       security->descriptor());
   if (!temporary.handle.valid()) {
