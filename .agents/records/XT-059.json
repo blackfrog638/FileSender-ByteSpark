@@ -2,7 +2,7 @@
   "schema_version": 3,
   "id": "XT-059",
   "task_type": "governance",
-  "state": "integrated",
+  "state": "done",
   "owner": "roadmap-status-agent",
   "base_sha": "cb58e9153de4a4ac45b864d40de9f7aeecfd877d",
   "head_sha": "3d1ff15251b02809a4dfe37bdc50c8f9f873f0ba",
@@ -97,9 +97,9 @@
     ],
     "source_commits_sha256": "38038b9206fc7404e90af6c5813bf37ff9e640483256ba9ec771fc55cf7de301",
     "source_patch_id": "026492e7e47162bca8f9623a382671fe427bc8cb",
-    "result": "",
+    "result": "e2e5abf65f3d4584b768636b847e23badadbeffe",
     "result_patch_id": "026492e7e47162bca8f9623a382671fe427bc8cb",
-    "verified_sha": ""
+    "verified_sha": "e2e5abf65f3d4584b768636b847e23badadbeffe"
   },
   "verification": {
     "status": "passed",
@@ -109,11 +109,11 @@
     "commands": [
       "make verify"
     ],
-    "reference": "local:3d1ff15251b02809a4dfe37bdc50c8f9f873f0ba:2026-08-08T20:59:44Z"
+    "reference": "local:e2e5abf65f3d4584b768636b847e23badadbeffe:make-verify"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-09T05:18:36+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
