@@ -976,7 +976,8 @@
         "tool/harness/new_task.sh",
         ".agents/records/README.md",
         ".agents/tasks/TASK_TEMPLATE.md",
-        "docs/adr/0013-attributed-defect-proof.md"
+        "docs/adr/0013-attributed-defect-proof.md",
+        "AGENTS.md"
       ]
     }
   ]
