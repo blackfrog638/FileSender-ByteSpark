@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-024",
   "task_type": "review",
-  "state": "integrated",
+  "state": "done",
   "owner": "security-runtime-review-agent",
   "base_sha": "1515a22f11f6fc01435b20b9b4944894cadac1b3",
   "head_sha": "39ee8d669012326ad94b4f6fd07306c0a2269eb4",
@@ -93,9 +93,9 @@
     ],
     "source_commits_sha256": "6e3c9520cc67fab62e2c05d8aab01ba542b97426e47f9c8f6519ba5b82a0d018",
     "source_patch_id": "e42811bfa7877f0c76ec6552ec917091d0de69f4",
-    "result": "",
+    "result": "59f64415df58b84524c28928a296d502d38c8bdb",
     "result_patch_id": "e42811bfa7877f0c76ec6552ec917091d0de69f4",
-    "verified_sha": ""
+    "verified_sha": "59f64415df58b84524c28928a296d502d38c8bdb"
   },
   "verification": {
     "status": "passed",
@@ -103,11 +103,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:39ee8d669012326ad94b4f6fd07306c0a2269eb4:2026-08-08T21:31:15Z"
+    "reference": "local:0467f4d3a28c79a2ac27471c24c22396eabda6cd:security-and-verify"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-09T05:42:15+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
