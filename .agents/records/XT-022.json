@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-022",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "protected-identity-agent",
   "base_sha": "cf49286ff409babf743d6d707c99fe405dc472b6",
   "head_sha": "2bc845bb1093aac67829d76c8bd6d78387544c10",
@@ -117,7 +117,7 @@
     "source_patch_id": "06388a3393e55c120c45b1888cdd8799f250ef78",
     "result": "135a60231b4976bfa8ff8030db1acc6510f17410",
     "result_patch_id": "06388a3393e55c120c45b1888cdd8799f250ef78",
-    "verified_sha": ""
+    "verified_sha": "92e6417a12aca2977e67fbcc209e72853c0e78d1"
   },
   "verification": {
     "status": "passed",
@@ -126,11 +126,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:2bc845bb1093aac67829d76c8bd6d78387544c10:2026-08-08T01:22:59Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31233301408"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-08T09:59:49+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
