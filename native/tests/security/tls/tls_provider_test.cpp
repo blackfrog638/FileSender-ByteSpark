@@ -81,7 +81,7 @@ class MemoryProtectedStore final : public identity::ProtectedStore {
     const bool updates =
         expected_revision.has_value() && iterator != items_.end() &&
         iterator->second.revision == *expected_revision &&
-        *expected_revision != std::numeric_limits<std::uint64_t>::max() &&
+        *expected_revision != (std::numeric_limits<std::uint64_t>::max)() &&
         replacement.revision == *expected_revision + 1;
     if (!creates && !updates) {
       return identity::Result<void>::Failure(identity::ErrorCode::kRevisionConflict);
