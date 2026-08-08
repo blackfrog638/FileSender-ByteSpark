@@ -2,10 +2,10 @@
   "schema_version": 2,
   "id": "XT-022",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "protected-identity-agent",
+  "base_sha": "093b317fcedd1317e0a23e1e212af75b333fd9ee",
+  "head_sha": "2bc845bb1093aac67829d76c8bd6d78387544c10",
   "handoff": ".agents/handoffs/XT-022.md",
   "architecture_change": {
     "mode": "replace",
@@ -24,43 +24,63 @@
     "functionality": {
       "level": "high",
       "rationale": "Identity creation or pairing-record failures can permanently lose trust state or disable pairing.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "security": {
       "level": "critical",
       "rationale": "Private keys and trust records must never fall back to plaintext, synchronized, or attacker-controlled storage.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "performance": {
       "level": "low",
       "rationale": "Protected-store access occurs on startup and trust updates but must not stall runtime state ownership.",
-      "gates": ["make native-test"]
+      "gates": [
+        "make native-test"
+      ]
     },
     "compatibility": {
       "level": "high",
       "rationale": "Stored identity and pairing records must remain readable or fail closed across supported upgrades.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "concurrency": {
       "level": "high",
       "rationale": "Concurrent first-run identity creation and trust updates must be atomic and race-safe.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "platform": {
       "level": "critical",
       "rationale": "Keychain, Credential Manager, and Secret Service have different protection and availability semantics.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "persistence": {
       "level": "critical",
       "rationale": "This task owns durable private identity and peer trust records, including corruption and rollback behavior.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     }
   },
   "impacts": {
     "adr": {
       "required": true,
-      "status": "proposed",
+      "status": "accepted",
       "references": [
         "docs/adr/0009-protected-identity-storage.md"
       ],
@@ -78,18 +98,35 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "093b317fcedd1317e0a23e1e212af75b333fd9ee",
+    "source_head": "ac9f11042a5d8a9ba91d0c513969b9b835543ba3",
+    "source_commits": [
+      "04a6a4c332cf982b04a68784269ba5282d5da8a5",
+      "4dbf371188b83ac0df716593b56cbdbba164487c",
+      "65d20ef39833c7aab07b6b703c5f508cdd3bcd0b",
+      "5bbb68bab08c8659474c459d823fcf884214d91f",
+      "936fc8401d0a6550337070c563c522c934fbd0f9",
+      "8ff41af5c90ba8983ea8e4438aa1b228e656d821",
+      "e99840c15891bf68227d9241c53d4529e08b3ba1",
+      "fd5ecce553c56c326be9c7aaac5d42c447a7c439",
+      "2bc845bb1093aac67829d76c8bd6d78387544c10",
+      "ac9f11042a5d8a9ba91d0c513969b9b835543ba3"
+    ],
+    "source_commits_sha256": "6c4c58f317a6ec2dbe695a21ac10343543469310d431fbbb416d851e21674a83",
+    "source_patch_id": "06388a3393e55c120c45b1888cdd8799f250ef78",
+    "result": "",
+    "result_patch_id": "06388a3393e55c120c45b1888cdd8799f250ef78",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make native-test",
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:2bc845bb1093aac67829d76c8bd6d78387544c10:2026-08-08T01:22:59Z"
   },
   "acceptance": {
     "accepted_by": "",
