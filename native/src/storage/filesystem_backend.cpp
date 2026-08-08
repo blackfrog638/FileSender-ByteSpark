@@ -25,6 +25,11 @@
 
 namespace xnn_transfer::core::storage {
 
+#if defined(_WIN32)
+FilesystemBackendOpenResult OpenWindowsFilesystemBackend(
+    std::string_view destination_root_utf8);
+#endif
+
 #if !defined(_WIN32)
 namespace {
 
@@ -51,6 +56,18 @@ constexpr std::string_view kTemporaryPrefix = "part-";
     default:
       return PlatformError::kIoFailure;
   }
+}
+
+[[nodiscard]] PlatformError ValidateTrustedDirectory(const int fd) noexcept {
+  struct stat metadata{};
+  if (::fstat(fd, &metadata) != 0) {
+    return ErrorFromErrno(errno);
+  }
+  if (!S_ISDIR(metadata.st_mode) || metadata.st_uid != ::geteuid() ||
+      (metadata.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
+    return PlatformError::kInvalidRoot;
+  }
+  return PlatformError::kNone;
 }
 
 [[nodiscard]] bool StartsWith(const std::string_view value,
@@ -347,6 +364,12 @@ class PosixFilesystemBackend final : public PlatformBackend {
         ::close(current);
         return {.error = error};
       }
+      const PlatformError trust_error = ValidateTrustedDirectory(next);
+      if (trust_error != PlatformError::kNone) {
+        ::close(next);
+        ::close(current);
+        return {.error = trust_error};
+      }
       if (::fsync(current) != 0) {
         const PlatformError error = ErrorFromErrno(errno);
         ::close(next);
@@ -383,6 +406,11 @@ class PosixFilesystemBackend final : public PlatformBackend {
   if (root_fd < 0) {
     return {.error = errno == ELOOP || errno == ENOTDIR ? PlatformError::kInvalidRoot
                                                         : ErrorFromErrno(errno)};
+  }
+  const PlatformError root_trust_error = ValidateTrustedDirectory(root_fd);
+  if (root_trust_error != PlatformError::kNone) {
+    ::close(root_fd);
+    return {.error = root_trust_error};
   }
 
   if (::mkdirat(root_fd, kTemporaryDirectory.data(), S_IRWXU) != 0 && errno != EEXIST) {
@@ -456,8 +484,7 @@ class PosixFilesystemBackend final : public PlatformBackend {
 FilesystemBackendOpenResult OpenFilesystemBackend(
     const std::string_view destination_root_utf8) {
 #if defined(_WIN32)
-  static_cast<void>(destination_root_utf8);
-  return {.error = PlatformError::kUnsupported};
+  return OpenWindowsFilesystemBackend(destination_root_utf8);
 #else
   return OpenPosixBackend(destination_root_utf8);
 #endif
