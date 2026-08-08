@@ -83,6 +83,20 @@ provenance contains:
 - `result`, filled with the delivery SHA during acceptance;
 - `verified_sha`, also filled during acceptance.
 
+At claim, review, and integration, explicit backlog `owned_paths` are compared
+with effective records from every active task branch. Exact, glob, recursive,
+and uncertain potential intersections block the second task. Claim conflict
+detection and branch creation execute under a Git-ref compare-and-swap lock; a
+lock whose recorded process has exited is recovered atomically.
+
+Custom claim bases, review, and integration also compare `base_sha` with the
+current integration branch. Diverged history always fails. An older ancestor
+fails when upstream changed a declared owned path or a global governance path,
+including the harness, manifest, architecture inventory, commit identity,
+hooks, CI, root Makefile, or commit policy. Unrelated product paths do not
+serialize delivery. Rebase, update `base_sha`, and repeat review after a
+relevant stale-base failure.
+
 Payload patch IDs exclude `.agents/records/XT-NNN.json` for the current task
 because integration generates that metadata inside the delivery commit. The
 record itself is validated structurally, source commits are checked against
