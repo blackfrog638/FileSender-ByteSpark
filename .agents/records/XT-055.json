@@ -1,0 +1,126 @@
+{
+  "schema_version": 3,
+  "id": "XT-055",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-055.md",
+  "commit": {
+    "type": "feat",
+    "scope": "harness",
+    "summary": "prove deterministic defects across revisions"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "A false positive could accept a non-reproducing bugfix, while a false negative could block every legitimate defect review.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "Task-authored commands, forged exit codes, or a reproduction outside the reviewed range would make security evidence untrustworthy.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Deterministic bugfix review intentionally executes its regression gate at two revisions.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "medium",
+      "rationale": "Feature, refactor, investigation, test, governance, and schema version 1 or 2 review paths must remain unchanged.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "medium",
+      "rationale": "Temporary detached worktrees must be uniquely owned and removed without disturbing active task worktrees.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "Gate execution and detached worktree cleanup use Git, Python, and the existing shell contract across development hosts.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "Generated proof metadata becomes durable review and integration evidence and must remain bound to the trusted command and revisions.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "accepted",
+      "references": [
+        "docs/adr/0011-defect-task-governance.md"
+      ],
+      "rationale": "This task implements and amends the accepted cross-workstream defect proof policy."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The proof runner changes harness behavior, not product runtime module boundaries."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Deterministic defect proof is repository governance rather than a product milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
