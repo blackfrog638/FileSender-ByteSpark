@@ -2,10 +2,10 @@
   "schema_version": 3,
   "id": "XT-055",
   "task_type": "governance",
-  "state": "review",
+  "state": "in_progress",
   "owner": "defect-proof-agent",
   "base_sha": "ee4cf9f70e29471ac16e06c2abdda8651117fc1b",
-  "head_sha": "36bf9f875acc006f151c3104357a9943fe2a8120",
+  "head_sha": "",
   "handoff": ".agents/handoffs/XT-055.md",
   "commit": {
     "type": "feat",
@@ -107,7 +107,7 @@
     "verified_sha": ""
   },
   "verification": {
-    "status": "passed",
+    "status": "pending",
     "gates": [
       "governance_test",
       "verify"
@@ -116,7 +116,7 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": "local:36bf9f875acc006f151c3104357a9943fe2a8120:2026-08-08T02:28:08Z"
+    "reference": ""
   },
   "acceptance": {
     "accepted_by": "",
