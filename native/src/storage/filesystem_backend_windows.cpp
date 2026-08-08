@@ -1,6 +1,9 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00
 #endif
@@ -827,7 +830,7 @@ class WindowsFilesystemBackend final : public PlatformBackend {
                                       const std::wstring_view filename) const {
     const std::size_t filename_bytes = filename.size() * sizeof(wchar_t);
     const std::size_t buffer_bytes =
-        offsetof(FILE_RENAME_INFO, FileName) + filename_bytes;
+        offsetof(FILE_RENAME_INFO, FileName) + filename_bytes + sizeof(wchar_t);
     if (filename_bytes > std::numeric_limits<DWORD>::max() ||
         buffer_bytes > std::numeric_limits<DWORD>::max()) {
       return ERROR_INVALID_NAME;
