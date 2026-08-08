@@ -6,6 +6,7 @@ export PYTHONDONTWRITEBYTECODE=1
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 python3 -B "$root/tool/harness/trusted_gates_test.py"
+python3 -B "$root/tool/harness/defect_proof_test.py"
 temporary="$(mktemp -d)"
 repository="$temporary/repository"
 task_id="XT-999"
@@ -511,7 +512,7 @@ try:
     )
     if result.returncode == 0:
         raise SystemExit("mark-review accepted a missing reproduction commit")
-    if "defect.reproduction_commit must be a non-empty string" not in result.stderr:
+    if "reproduction commit must be a full lowercase SHA" not in result.stderr:
         raise SystemExit(
             "mark-review rejected a missing reproduction for the wrong reason:\n"
             + result.stderr

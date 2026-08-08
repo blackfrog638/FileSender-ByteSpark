@@ -37,6 +37,25 @@ before review. The regression gate must be registered and included in
 - `preserve`: repair an internal defect without external behavior change;
 - `change`: intentionally change the contract and bind an ADR.
 
+A deterministic bugfix cannot enter review until `transition review` executes
+the exact regression gate in a detached reproduction worktree and at the
+reviewed head. The first execution must return a nonzero, non-infrastructure
+exit code; the second must return zero. The generated
+`verification.defect_proof` object binds:
+
+- proof mode and regression gate ID;
+- SHA-256 of the resolved trusted command;
+- reproduction and reviewed-head commit IDs;
+- both exit codes and the check time.
+
+The reproduction commit must be an ancestor of the reviewed head and no older
+than the task base. Governance revalidates the binding from durable metadata.
+`mark-review` executes and overwrites the generated proof at the mutation
+boundary, so calling the low-level command cannot substitute task-authored
+fields for execution.
+`sanitizer`, `stress`, `platform_ci`, and `manual` remain valid planning modes
+but have no review executor yet, so they fail closed at review.
+
 An `investigation` contains a bounded question, scope, required evidence, exit
 criteria, and outcome disposition. `pending` is allowed during investigation
 but not at review; final dispositions are `bugfix`, `feature`, or `no_change`.
