@@ -2,10 +2,10 @@
   "schema_version": 2,
   "id": "XT-027",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "safe-storage-agent",
+  "base_sha": "2528472b4655bfc473fd473c07af87bc38375b8f",
+  "head_sha": "b654266c768e8e4404c7a14f9c16a0edb31ab7c3",
   "handoff": ".agents/handoffs/XT-027.md",
   "architecture_change": {
     "mode": "replace",
@@ -24,37 +24,57 @@
     "functionality": {
       "level": "high",
       "rationale": "Receive transactions must either commit one verified file or leave no visible partial result.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "security": {
       "level": "critical",
       "rationale": "Hostile paths, links, races, sizes, and filesystem errors must not escape the selected destination.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "performance": {
       "level": "medium",
       "rationale": "Temporary usage, hashing, free-space checks, and file writes must remain bounded by declared limits.",
-      "gates": ["make native-test"]
+      "gates": [
+        "make native-test"
+      ]
     },
     "compatibility": {
       "level": "high",
       "rationale": "Path and collision behavior differs by filesystem but must preserve the accepted manifest contract.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "concurrency": {
       "level": "high",
       "rationale": "Destination replacement, cancellation, cleanup, and commit can race with filesystem changes.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "platform": {
       "level": "critical",
       "rationale": "Symlink, reparse-point, Unicode, atomic rename, and permission semantics vary across supported systems.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "persistence": {
       "level": "critical",
       "rationale": "This task creates temporary filesystem state and commits durable destination files.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     }
   },
   "impacts": {
@@ -76,18 +96,53 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "2528472b4655bfc473fd473c07af87bc38375b8f",
+    "source_head": "dbabdb3192e3c2c2854eb511bfea4ec7725fe049",
+    "source_commits": [
+      "a4e31a8764182257b4b5f2084d9ead8622a8f7ca",
+      "f39b0b1772b005fec10be6719a5da0ebe04465d0",
+      "53fee18dfb751ab7dd56d6e6f50ace78d3022bcb",
+      "2b8439625c8afac0ab77b3a204d2416db9a17327",
+      "5d5b2d3b58555862f1a63896863ba0b8788ed05a",
+      "9c5991be7094fb966d136394d149aeec22ecf93a",
+      "6d4e59698fd25dda5cc4e26f3583e572173b3ae3",
+      "1a914a203b1321271ac60b3cf36d97ac3067649e",
+      "71a02c10df1b23a50562e56b09fb638cd4cfd5d9",
+      "544b39a8a82bd9f7fd50d9e22b955ab0083533e8",
+      "0f1d9e285739c0f830327e979d202140c048957a",
+      "7c6d447ddfe74e2735ebbb10b67293129777c24f",
+      "eb92b370e5dc2a3679a4106a94c82131f065a309",
+      "60ee5be93a5dff65661844e52d2f4d8b98cb1237",
+      "c96c50d5e5c97d78ac9431938705be56fa814e47",
+      "317f0c859f13d43699896253da5a6aa24fe4212e",
+      "e0519cc6b1803ace7cdb5669bc3a781c619d6efa",
+      "4e8c51d4573bfc0343a526713c28f683c5786901",
+      "02b7f99e1b1385210f2d83d0775e55a9da7b045b",
+      "a43207f6a35a555068218510ed6822c243fd2df1",
+      "6b128c4298d07b8b4a569ec52688ec5b896a1aba",
+      "732141bb81993f44dc9c501984b1fee4cd4d724c",
+      "93455242ad7369a8f25dba251c0dfbfebce469de",
+      "8a6b31d44dc122acf73fd62b2cf9f7147cc1e65e",
+      "e64cae47fa1e179381b21c50bbe92d7546d74db6",
+      "213d4baa0d407d817125c0d24dfe18d55fed0ed7",
+      "b654266c768e8e4404c7a14f9c16a0edb31ab7c3",
+      "dbabdb3192e3c2c2854eb511bfea4ec7725fe049"
+    ],
+    "source_commits_sha256": "474cd8055d8e768c02227fe01272b9a728261a6fb2d76092198496be923a13f7",
+    "source_patch_id": "17783526d00860420d1074451a3b492ae5512c2d",
+    "result": "",
+    "result_patch_id": "17783526d00860420d1074451a3b492ae5512c2d",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make native-test",
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:b654266c768e8e4404c7a14f9c16a0edb31ab7c3:2026-08-08T21:54:51Z"
   },
   "acceptance": {
     "accepted_by": "",
