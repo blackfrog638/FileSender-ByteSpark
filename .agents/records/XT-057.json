@@ -1,0 +1,136 @@
+{
+  "schema_version": 3,
+  "id": "XT-057",
+  "task_type": "bugfix",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-057.md",
+  "commit": {
+    "type": "fix",
+    "scope": "protocol",
+    "summary": "terminate transcripts after fatal errors"
+  },
+  "architecture_change": {
+    "mode": "refactor",
+    "modules": [
+      "protocol"
+    ],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Terminal-state mistakes can either accept frames after a fatal error or incorrectly kill a healthy stream-scoped transcript.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "Continuing after connection-fatal framing or negotiation errors processes attacker input after parser state is no longer trustworthy.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "The fix adds one terminal-state branch per transcript frame without changing allocation or framing limits.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "medium",
+      "rationale": "All valid transcripts and stream-scoped post-binding failures must retain their existing behavior.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "TranscriptParser remains a caller-confined mutable parser and gains no asynchronous or shared access.",
+      "gates": []
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "The state classification is platform-neutral C++ and must pass native builds on every desktop target.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The parser state is process-local and does not change any persisted schema or recovery format.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The fix restores the connection-fatal rules already specified in protocol v1 section 14."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The implementation remains inside the canonical protocol target and changes no dependency boundary."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "This closes a parser defect without completing a new product milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "native_test",
+      "security_test",
+      "verify"
+    ],
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  },
+  "defect": {
+    "severity": "P1",
+    "source": "audit",
+    "symptom": "TranscriptParser accepts a valid frame after returning a connection-fatal framing error.",
+    "expected_contract": "Protocol v1 section 14 requires malformed framing and negotiation failures to terminate the connection because shared parser state is no longer trustworthy.",
+    "actual_behavior": "A malformed frame returns MALFORMED_FRAME, but the same parser then accepts a valid message with the next unchanged message ID.",
+    "trigger": "Process a truncated declared frame, then process a valid initiator HELLO with message ID 1 on the same TranscriptParser.",
+    "affected_since": "initial TranscriptParser implementation",
+    "proof_mode": "deterministic",
+    "reproduction_commit": "",
+    "regression_gate": "native_test",
+    "contract_disposition": "restore"
+  }
+}
