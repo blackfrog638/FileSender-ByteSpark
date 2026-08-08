@@ -1,0 +1,117 @@
+{
+  "schema_version": 2,
+  "id": "XT-054",
+  "task_type": "implementation",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-054.md",
+  "commit": {
+    "type": "feat",
+    "scope": "harness",
+    "summary": "add typed defect task contracts"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Incorrect schema rules could misclassify feature work as a bugfix or accept a defect task without reviewable evidence.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "Security defects must not bypass specialized risk gates by using incomplete or untrusted defect metadata.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "none",
+      "rationale": "Schema validation operates on small task records and adds no product runtime work.",
+      "gates": []
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "All existing schema version 1 and 2 records must remain valid without bulk migration.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "This task validates immutable record content and introduces no concurrent state.",
+      "gates": []
+    },
+    "platform": {
+      "level": "none",
+      "rationale": "The schema and generator use portable Python and shell constructs already exercised by repository CI.",
+      "gates": []
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "Task records are durable lifecycle evidence, so malformed schema version 3 data must fail closed.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0011-defect-task-governance.md"
+      ],
+      "rationale": "Typed defect handling changes the durable compatibility policy shared by every workstream."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Runtime module boundaries and dependency direction are unchanged."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "This governance capability does not itself deliver a product milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

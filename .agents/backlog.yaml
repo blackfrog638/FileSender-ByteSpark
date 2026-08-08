@@ -873,6 +873,27 @@
         "tool/harness/governance_test.sh",
         "docs/commit-policy.md"
       ]
+    },
+    {
+      "id": "XT-054",
+      "title": "Typed defect contracts",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-050"
+      ],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/records/README.md",
+        ".agents/tasks/TASK_TEMPLATE.md",
+        "docs/adr/0011-defect-task-governance.md",
+        "tool/harness/governance.py",
+        "tool/harness/governance_test.sh",
+        "tool/harness/new_task.sh"
+      ]
     }
   ]
 }
