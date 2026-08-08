@@ -185,18 +185,25 @@ Xnn-Lifecycle: $lifecycle" >/dev/null
 run_verification() {
   local worktree="$1"
   local task_id="$2"
-  local command
+  local command commands_file
+  commands_file="$(mktemp)"
+  if ! "$worktree/tool/harness/governance.py" \
+    verification-commands "$task_id" >"$commands_file"; then
+    rm -f "$commands_file"
+    return 1
+  fi
   while IFS= read -r command; do
     [[ -n "$command" ]] || continue
     printf '[verify:%s] %s\n' "$task_id" "$command"
-    (
+    if ! (
       cd "$worktree"
       bash -lc "$command"
-    )
-  done < <(
-    "$worktree/tool/harness/governance.py" \
-      verification-commands "$task_id"
-  )
+    ); then
+      rm -f "$commands_file"
+      return 1
+    fi
+  done <"$commands_file"
+  rm -f "$commands_file"
 }
 
 commit_patch_id() {
@@ -396,6 +403,7 @@ transition() {
   local task_id="$1"
   local next="$2"
   local branch current allowed worktree head reference lifecycle
+  local record_backup proof_record proof_output
   branch="$(task_branch "$task_id")"
   if ! git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
     printf '%s is not claimed.\n' "$task_id" >&2
@@ -429,10 +437,35 @@ transition() {
       "$worktree/tool/harness/governance.py" \
         prepare-review "$task_id"
     )"
-    run_verification "$worktree" "$task_id"
+    record_backup="$(mktemp)"
+    cp "$worktree/.agents/records/$task_id.json" "$record_backup"
+    if ! proof_output="$(
+      python3 -B "$worktree/tool/harness/defect_proof.py" \
+        --root "$worktree" "$task_id" "$head"
+    )"; then
+      cp "$record_backup" "$worktree/.agents/records/$task_id.json"
+      rm -f "$record_backup"
+      exit 1
+    fi
+    proof_record="$(mktemp)"
+    cp "$worktree/.agents/records/$task_id.json" "$proof_record"
+    cp "$record_backup" "$worktree/.agents/records/$task_id.json"
+    if ! run_verification "$worktree" "$task_id"; then
+      rm -f "$record_backup" "$proof_record"
+      exit 1
+    fi
+    cp "$proof_record" "$worktree/.agents/records/$task_id.json"
     reference="local:$head:$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-    "$worktree/tool/harness/governance.py" \
-      mark-review "$task_id" "$head" "$reference"
+    if ! "$worktree/tool/harness/governance.py" \
+      mark-review "$task_id" "$head" "$reference"; then
+      cp "$record_backup" "$worktree/.agents/records/$task_id.json"
+      rm -f "$record_backup" "$proof_record"
+      exit 1
+    fi
+    rm -f "$record_backup" "$proof_record"
+    if [[ -n "$proof_output" ]]; then
+      printf '[proof:%s] %s\n' "$task_id" "$proof_output"
+    fi
   else
     if [[ -n "$(git -C "$worktree" status --porcelain)" ]]; then
       printf '%s worktree must be clean before a state transition.\n' \

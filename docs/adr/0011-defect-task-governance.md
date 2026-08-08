@@ -3,6 +3,7 @@
 - Status: accepted
 - Date: 2026-08-08
 - Accepted by task: XT-054
+- Deterministic proof implemented by task: XT-055
 
 ## Context
 
@@ -66,8 +67,27 @@ Severity is `P0`, `P1`, `P2`, or `P3`. Source is one of `audit`, `ci`,
 command. It must also appear in the task's verification gates.
 `reproduction_commit` may remain empty while the task is ready, claimed,
 blocked, or in progress. Review and later states require a full commit ID.
-XT-055 will define and execute the failure-at-reproduction and pass-at-head
-proof; schema version 3 only reserves and validates its inputs.
+
+For `deterministic`, review resolves the gate command from the current trusted
+manifest and runs it in both states:
+
+```text
+task base <= reproduction commit < reviewed head
+reproduction gate exit != 0, 126, or 127
+reviewed head gate exit == 0
+```
+
+The reproduction runs in a temporary detached worktree that is removed after
+execution. The head runs in the clean task worktree, which must remain clean.
+The generated `verification.defect_proof` binds proof mode, gate ID, command
+SHA-256, both commit IDs, both exit codes, and check time. Governance validates
+that binding again at review and integration. A failed proof, verification
+gate, or review mutation restores the pre-proof task record.
+
+`sanitizer`, `stress`, `platform_ci`, and `manual` are not treated as
+deterministic aliases. They remain plan-valid but fail closed at review until
+an executor defines their mode-specific sampling, environment, and evidence
+requirements.
 
 A bugfix must identify an existing contract or invariant. Unimplemented
 roadmap behavior remains a feature even when a test can describe it.
@@ -101,10 +121,14 @@ Other task types contain neither `defect` nor `investigation`.
   untrusted command.
 - Schema version 3 records carry more planning data, and bugfix review cannot
   begin until a reproduction commit exists.
-- Proof execution, concurrency conflict detection, and the first real bugfix
-  remain separate tasks so schema and executor failures are attributable.
+- Deterministic proof executes one specialized gate twice in addition to the
+  task verification list, increasing review time in exchange for direct
+  regression evidence.
+- Concurrency conflict detection and the first real bugfix remain separate
+  tasks so executor, scheduling, and product-fix failures are attributable.
 - Manual, stress, and platform-only defects remain expressible, but later proof
-  policy must define evidence strong enough for their risk claims.
+  policy must define evidence strong enough for their risk claims before
+  review can proceed.
 
 ## Alternatives rejected
 
