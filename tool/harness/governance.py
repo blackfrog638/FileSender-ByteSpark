@@ -21,6 +21,7 @@ HARNESS_DIR = Path(__file__).resolve().parent
 if str(HARNESS_DIR) not in sys.path:
     sys.path.insert(0, str(HARNESS_DIR))
 import architecture_change
+import defect_proof as defect_proof_runner
 from trusted_gates import GateRegistryError, load_gate_registry
 
 
@@ -89,6 +90,16 @@ DEFECT_PROOF_MODES = {
     "manual",
 }
 CONTRACT_DISPOSITIONS = {"restore", "preserve", "change"}
+DEFECT_PROOF_FIELDS = {
+    "mode",
+    "gate",
+    "command_sha256",
+    "reproduction_commit",
+    "head_commit",
+    "reproduction_exit_code",
+    "head_exit_code",
+    "checked_at",
+}
 INVESTIGATION_FIELDS = {
     "question",
     "scope",
@@ -434,6 +445,154 @@ def validate_schema_v3(
                     f"{task_id} contract-changing bugfix ADR must be "
                     "proposed or accepted"
                 )
+        verification = record.get("verification")
+        proof = (
+            verification.get("defect_proof")
+            if isinstance(verification, dict)
+            else None
+        )
+        proof_required = state in {"review", "integrated", "done"}
+        if proof_required and proof_mode != "deterministic":
+            errors.append(
+                f"{task_id}.defect.proof_mode {proof_mode!r} has no "
+                "review executor"
+            )
+        if proof_required or proof is not None:
+            proof = validate_exact_object(
+                errors,
+                proof,
+                f"{task_id}.verification.defect_proof",
+                DEFECT_PROOF_FIELDS,
+            )
+            proof_mode_value = require_string(
+                errors,
+                proof.get("mode"),
+                f"{task_id}.verification.defect_proof.mode",
+            )
+            if proof_mode_value != proof_mode:
+                errors.append(
+                    f"{task_id}.verification.defect_proof.mode does not "
+                    "match defect.proof_mode"
+                )
+            proof_gate = require_string(
+                errors,
+                proof.get("gate"),
+                f"{task_id}.verification.defect_proof.gate",
+            )
+            if proof_gate != regression_gate:
+                errors.append(
+                    f"{task_id}.verification.defect_proof.gate does not "
+                    "match defect.regression_gate"
+                )
+            command_sha = require_string(
+                errors,
+                proof.get("command_sha256"),
+                f"{task_id}.verification.defect_proof.command_sha256",
+            )
+            if command_sha and not SHA256_PATTERN.fullmatch(command_sha):
+                errors.append(
+                    f"{task_id}.verification.defect_proof.command_sha256 "
+                    "must be a SHA-256 digest"
+                )
+            command = gate_registry.get(regression_gate)
+            if (
+                command
+                and command_sha
+                and hashlib.sha256(command.encode("utf-8")).hexdigest()
+                != command_sha
+            ):
+                errors.append(
+                    f"{task_id}.verification.defect_proof.command_sha256 "
+                    "does not match the trusted gate"
+                )
+            proof_reproduction = require_string(
+                errors,
+                proof.get("reproduction_commit"),
+                f"{task_id}.verification.defect_proof.reproduction_commit",
+            )
+            if proof_reproduction != reproduction_commit:
+                errors.append(
+                    f"{task_id}.verification.defect_proof.reproduction_commit "
+                    "does not match defect.reproduction_commit"
+                )
+            proof_head = require_string(
+                errors,
+                proof.get("head_commit"),
+                f"{task_id}.verification.defect_proof.head_commit",
+            )
+            record_head = record.get("head_sha")
+            if proof_required and proof_head != record_head:
+                errors.append(
+                    f"{task_id}.verification.defect_proof.head_commit does "
+                    "not match head_sha"
+                )
+            for name, commit in (
+                ("reproduction_commit", proof_reproduction),
+                ("head_commit", proof_head),
+            ):
+                if commit and not SHA_PATTERN.fullmatch(commit):
+                    errors.append(
+                        f"{task_id}.verification.defect_proof.{name} must "
+                        "be a full lowercase SHA"
+                    )
+            reproduction_exit = proof.get("reproduction_exit_code")
+            if type(reproduction_exit) is not int or reproduction_exit in {
+                0,
+                126,
+                127,
+            }:
+                errors.append(
+                    f"{task_id}.verification.defect_proof."
+                    "reproduction_exit_code must be a non-infrastructure "
+                    "failure"
+                )
+            head_exit = proof.get("head_exit_code")
+            if type(head_exit) is not int or head_exit != 0:
+                errors.append(
+                    f"{task_id}.verification.defect_proof.head_exit_code "
+                    "must be zero"
+                )
+            checked_at = require_string(
+                errors,
+                proof.get("checked_at"),
+                f"{task_id}.verification.defect_proof.checked_at",
+            )
+            if checked_at:
+                try:
+                    checked_time = dt.datetime.fromisoformat(checked_at)
+                except ValueError:
+                    errors.append(
+                        f"{task_id}.verification.defect_proof.checked_at "
+                        "is not ISO-8601"
+                    )
+                else:
+                    if checked_time.tzinfo is None:
+                        errors.append(
+                            f"{task_id}.verification.defect_proof.checked_at "
+                            "must include a timezone"
+                        )
+            base = record.get("base_sha")
+            if (
+                verify_git
+                and proof_required
+                and isinstance(base, str)
+                and SHA_PATTERN.fullmatch(base)
+                and SHA_PATTERN.fullmatch(proof_reproduction)
+                and SHA_PATTERN.fullmatch(proof_head)
+                and commit_exists(base)
+                and commit_exists(proof_reproduction)
+                and commit_exists(proof_head)
+            ):
+                if not is_ancestor(base, proof_reproduction):
+                    errors.append(
+                        f"{task_id}.verification.defect_proof reproduction "
+                        "is outside the task base"
+                    )
+                if not is_ancestor(proof_reproduction, proof_head):
+                    errors.append(
+                        f"{task_id}.verification.defect_proof reproduction "
+                        "is not an ancestor of head"
+                    )
     elif task_type == "investigation":
         if "defect" in record:
             errors.append(
@@ -1518,17 +1677,21 @@ def mark_review(task_id: str, head_sha: str, reference: str) -> None:
     if record.get("state") != "in_progress":
         raise GovernanceError(f"{task_id} must be in_progress before review")
     original = copy.deepcopy(record)
-    record["state"] = "review"
-    record["head_sha"] = head_sha
-    record["verification"]["status"] = "passed"
-    record["verification"]["reference"] = reference
     path = record_path(task_id)
-    write_json(path, record)
     try:
+        defect_proof_runner.run_proof(ROOT, task_id, head_sha)
+        record = load_record(task_id)
+        record["state"] = "review"
+        record["head_sha"] = head_sha
+        record["verification"]["status"] = "passed"
+        record["verification"]["reference"] = reference
+        write_json(path, record)
         validate_repository()
-    except GovernanceError:
+    except (GovernanceError, defect_proof_runner.DefectProofError) as error:
         write_json(path, original)
-        raise
+        if isinstance(error, GovernanceError):
+            raise
+        raise GovernanceError(str(error)) from error
 
 
 def mark_integrated(task_id: str, provenance_path: Path) -> None:
