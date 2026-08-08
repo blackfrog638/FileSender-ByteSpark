@@ -364,6 +364,192 @@ finally:
         json.dumps(valid, indent=2) + "\n",
         encoding="utf-8",
     )
+
+
+def validate_candidate(candidate, label, expected=None):
+    record_path.write_text(
+        json.dumps(candidate, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [str(root / "tool" / "harness" / "governance.py"), "validate"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if expected is None and result.returncode != 0:
+        raise SystemExit(
+            f"Governance rejected valid schema v3 {label}:\n"
+            + result.stderr
+        )
+    if expected is not None:
+        if result.returncode == 0:
+            raise SystemExit(f"Governance accepted invalid schema v3 {label}")
+        if expected not in result.stderr:
+            raise SystemExit(
+                f"Governance rejected schema v3 {label} for the wrong reason:\n"
+                + result.stderr
+            )
+
+
+bugfix = copy.deepcopy(valid)
+bugfix["schema_version"] = 3
+bugfix["task_type"] = "bugfix"
+bugfix["defect"] = {
+    "severity": "P1",
+    "source": "test",
+    "symptom": "The parser accepts input after a fatal frame error.",
+    "expected_contract": "Fatal protocol errors terminate the parser.",
+    "actual_behavior": "A later valid frame is accepted.",
+    "trigger": "Feed a truncated frame followed by a valid frame.",
+    "affected_since": "initial parser implementation",
+    "proof_mode": "deterministic",
+    "reproduction_commit": "",
+    "regression_gate": "verify",
+    "contract_disposition": "restore",
+}
+
+try:
+    validate_candidate(bugfix, "bugfix")
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["task_type"] = "incident"
+    validate_candidate(invalid, "task type", "task_type must be one of")
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["verification"].pop("gates")
+    validate_candidate(
+        invalid,
+        "missing trusted gates",
+        "verification.gates is required by schema version 3",
+    )
+
+    invalid = copy.deepcopy(bugfix)
+    invalid.pop("defect")
+    validate_candidate(invalid, "missing defect", "defect must be an object")
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["defect"]["regression_command"] = "true"
+    validate_candidate(invalid, "unknown defect field", "has unknown fields")
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["defect"]["severity"] = "urgent"
+    validate_candidate(invalid, "severity", "severity must be one of")
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["defect"]["proof_mode"] = "hope"
+    validate_candidate(invalid, "proof mode", "proof_mode must be one of")
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["defect"]["regression_gate"] = "unknown"
+    validate_candidate(
+        invalid,
+        "unregistered regression gate",
+        "regression_gate is not registered",
+    )
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["defect"]["regression_gate"] = "commit_message_test"
+    validate_candidate(
+        invalid,
+        "unexecuted regression gate",
+        "regression_gate must appear in verification.gates",
+    )
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["defect"]["contract_disposition"] = "change"
+    validate_candidate(
+        invalid,
+        "contract change without ADR",
+        "contract-changing bugfix requires an ADR",
+    )
+
+    contract_change = copy.deepcopy(bugfix)
+    contract_change["defect"]["contract_disposition"] = "change"
+    contract_change["impacts"]["adr"] = {
+        "required": True,
+        "status": "accepted",
+        "references": ["docs/adr/0011-defect-task-governance.md"],
+        "rationale": "The reviewed ADR changes the governed contract.",
+    }
+    validate_candidate(contract_change, "contract change with ADR")
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["state"] = "review"
+    validate_candidate(
+        invalid,
+        "review without reproduction",
+        "defect.reproduction_commit must be a non-empty string",
+    )
+
+    in_progress = copy.deepcopy(bugfix)
+    in_progress["state"] = "in_progress"
+    in_progress["owner"] = "test-agent"
+    in_progress["base_sha"] = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    record_path.write_text(
+        json.dumps(in_progress, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            str(root / "tool" / "harness" / "governance.py"),
+            "mark-review",
+            task_id,
+            in_progress["base_sha"],
+            "test:missing-reproduction",
+        ],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        raise SystemExit("mark-review accepted a missing reproduction commit")
+    if "defect.reproduction_commit must be a non-empty string" not in result.stderr:
+        raise SystemExit(
+            "mark-review rejected a missing reproduction for the wrong reason:\n"
+            + result.stderr
+        )
+    restored = json.loads(record_path.read_text(encoding="utf-8"))
+    if restored["state"] != "in_progress":
+        raise SystemExit("mark-review did not restore the rejected record")
+
+    feature = copy.deepcopy(bugfix)
+    feature["task_type"] = "feature"
+    validate_candidate(
+        feature,
+        "feature with defect",
+        "defect is only valid for task_type bugfix",
+    )
+
+    investigation = copy.deepcopy(valid)
+    investigation["schema_version"] = 3
+    investigation["task_type"] = "investigation"
+    investigation["investigation"] = {
+        "question": "Can the shutdown callback outlive its service?",
+        "scope": "Discovery timer and interface monitor callbacks.",
+        "evidence_required": "Sanitizer trace or a lifetime proof.",
+        "exit_criteria": "Classify the report as a bugfix, feature, or no change.",
+        "outcome_disposition": "pending",
+    }
+    validate_candidate(investigation, "investigation")
+    investigation["state"] = "review"
+    validate_candidate(
+        investigation,
+        "pending investigation review",
+        "outcome_disposition cannot remain pending at review",
+    )
+finally:
+    record_path.write_text(
+        json.dumps(valid, indent=2) + "\n",
+        encoding="utf-8",
+    )
 PY
 
 git -C "$repository" branch task/XT-998
@@ -754,6 +940,18 @@ if "$archived_repository/tool/harness/governance.py" \
 fi
 "$repository/tool/harness/agent.sh" validate >/dev/null
 
+if "$repository/tool/harness/new_task.sh" \
+  XT-997 invalid-type-fixture integration \
+  --task-type incident \
+  --commit-type test \
+  --commit-scope harness \
+  --commit-summary 'reject invalid generated task type' \
+  --architecture-mode none \
+  --owned '.agents/handoffs/XT-997.md' >/dev/null 2>&1; then
+  printf 'Task generator accepted an invalid task type.\n' >&2
+  exit 1
+fi
+
 "$repository/tool/harness/new_task.sh" \
   XT-998 no-dependency-fixture integration \
   --commit-type test \
@@ -763,6 +961,17 @@ fi
   --owned '.agents/handoffs/XT-998.md' >/dev/null
 test -f "$repository/.agents/tasks/XT-998-no-dependency-fixture.md"
 test -f "$repository/.agents/records/XT-998.json"
+
+"$repository/tool/harness/new_task.sh" \
+  XT-997 bugfix-fixture integration \
+  --task-type bugfix \
+  --commit-type fix \
+  --commit-scope harness \
+  --commit-summary 'exercise generated bugfix governance' \
+  --architecture-mode none \
+  --owned '.agents/handoffs/XT-997.md' >/dev/null
+test -f "$repository/.agents/tasks/XT-997-bugfix-fixture.md"
+test -f "$repository/.agents/records/XT-997.json"
 
 python3 - "$repository" <<'PY'
 import json
@@ -780,7 +989,8 @@ assert task["architecture_contract_required"] is True
 record = json.loads(
     (root / ".agents" / "records" / "XT-998.json").read_text(encoding="utf-8")
 )
-assert record["schema_version"] == 2
+assert record["schema_version"] == 3
+assert record["task_type"] == "feature"
 assert record["commit"] == {
     "type": "test",
     "scope": "harness",
@@ -813,6 +1023,31 @@ spec = (
 ).read_text(encoding="utf-8")
 assert "## Risk profile" in spec
 assert "## Architecture change" in spec
+
+bugfix = json.loads(
+    (root / ".agents" / "records" / "XT-997.json").read_text(encoding="utf-8")
+)
+assert bugfix["schema_version"] == 3
+assert bugfix["task_type"] == "bugfix"
+assert set(bugfix["defect"]) == {
+    "severity",
+    "source",
+    "symptom",
+    "expected_contract",
+    "actual_behavior",
+    "trigger",
+    "affected_since",
+    "proof_mode",
+    "reproduction_commit",
+    "regression_gate",
+    "contract_disposition",
+}
+assert bugfix["defect"]["reproduction_commit"] == ""
+assert "TODO" in bugfix["defect"]["severity"]
+bugfix_spec = (
+    root / ".agents" / "tasks" / "XT-997-bugfix-fixture.md"
+).read_text(encoding="utf-8")
+assert "## Defect contract" in bugfix_spec
 PY
 
 generated_errors="$temporary/generated-task-errors.txt"

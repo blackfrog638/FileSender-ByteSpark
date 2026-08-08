@@ -19,6 +19,8 @@ file assigned to you before editing code.
 7. `make verify` is the repository-level completion gate.
 8. `done` is an acceptance result, not an agent-controlled transition. Only
    the integration owner may run `agent.sh accept` after integration.
+9. A bugfix restores or deliberately changes an existing contract. Missing
+   roadmap behavior is a feature, not a bug, and severity never removes gates.
 
 ## Architecture boundaries
 
@@ -89,6 +91,13 @@ review -> in_progress
 blocked -> in_progress
 ```
 
+New records use schema version 3 task types: `feature`, `bugfix`, `refactor`,
+`investigation`, `test`, or `governance`. Bugfix records bind an existing
+contract, reproduction commit, trusted regression gate, proof mode, and
+`restore`, `preserve`, or `change` disposition. Investigation records define a
+bounded question and must resolve to `bugfix`, `feature`, or `no_change` before
+review; they do not claim a product fix.
+
 Squash is the standard task integration strategy. `agent.sh integrate` records
 the complete ordered source range and proves that its aggregate payload patch
 matches one delivery commit. The generated record for the current task is
@@ -111,6 +120,9 @@ squash or cherry-pick is not sufficient evidence.
   commands and rejects task-authored shell. Legacy commands remain valid only
   while they exactly match a registered command. Every task includes the
   repository-level `verify` gate.
+- Bugfix regression evidence names a trusted gate ID that is also executed by
+  the task. The reproduction commit is mandatory before review. A `change`
+  disposition requires an ADR; emergency severity changes scheduling only.
 - Commit-governed task records declare the delivery `type`, `scope`, and
   imperative `summary`. Harness lifecycle commits derive meaningful subjects
   from that metadata instead of using the task number as the message.

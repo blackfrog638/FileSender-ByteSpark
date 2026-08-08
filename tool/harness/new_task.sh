@@ -7,6 +7,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 if [[ "$#" -lt 5 ]]; then
   printf '%s\n' \
     "Usage: $0 XT-008 task-slug workstream \\" \
+    "  [--task-type feature|bugfix|refactor|investigation|test|governance] \\" \
     "  --commit-type feat --commit-scope native \\" \
     "  --commit-summary 'implement concrete outcome' \\" \
     "  --architecture-mode none|add|replace|remove|refactor \\" \
@@ -25,6 +26,7 @@ commit_type=""
 commit_scope=""
 commit_summary=""
 architecture_mode=""
+task_type="feature"
 architecture_modules=()
 supersedes_paths=()
 supersedes_symbols=()
@@ -54,6 +56,14 @@ while [[ "$#" -gt 0 ]]; do
         exit 2
       }
       commit_type="$2"
+      shift 2
+      ;;
+    --task-type)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires a task type.\n' "$1" >&2
+        exit 2
+      }
+      task_type="$2"
       shift 2
       ;;
     --commit-scope)
@@ -139,6 +149,13 @@ case "$commit_type" in
   feat | fix | docs | style | refactor | perf | test | build | ci | chore | revert) ;;
   *)
     printf 'Invalid or missing Conventional Commit type.\n' >&2
+    exit 2
+    ;;
+esac
+case "$task_type" in
+  feature | bugfix | refactor | investigation | test | governance) ;;
+  *)
+    printf 'Invalid task type: %s\n' "$task_type" >&2
     exit 2
     ;;
 esac
@@ -240,6 +257,7 @@ if [[ "${#retires_leases[@]}" -gt 0 ]]; then
   retires_leases_text="$(printf '%s\n' "${retires_leases[@]}")"
 fi
 DEPENDENCIES="$dependencies_text" OWNED_PATHS="$owned_paths_text" \
+  TASK_TYPE="$task_type" \
   COMMIT_TYPE="$commit_type" COMMIT_SCOPE="$commit_scope" \
   COMMIT_SUMMARY="$commit_summary" ARCHITECTURE_MODE="$architecture_mode" \
   ARCHITECTURE_MODULES="$architecture_modules_text" \
@@ -247,7 +265,7 @@ DEPENDENCIES="$dependencies_text" OWNED_PATHS="$owned_paths_text" \
   SUPERSEDES_SYMBOLS="$supersedes_symbols_text" \
   SUPERSEDES_TARGETS="$supersedes_targets_text" \
   RETIRES_LEASES="$retires_leases_text" \
-  python3 - \
+  python3 -B - \
     "$root" "$task_id" "$slug" "$workstream" "$destination" "$record" <<'PY'
 import json
 import os
@@ -274,6 +292,7 @@ commit = {
     "scope": os.environ["COMMIT_SCOPE"],
     "summary": os.environ["COMMIT_SUMMARY"],
 }
+task_type = os.environ["TASK_TYPE"]
 architecture_change = {
     "mode": os.environ["ARCHITECTURE_MODE"],
     "modules": [
@@ -338,6 +357,22 @@ def yaml_list(values: list[str]) -> str:
         return " []"
     return "\n" + "\n".join(f"  - {value}" for value in values)
 
+type_contract = ""
+if task_type == "bugfix":
+    type_contract = """
+## Defect contract
+
+Resolve every `defect` field in the schema version 3 record. The reproduction
+commit may remain empty during development but is required before review.
+"""
+elif task_type == "investigation":
+    type_contract = """
+## Investigation contract
+
+Resolve the bounded question, scope, evidence, and exit criteria. Replace the
+`pending` outcome disposition before review.
+"""
+
 spec_path.write_text(
     f"""---
 id: {task_id}
@@ -354,6 +389,7 @@ handoff: .agents/handoffs/{task_id}.md
 ## Outcome
 
 TODO: describe one observable outcome.
+{type_contract}
 
 ## Context
 
@@ -371,7 +407,7 @@ machine-readable in `architecture_change`.
 
 ## Risk profile
 
-Resolve every schema version 2 risk dimension in the task record. Every
+Resolve every schema version 3 risk dimension in the task record. Every
 non-none risk must name trusted gate IDs that also appear in
 `verification.gates`; commands are resolved from `.agents/manifest.yaml`.
 
@@ -391,9 +427,9 @@ make verify
 )
 
 record = {
-    "schema_version": 2,
+    "schema_version": 3,
     "id": task_id,
-    "task_type": "implementation",
+    "task_type": task_type,
     "state": "ready",
     "owner": "unassigned",
     "base_sha": "",
@@ -465,6 +501,28 @@ record = {
     },
     "acceptance": {"accepted_by": "", "accepted_at": "", "note": ""},
 }
+if task_type == "bugfix":
+    record["defect"] = {
+        "severity": "TODO",
+        "source": "TODO",
+        "symptom": "TODO: describe the observed failure.",
+        "expected_contract": "TODO: cite the existing contract or invariant.",
+        "actual_behavior": "TODO: describe the violating behavior.",
+        "trigger": "TODO: describe the bounded trigger.",
+        "affected_since": "TODO: identify the earliest affected version.",
+        "proof_mode": "TODO",
+        "reproduction_commit": "",
+        "regression_gate": "TODO",
+        "contract_disposition": "TODO",
+    }
+elif task_type == "investigation":
+    record["investigation"] = {
+        "question": "TODO: state one bounded question.",
+        "scope": "TODO: define the evidence boundary.",
+        "evidence_required": "TODO: list the required evidence.",
+        "exit_criteria": "TODO: define when the question is answered.",
+        "outcome_disposition": "pending",
+    }
 record_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 PY
 

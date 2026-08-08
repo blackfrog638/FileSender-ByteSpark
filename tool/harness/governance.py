@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import datetime as dt
 import fnmatch
 import hashlib
@@ -50,6 +51,57 @@ RISK_DIMENSIONS = (
     "persistence",
 )
 RISK_LEVELS = {"none", "low", "medium", "high", "critical"}
+SCHEMA_V3_TASK_TYPES = {
+    "feature",
+    "bugfix",
+    "refactor",
+    "investigation",
+    "test",
+    "governance",
+}
+DEFECT_FIELDS = {
+    "severity",
+    "source",
+    "symptom",
+    "expected_contract",
+    "actual_behavior",
+    "trigger",
+    "affected_since",
+    "proof_mode",
+    "reproduction_commit",
+    "regression_gate",
+    "contract_disposition",
+}
+DEFECT_SEVERITIES = {"P0", "P1", "P2", "P3"}
+DEFECT_SOURCES = {
+    "audit",
+    "ci",
+    "user_report",
+    "production",
+    "test",
+    "investigation",
+}
+DEFECT_PROOF_MODES = {
+    "deterministic",
+    "sanitizer",
+    "stress",
+    "platform_ci",
+    "manual",
+}
+CONTRACT_DISPOSITIONS = {"restore", "preserve", "change"}
+INVESTIGATION_FIELDS = {
+    "question",
+    "scope",
+    "evidence_required",
+    "exit_criteria",
+    "outcome_disposition",
+}
+INVESTIGATION_DISPOSITIONS = {
+    "pending",
+    "bugfix",
+    "feature",
+    "no_change",
+}
 COMMIT_TYPES = {
     "feat",
     "fix",
@@ -216,6 +268,219 @@ def require_string(
         errors.append(f"{label} must be a non-empty string")
         return ""
     return value
+
+
+def require_concrete_string(
+    errors: list[str],
+    value: Any,
+    label: str,
+) -> str:
+    result = require_string(errors, value, label)
+    if result and "TODO" in result.upper():
+        errors.append(f"{label} still contains TODO")
+    return result
+
+
+def validate_exact_object(
+    errors: list[str],
+    value: Any,
+    label: str,
+    fields: set[str],
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        errors.append(f"{label} must be an object")
+        return {}
+    missing = sorted(fields - set(value))
+    extra = sorted(set(value) - fields)
+    if missing:
+        errors.append(f"{label} is missing fields: {', '.join(missing)}")
+    if extra:
+        errors.append(f"{label} has unknown fields: {', '.join(extra)}")
+    return value
+
+
+def validate_schema_v3(
+    errors: list[str],
+    task_id: str,
+    record: dict[str, Any],
+    state: str,
+    gate_registry: dict[str, str],
+    verification_gates: list[str],
+    *,
+    verify_git: bool,
+) -> None:
+    task_type = require_string(
+        errors,
+        record.get("task_type"),
+        f"{task_id}.task_type",
+    )
+    if task_type not in SCHEMA_V3_TASK_TYPES:
+        errors.append(
+            f"{task_id}.task_type must be one of "
+            f"{sorted(SCHEMA_V3_TASK_TYPES)}"
+        )
+
+    if task_type == "bugfix":
+        if "investigation" in record:
+            errors.append(
+                f"{task_id}.investigation is invalid for task_type bugfix"
+            )
+        defect = validate_exact_object(
+            errors,
+            record.get("defect"),
+            f"{task_id}.defect",
+            DEFECT_FIELDS,
+        )
+        severity = require_concrete_string(
+            errors,
+            defect.get("severity"),
+            f"{task_id}.defect.severity",
+        )
+        if severity not in DEFECT_SEVERITIES:
+            errors.append(
+                f"{task_id}.defect.severity must be one of "
+                f"{sorted(DEFECT_SEVERITIES)}"
+            )
+        source = require_concrete_string(
+            errors,
+            defect.get("source"),
+            f"{task_id}.defect.source",
+        )
+        if source not in DEFECT_SOURCES:
+            errors.append(
+                f"{task_id}.defect.source must be one of "
+                f"{sorted(DEFECT_SOURCES)}"
+            )
+        for field in (
+            "symptom",
+            "expected_contract",
+            "actual_behavior",
+            "trigger",
+            "affected_since",
+        ):
+            require_concrete_string(
+                errors,
+                defect.get(field),
+                f"{task_id}.defect.{field}",
+            )
+        proof_mode = require_concrete_string(
+            errors,
+            defect.get("proof_mode"),
+            f"{task_id}.defect.proof_mode",
+        )
+        if proof_mode not in DEFECT_PROOF_MODES:
+            errors.append(
+                f"{task_id}.defect.proof_mode must be one of "
+                f"{sorted(DEFECT_PROOF_MODES)}"
+            )
+        reproduction_commit = require_string(
+            errors,
+            defect.get("reproduction_commit"),
+            f"{task_id}.defect.reproduction_commit",
+            allow_empty=state in {"ready", "claimed", "in_progress", "blocked"},
+        )
+        if (
+            reproduction_commit
+            and not SHA_PATTERN.fullmatch(reproduction_commit)
+        ):
+            errors.append(
+                f"{task_id}.defect.reproduction_commit must be a full "
+                "lowercase SHA"
+            )
+        elif (
+            reproduction_commit
+            and verify_git
+            and state == "review"
+            and not commit_exists(reproduction_commit)
+        ):
+            errors.append(
+                f"{task_id}.defect.reproduction_commit is unavailable: "
+                f"{reproduction_commit}"
+            )
+        regression_gate = require_concrete_string(
+            errors,
+            defect.get("regression_gate"),
+            f"{task_id}.defect.regression_gate",
+        )
+        if regression_gate not in gate_registry:
+            errors.append(
+                f"{task_id}.defect.regression_gate is not registered: "
+                f"{regression_gate}"
+            )
+        elif regression_gate not in verification_gates:
+            errors.append(
+                f"{task_id}.defect.regression_gate must appear in "
+                "verification.gates"
+            )
+        disposition = require_concrete_string(
+            errors,
+            defect.get("contract_disposition"),
+            f"{task_id}.defect.contract_disposition",
+        )
+        if disposition not in CONTRACT_DISPOSITIONS:
+            errors.append(
+                f"{task_id}.defect.contract_disposition must be one of "
+                f"{sorted(CONTRACT_DISPOSITIONS)}"
+            )
+        if disposition == "change":
+            impacts = record.get("impacts")
+            adr = impacts.get("adr") if isinstance(impacts, dict) else None
+            if not isinstance(adr, dict) or adr.get("required") is not True:
+                errors.append(
+                    f"{task_id} contract-changing bugfix requires an ADR"
+                )
+            elif adr.get("status") not in {"proposed", "accepted"}:
+                errors.append(
+                    f"{task_id} contract-changing bugfix ADR must be "
+                    "proposed or accepted"
+                )
+    elif task_type == "investigation":
+        if "defect" in record:
+            errors.append(
+                f"{task_id}.defect is invalid for task_type investigation"
+            )
+        investigation = validate_exact_object(
+            errors,
+            record.get("investigation"),
+            f"{task_id}.investigation",
+            INVESTIGATION_FIELDS,
+        )
+        for field in (
+            "question",
+            "scope",
+            "evidence_required",
+            "exit_criteria",
+        ):
+            require_concrete_string(
+                errors,
+                investigation.get(field),
+                f"{task_id}.investigation.{field}",
+            )
+        disposition = require_concrete_string(
+            errors,
+            investigation.get("outcome_disposition"),
+            f"{task_id}.investigation.outcome_disposition",
+        )
+        if disposition not in INVESTIGATION_DISPOSITIONS:
+            errors.append(
+                f"{task_id}.investigation.outcome_disposition must be one of "
+                f"{sorted(INVESTIGATION_DISPOSITIONS)}"
+            )
+        if state in {"review", "integrated", "done"} and disposition == "pending":
+            errors.append(
+                f"{task_id}.investigation.outcome_disposition cannot remain "
+                "pending at review"
+            )
+    else:
+        if "defect" in record:
+            errors.append(
+                f"{task_id}.defect is only valid for task_type bugfix"
+            )
+        if "investigation" in record:
+            errors.append(
+                f"{task_id}.investigation is only valid for task_type "
+                "investigation"
+            )
 
 
 def validate_verified_sha(
@@ -655,11 +920,12 @@ def validate_record(
     task_id = task["id"]
     task_number = int(task_id.removeprefix("XT-"))
     schema_version = record.get("schema_version")
-    if schema_version not in {1, 2}:
-        errors.append(f"{task_id}.schema_version must be 1 or 2")
-    if task.get("risk_profile_required") is True and schema_version != 2:
+    if schema_version not in {1, 2, 3}:
+        errors.append(f"{task_id}.schema_version must be 1, 2, or 3")
+    if task.get("risk_profile_required") is True and schema_version not in {2, 3}:
         errors.append(
-            f"{task_id}.schema_version must be 2 when risk_profile_required=true"
+            f"{task_id}.schema_version must be 2 or 3 when "
+            "risk_profile_required=true"
         )
     if record.get("id") != task_id:
         errors.append(f"{task_id}.id does not match its filename")
@@ -805,6 +1071,10 @@ def validate_record(
 
     gate_ids = verification.get("gates")
     if gate_ids is None:
+        if schema_version == 3:
+            errors.append(
+                f"{task_id}.verification.gates is required by schema version 3"
+            )
         verification_evidence = commands
         registered_commands = set(gate_registry.values())
         for command in commands:
@@ -844,12 +1114,22 @@ def validate_record(
             errors.append(f"{task_id}.verification.gates must include verify")
         verification_evidence = gate_ids
 
-    if schema_version == 2:
+    if schema_version in {2, 3}:
         validate_risks(
             errors,
             task_id,
             record.get("risks"),
             verification_evidence,
+        )
+    if schema_version == 3:
+        validate_schema_v3(
+            errors,
+            task_id,
+            record,
+            state,
+            gate_registry,
+            gate_ids if isinstance(gate_ids, list) else [],
+            verify_git=verify_git,
         )
 
     if state == "done":
@@ -1237,11 +1517,18 @@ def mark_review(task_id: str, head_sha: str, reference: str) -> None:
     record = load_record(task_id)
     if record.get("state") != "in_progress":
         raise GovernanceError(f"{task_id} must be in_progress before review")
+    original = copy.deepcopy(record)
     record["state"] = "review"
     record["head_sha"] = head_sha
     record["verification"]["status"] = "passed"
     record["verification"]["reference"] = reference
-    write_json(record_path(task_id), record)
+    path = record_path(task_id)
+    write_json(path, record)
+    try:
+        validate_repository()
+    except GovernanceError:
+        write_json(path, original)
+        raise
 
 
 def mark_integrated(task_id: str, provenance_path: Path) -> None:
