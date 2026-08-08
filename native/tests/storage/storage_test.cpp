@@ -652,6 +652,42 @@ void TestRealFilesystemCommitAndCollision() {
 #endif
 }
 
+void TestRealFilesystemRejectsPermissiveLockMode() {
+#if !defined(_WIN32)
+  ScopedDirectory root("lock-mode");
+  const std::filesystem::path temporary_directory = root.path() / ".xnn-transfer-tmp";
+  std::error_code error;
+  std::filesystem::create_directory(temporary_directory, error);
+  Expect(!error, "lock-mode temporary directory is created");
+  if (error) {
+    return;
+  }
+  std::filesystem::permissions(temporary_directory, std::filesystem::perms::owner_all,
+                               std::filesystem::perm_options::replace, error);
+  Expect(!error, "lock-mode temporary directory is private");
+  if (error) {
+    return;
+  }
+
+  const std::filesystem::path lock = temporary_directory / ".lock";
+  WriteFile(lock, "");
+  std::filesystem::permissions(
+      lock,
+      std::filesystem::perms::owner_read | std::filesystem::perms::owner_write |
+          std::filesystem::perms::group_read | std::filesystem::perms::others_read,
+      std::filesystem::perm_options::replace, error);
+  Expect(!error, "lock-mode fixture is made permissive");
+  if (error) {
+    return;
+  }
+
+  const FilesystemBackendOpenResult opened =
+      OpenFilesystemBackend(root.path().string());
+  Expect(!opened.ok() && opened.error == PlatformError::kInvalidRoot,
+         "preexisting lock mode must be exactly 0600");
+#endif
+}
+
 void TestRealFilesystemLinkContainment() {
 #if !defined(_WIN32)
   ScopedDirectory root("links");
@@ -796,6 +832,7 @@ int main() {
   TestOutcomeUncertainRetainsAccounting();
   TestConcurrentReservationAndIdempotentAbort();
   TestRealFilesystemCommitAndCollision();
+  TestRealFilesystemRejectsPermissiveLockMode();
   TestRealFilesystemLinkContainment();
   TestRealFilesystemSymlinkRace();
   TestRestartCleanupAndDestructorAbort();
