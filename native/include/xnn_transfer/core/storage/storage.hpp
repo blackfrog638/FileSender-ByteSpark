@@ -39,6 +39,7 @@ enum class ValidationError : std::uint8_t {
   kPathEmptyComponent,
   kPathDotComponent,
   kPathTraversal,
+  kPathReservedComponent,
   kPathComponentCountLimit,
   kPathComponentBytesLimit,
   kDeclaredSizeLimit,

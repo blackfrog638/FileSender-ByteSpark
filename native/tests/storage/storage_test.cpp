@@ -20,6 +20,10 @@
 #include <utility>
 #include <vector>
 
+#if defined(__APPLE__)
+#include <sys/acl.h>
+#endif
+
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -419,6 +423,23 @@ struct MountPointReparseData {
 }
 #endif
 
+#if defined(__APPLE__)
+[[nodiscard]] bool SetPermissiveAcl(const std::filesystem::path& path) {
+  constexpr const char* kAclText =
+      "!#acl 1\n"
+      "group:ABCDEFAB-CDEF-ABCD-EFAB-CDEF0000000C:everyone:12:"
+      "allow,file_inherit,directory_inherit:"
+      "write,delete,append,delete_child\n";
+  acl_t const acl = ::acl_from_text(kAclText);
+  if (acl == nullptr) {
+    return false;
+  }
+  const int result = ::acl_set_file(path.c_str(), ACL_TYPE_EXTENDED, acl);
+  static_cast<void>(::acl_free(acl));
+  return result == 0;
+}
+#endif
+
 void TestManifestFixtureOwnershipAndPathValidation() {
   static_assert(kManifestFixtureCases.size() == 66);
   static_assert(kStorageFixtureCaseCount + kXt028FixtureCaseCount +
@@ -490,6 +511,14 @@ void TestAdditionalRequestBounds() {
   const std::array<std::uint8_t, 3> del_path{'a', 0x7fU, 'b'};
   Expect(ValidateReceivePath(del_path).error() == ValidationError::kPathC0Control,
          "DEL is rejected as a control");
+  Expect(ValidateReceivePath(Bytes(".xnn-transfer-tmp/part-user")).error() ==
+             ValidationError::kPathReservedComponent,
+         "backend temporary namespace is not a destination");
+  Expect(ValidateReceivePath(Bytes(".XNN-Transfer-Tmp/part-user")).error() ==
+             ValidationError::kPathReservedComponent,
+         "reserved namespace rejection covers Windows case aliases");
+  Expect(ValidateReceivePath(Bytes("safe/.xnn-transfer-tmp")).ok(),
+         "reserved name is limited to the root component");
 }
 
 void TestSuccessfulAndEmptyCommit() {
@@ -846,6 +875,72 @@ void TestRealFilesystemRejectsPermissiveDirectories() {
 #endif
 }
 
+void TestRealFilesystemRejectsMacosExtendedAcls() {
+#if defined(__APPLE__)
+  {
+    ScopedDirectory root("root-acl");
+    Expect(SetPermissiveAcl(root.path()), "permissive root ACL fixture is created");
+    const FilesystemBackendOpenResult opened =
+        OpenFilesystemBackend(PathUtf8(root.path()));
+    Expect(!opened.ok() && opened.error == PlatformError::kInvalidRoot,
+           "destination root with an extended ACL is rejected");
+  }
+
+  {
+    ScopedDirectory root("temporary-acl");
+    const std::filesystem::path temporary_directory = root.path() / ".xnn-transfer-tmp";
+    std::error_code error;
+    std::filesystem::create_directory(temporary_directory, error);
+    std::filesystem::permissions(temporary_directory, std::filesystem::perms::owner_all,
+                                 std::filesystem::perm_options::replace, error);
+    Expect(!error && SetPermissiveAcl(temporary_directory),
+           "permissive temporary-directory ACL fixture is created");
+    const FilesystemBackendOpenResult opened =
+        OpenFilesystemBackend(PathUtf8(root.path()));
+    Expect(!opened.ok() && opened.error == PlatformError::kInvalidRoot,
+           "temporary directory with an extended ACL is rejected");
+  }
+
+  {
+    ScopedDirectory root("lock-acl");
+    {
+      FilesystemBackendOpenResult opened = OpenFilesystemBackend(PathUtf8(root.path()));
+      Expect(opened.ok(), "backend creates POSIX lock metadata");
+    }
+    const std::filesystem::path lock = root.path() / ".xnn-transfer-tmp" / ".lock";
+    Expect(SetPermissiveAcl(lock), "permissive lock ACL fixture is created");
+    const FilesystemBackendOpenResult opened =
+        OpenFilesystemBackend(PathUtf8(root.path()));
+    Expect(!opened.ok() && opened.error == PlatformError::kInvalidRoot,
+           "lock with an extended ACL is rejected");
+  }
+
+  {
+    ScopedDirectory root("parent-acl");
+    FilesystemBackendOpenResult opened = OpenFilesystemBackend(PathUtf8(root.path()));
+    Expect(opened.ok(), "parent-ACL backend opens");
+    if (!opened.ok()) {
+      return;
+    }
+    const std::filesystem::path parent = root.path() / "shared";
+    std::error_code error;
+    std::filesystem::create_directory(parent, error);
+    Expect(!error && SetPermissiveAcl(parent),
+           "permissive destination-parent ACL fixture is created");
+
+    auto budget = std::make_shared<TemporaryBudget>(8);
+    ReceiveTransaction transaction(Request("shared/file.bin", 1), budget,
+                                   std::make_unique<FakeVerifier>(), *opened.backend);
+    Expect(transaction.Begin().ok() && transaction.Write(Bytes("x")).ok(),
+           "parent-ACL transaction stages safely");
+    const TransactionResult result = transaction.SealAndCommit();
+    Expect(result.error == TransactionError::kCommitFailed &&
+               result.platform_error == PlatformError::kInvalidRoot,
+           "destination parent with an extended ACL is rejected");
+  }
+#endif
+}
+
 void TestRealFilesystemLinkContainment() {
   ScopedDirectory root("links");
   ScopedDirectory outside("outside");
@@ -1032,6 +1127,45 @@ void TestRestartCleanupAndDestructorAbort() {
 #endif
 }
 
+void TestMissingRootClassification() {
+  ScopedDirectory parent("missing-root");
+  const FilesystemBackendOpenResult opened =
+      OpenFilesystemBackend(PathUtf8(parent.path() / "missing"));
+  Expect(!opened.ok() && opened.error == PlatformError::kInvalidRoot,
+         "missing destination root is classified as invalid");
+}
+
+void TestWindowsBoundedStaleCleanupProgress() {
+#if defined(_WIN32)
+  ScopedDirectory root("windows-stale-batch");
+  {
+    FilesystemBackendOpenResult opened = OpenFilesystemBackend(PathUtf8(root.path()));
+    Expect(opened.ok(), "stale-batch backend creates private metadata");
+  }
+  const std::filesystem::path temporary_directory = root.path() / ".xnn-transfer-tmp";
+  constexpr std::size_t kStaleFiles = 4'097;
+  for (std::size_t index = 0; index < kStaleFiles; ++index) {
+    WriteFile(temporary_directory / ("part-batch-" + std::to_string(index)), "");
+  }
+
+  FilesystemBackendOpenResult first = OpenFilesystemBackend(PathUtf8(root.path()));
+  Expect(!first.ok() && first.error == PlatformError::kBusy,
+         "bounded cleanup reports additional stale work");
+
+  std::size_t remaining = 0;
+  for (const std::filesystem::directory_entry& entry :
+       std::filesystem::directory_iterator(temporary_directory)) {
+    if (entry.path().filename().wstring().starts_with(L"part-")) {
+      ++remaining;
+    }
+  }
+  Expect(remaining == 1, "bounded cleanup makes progress before returning busy");
+
+  FilesystemBackendOpenResult second = OpenFilesystemBackend(PathUtf8(root.path()));
+  Expect(second.ok(), "next open completes the remaining stale cleanup");
+#endif
+}
+
 void TestWindowsRootEncodingAndProtectedDacl() {
 #if defined(_WIN32)
   const FilesystemBackendOpenResult invalid_utf8 =
@@ -1090,9 +1224,12 @@ int main() {
   TestRealFilesystemCommitAndCollision();
   TestRealFilesystemRejectsPermissiveLockMode();
   TestRealFilesystemRejectsPermissiveDirectories();
+  TestRealFilesystemRejectsMacosExtendedAcls();
   TestRealFilesystemLinkContainment();
   TestRealFilesystemSymlinkRace();
   TestRestartCleanupAndDestructorAbort();
+  TestMissingRootClassification();
+  TestWindowsBoundedStaleCleanupProgress();
   TestWindowsRootEncodingAndProtectedDacl();
 
   if (failures != 0) {
