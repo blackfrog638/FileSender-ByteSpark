@@ -163,6 +163,8 @@ struct ParseResult {
 
 // This class validates parser-level v1 negotiation transcripts. It does not
 // open a channel, authenticate a peer, or verify TRANSPORT_FINISHED bytes.
+// A connection-fatal result terminates the instance; later Process calls fail
+// without parsing input.
 class TranscriptParser final {
  public:
   TranscriptParser() = default;
@@ -210,6 +212,7 @@ class TranscriptParser final {
                                   const ParsedFrame& frame) noexcept;
   [[nodiscard]] Error ProcessPong(Direction direction,
                                   const ParsedFrame& frame) noexcept;
+  [[nodiscard]] Error Complete(Error error, std::uint32_t stream_id) noexcept;
   [[nodiscard]] Error ValidateEnvelopeState(Direction direction,
                                             const ParsedFrame& frame) const noexcept;
 
@@ -222,6 +225,7 @@ class TranscriptParser final {
   bool binding_frames_complete_{};
   std::array<bool, 2> pong_expected_{};
   std::array<std::uint64_t, 2> expected_pong_token_{};
+  bool terminal_{};
 };
 
 }  // namespace xnn_transfer::protocol::v1

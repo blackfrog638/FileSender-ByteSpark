@@ -2,10 +2,10 @@
   "schema_version": 3,
   "id": "XT-057",
   "task_type": "bugfix",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "protocol-bugfix-agent",
+  "base_sha": "2aada91914b71088ffd20eb41640b2a7240a96e3",
+  "head_sha": "cacc5a53e55123d7acf0e76503696f36119df08e",
   "handoff": ".agents/handoffs/XT-057.md",
   "commit": {
     "type": "fix",
@@ -97,12 +97,28 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "2aada91914b71088ffd20eb41640b2a7240a96e3",
+    "source_head": "dd5d4801e2c4fb3e0b74e52a5f89b684c62f6d9b",
+    "source_commits": [
+      "00e478f9a03c5c011fd2022e848e77a0de1fdece",
+      "b3ffc277127890dde1cadb102dd58e7537af32ac",
+      "40a6b44f4611df96f71c47b0795dab3f6465c00e",
+      "1bc46a9b9ffef0724f54a8db034d8ab24d6814c5",
+      "4a13c5ad45072b5d2e15371c5b43d3c9c34905cb",
+      "35e0adfefc42d378fa6f52a535a106608b9d9d1f",
+      "64e18b011e132f4ab31c9a4a23a140564bf819a2",
+      "cacc5a53e55123d7acf0e76503696f36119df08e",
+      "dd5d4801e2c4fb3e0b74e52a5f89b684c62f6d9b"
+    ],
+    "source_commits_sha256": "fedbd23dcded7eebc3f008b64a50d06544f29abe8e107aa597f532db0acd3a14",
+    "source_patch_id": "2864679ef7e6bf84fbd1c8fa1fbead6c411ece52",
+    "result": "",
+    "result_patch_id": "2864679ef7e6bf84fbd1c8fa1fbead6c411ece52",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "native_test",
       "security_test",
@@ -113,7 +129,17 @@
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:cacc5a53e55123d7acf0e76503696f36119df08e:2026-08-08T05:13:12Z",
+    "defect_proof": {
+      "mode": "deterministic",
+      "gate": "native_test",
+      "command_sha256": "3de273218e3be98919043b865b023b33ee98345ab3f6b4b1ae24103d0498aef6",
+      "reproduction_commit": "40a6b44f4611df96f71c47b0795dab3f6465c00e",
+      "head_commit": "cacc5a53e55123d7acf0e76503696f36119df08e",
+      "reproduction_exit_code": 2,
+      "head_exit_code": 0,
+      "checked_at": "2026-08-08T05:13:59+00:00"
+    }
   },
   "acceptance": {
     "accepted_by": "",
@@ -129,7 +155,7 @@
     "trigger": "Process a truncated declared frame, then process a valid initiator HELLO with message ID 1 on the same TranscriptParser.",
     "affected_since": "initial TranscriptParser implementation",
     "proof_mode": "deterministic",
-    "reproduction_commit": "",
+    "reproduction_commit": "40a6b44f4611df96f71c47b0795dab3f6465c00e",
     "regression_gate": "native_test",
     "contract_disposition": "restore"
   }
