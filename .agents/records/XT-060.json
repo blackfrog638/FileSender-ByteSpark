@@ -1,0 +1,132 @@
+{
+  "schema_version": 3,
+  "id": "XT-060",
+  "task_type": "feature",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-060.md",
+  "commit": {
+    "type": "feat",
+    "scope": "protocol",
+    "summary": "register pairing control wire profile"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "An incomplete state or message contract would force the session implementation to invent observable pairing behavior.",
+      "gates": [
+        "security_vectors",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "ALPN, role, transcript, exporter, replay, timeout, and terminal-error semantics define the authentication boundary.",
+      "gates": [
+        "security_vectors",
+        "security_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Pre-auth certificate, message, byte, attempt, and deadline ceilings must prevent hostile resource amplification.",
+      "gates": [
+        "security_vectors",
+        "security_test"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "This task registers a public byte-level wire contract that independent implementations must interpret identically.",
+      "gates": [
+        "security_vectors",
+        "security_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Duplicate messages, local decisions, remote rejection, timeout, cancellation, and shutdown require one deterministic transition order.",
+      "gates": [
+        "security_vectors",
+        "security_test"
+      ]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Every supported desktop platform must consume the same canonical identifiers, encodings, limits, and error values.",
+      "gates": [
+        "security_vectors",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "Registered profile and key-rotation semantics must remain compatible with durable peer trust records.",
+      "gates": [
+        "security_vectors",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "accepted",
+      "references": [
+        "docs/adr/0002-pairing-and-transport-security.md"
+      ],
+      "rationale": "ADR 0002 requires this task to register the production pairing profile, resource limits, and state semantics."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The protocol contract changes, but canonical runtime module and dependency boundaries remain unchanged."
+    },
+    "roadmap": {
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "The P1 execution graph must place the pairing wire contract before TLS bounds and the session state machine."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "security_vectors",
+      "security_test",
+      "verify"
+    ],
+    "commands": [
+      "python3 protocol/testdata/security/v1/validate_vectors.py",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
