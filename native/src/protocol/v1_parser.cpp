@@ -778,24 +778,57 @@ ParseResult ParseFrame(const std::span<const std::uint8_t> encoded,
   return result;
 }
 
+Error TranscriptParser::Complete(const Error error,
+                                 const std::uint32_t stream_id) noexcept {
+  if (error.ok()) {
+    return error;
+  }
+  switch (error.code) {
+    case ErrorCode::kMalformedFrame:
+    case ErrorCode::kFrameTooLarge:
+    case ErrorCode::kUnsupportedVersion:
+    case ErrorCode::kDowngradeDetected:
+    case ErrorCode::kUnsupportedCapability:
+    case ErrorCode::kUnsupportedMessage:
+    case ErrorCode::kMessageIdViolation:
+      terminal_ = true;
+      break;
+    case ErrorCode::kMalformedMessage:
+    case ErrorCode::kUnknownCriticalField:
+    case ErrorCode::kStateViolation:
+    case ErrorCode::kLimitExceeded:
+      terminal_ = !binding_frames_complete_ || stream_id == 0U;
+      break;
+    case ErrorCode::kNone:
+      break;
+  }
+  return error;
+}
+
 Error TranscriptParser::Process(const Direction direction,
                                 const std::span<const std::uint8_t> encoded) noexcept {
+  if (terminal_) {
+    return MakeError(ErrorCode::kStateViolation,
+                     "transcript is terminal after a fatal error");
+  }
   std::size_t direction_index = 0;
   if (!DirectionIndex(direction, direction_index)) {
-    return MakeError(ErrorCode::kStateViolation, "invalid transport direction");
+    return Complete(
+        MakeError(ErrorCode::kStateViolation, "invalid transport direction"), 0);
   }
 
   const Version expected_version =
       negotiation_acknowledged_ ? negotiation_.selected_version : Version{};
   ParseResult parsed = ParseFrameEnvelope(encoded, expected_version);
   if (!parsed.ok()) {
-    return parsed.error;
+    return Complete(parsed.error, 0);
   }
 
   if (message_id_exhausted_[direction_index] ||
       parsed.frame.header.message_id != next_message_id_[direction_index]) {
-    return MakeError(ErrorCode::kMessageIdViolation,
-                     "message ID is not the next directional value");
+    return Complete(MakeError(ErrorCode::kMessageIdViolation,
+                              "message ID is not the next directional value"),
+                    parsed.frame.header.stream_id);
   }
   if (next_message_id_[direction_index] == std::numeric_limits<std::uint64_t>::max()) {
     message_id_exhausted_[direction_index] = true;
@@ -805,42 +838,52 @@ Error TranscriptParser::Process(const Direction direction,
 
   if (negotiation_acknowledged_ &&
       parsed.frame.header.body_length > negotiation_.effective_max_body) {
-    return MakeError(ErrorCode::kLimitExceeded,
-                     "body length exceeds the negotiated limit");
+    return Complete(MakeError(ErrorCode::kLimitExceeded,
+                              "body length exceeds the negotiated limit"),
+                    parsed.frame.header.stream_id);
   }
 
   const Error state_error = ValidateEnvelopeState(direction, parsed.frame);
   if (!state_error.ok()) {
-    return state_error;
+    return Complete(state_error, parsed.frame.header.stream_id);
   }
   const Error body_error = ParseFrameBody(parsed.frame);
   if (!body_error.ok()) {
-    return body_error;
+    return Complete(body_error, parsed.frame.header.stream_id);
   }
 
   switch (parsed.frame.header.message_type) {
     case MessageType::kHello:
-      return ProcessHello(direction, parsed.frame);
+      return Complete(ProcessHello(direction, parsed.frame),
+                      parsed.frame.header.stream_id);
     case MessageType::kNegotiate:
-      return ProcessNegotiate(direction, parsed.frame);
+      return Complete(ProcessNegotiate(direction, parsed.frame),
+                      parsed.frame.header.stream_id);
     case MessageType::kNegotiateAck:
-      return ProcessNegotiateAck(direction, parsed.frame);
+      return Complete(ProcessNegotiateAck(direction, parsed.frame),
+                      parsed.frame.header.stream_id);
     case MessageType::kTransportFinished:
-      return ProcessTransportFinished(direction, parsed.frame);
+      return Complete(ProcessTransportFinished(direction, parsed.frame),
+                      parsed.frame.header.stream_id);
     case MessageType::kError:
       if (!binding_frames_complete_ && parsed.frame.header.stream_id != 0U) {
-        return MakeError(ErrorCode::kStateViolation,
-                         "pre-establishment ERROR is not connection scoped");
+        return Complete(MakeError(ErrorCode::kStateViolation,
+                                  "pre-establishment ERROR is not connection scoped"),
+                        parsed.frame.header.stream_id);
       }
       return {};
     case MessageType::kPing:
-      return ProcessPing(direction, parsed.frame);
+      return Complete(ProcessPing(direction, parsed.frame),
+                      parsed.frame.header.stream_id);
     case MessageType::kPong:
-      return ProcessPong(direction, parsed.frame);
+      return Complete(ProcessPong(direction, parsed.frame),
+                      parsed.frame.header.stream_id);
     default:
       if (!binding_frames_complete_) {
-        return MakeError(ErrorCode::kStateViolation,
-                         "message is not allowed before transport binding completes");
+        return Complete(
+            MakeError(ErrorCode::kStateViolation,
+                      "message is not allowed before transport binding completes"),
+            parsed.frame.header.stream_id);
       }
       return {};
   }
