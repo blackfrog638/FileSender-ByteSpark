@@ -894,6 +894,29 @@
         "tool/harness/governance_test.sh",
         "tool/harness/new_task.sh"
       ]
+    },
+    {
+      "id": "XT-055",
+      "title": "Deterministic defect proof",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-054"
+      ],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/records/README.md",
+        ".agents/tasks/TASK_TEMPLATE.md",
+        "docs/adr/0011-defect-task-governance.md",
+        "tool/harness/agent.sh",
+        "tool/harness/governance.py",
+        "tool/harness/governance_test.sh",
+        "tool/harness/defect_proof.py",
+        "tool/harness/defect_proof_test.py"
+      ]
     }
   ]
 }
