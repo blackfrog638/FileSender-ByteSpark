@@ -2,10 +2,10 @@
   "schema_version": 2,
   "id": "XT-023",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "tls-provider-agent",
+  "base_sha": "b8ebe5dd2e4d60ce46bde4770cb781df4e80f3d5",
+  "head_sha": "31c171b360c4cd2f6215c5d52fda553f5dc1ab1c",
   "handoff": ".agents/handoffs/XT-023.md",
   "architecture_change": {
     "mode": "replace",
@@ -24,32 +24,50 @@
     "functionality": {
       "level": "high",
       "rationale": "Provider configuration or exporter defects would prevent compatible authenticated sessions.",
-      "gates": ["make native-test", "make security-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make security-test",
+        "make verify"
+      ]
     },
     "security": {
       "level": "critical",
       "rationale": "TLS versions, key validation, pinning, exporter labels, resumption, and randomness define the transport security boundary.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "performance": {
       "level": "medium",
       "rationale": "Handshake and record processing must stay bounded without weakening cryptographic configuration.",
-      "gates": ["make native-test"]
+      "gates": [
+        "make native-test"
+      ]
     },
     "compatibility": {
       "level": "critical",
       "rationale": "Provider output must remain byte-exact with the accepted security vectors and peer role semantics.",
-      "gates": ["make security-test", "make verify"]
+      "gates": [
+        "make security-test",
+        "make verify"
+      ]
     },
     "concurrency": {
       "level": "high",
       "rationale": "Handshake cancellation, connection teardown, and secret lifetime cross asynchronous completion paths.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "platform": {
       "level": "high",
       "rationale": "The pinned provider and TLS configuration must build and behave identically on all desktop targets.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "persistence": {
       "level": "none",
@@ -76,18 +94,41 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "b8ebe5dd2e4d60ce46bde4770cb781df4e80f3d5",
+    "source_head": "ef824204c5db776dbb3eab0bf0b66ed0fca82c5b",
+    "source_commits": [
+      "943e959264fe1991afaf387d670bedea860e1b6f",
+      "cc58caa46cc0616cc4aaa5b42c39aa4ac5ea4fda",
+      "e28b1a7a95e33aa987ce44287fe3d039019da9b9",
+      "75ce6eb192bb31101ce21dcf6f3ca31cc9f43186",
+      "e6d1f5a18e57793918c6319e086c684aff1faa77",
+      "d0456dcf2e4b59dd6090cbbdbd66cf56a2065b3d",
+      "bd98d6491c0b27159ee39c693941067aa9cb87ba",
+      "54dc66b7ad9905c8d6928559a288722ae700f505",
+      "a35d2c30e53df7ab64063f55a86d40d18b4faa4f",
+      "2bceed25f6e1e54b084df61cd889f1fb0bcda255",
+      "b8529530104ed98446d035886103a35885ac0816",
+      "b77dd2e7809a8153ff370f50c416fa6fd35783ae",
+      "61c0773ca675f70dd1a0ac94ead53902156a2be9",
+      "95252b74d540dafdfbaa091a291c7cbd0fc308ca",
+      "31c171b360c4cd2f6215c5d52fda553f5dc1ab1c",
+      "ef824204c5db776dbb3eab0bf0b66ed0fca82c5b"
+    ],
+    "source_commits_sha256": "38d477f5e0ec367352c5b1db0ace1ec63535ab8811afe19211d42955a3fbe5f8",
+    "source_patch_id": "6d7f74931613eefd36fbb00db890585ee9b00d0b",
+    "result": "",
+    "result_patch_id": "6d7f74931613eefd36fbb00db890585ee9b00d0b",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make native-test",
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:31c171b360c4cd2f6215c5d52fda553f5dc1ab1c:2026-08-08T03:50:38Z"
   },
   "acceptance": {
     "accepted_by": "",
