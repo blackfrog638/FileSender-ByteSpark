@@ -197,6 +197,23 @@ void ExpectFrameError(const Bytes& encoded, const ErrorCode expected,
   ++failures;
 }
 
+void ExpectFatalTranscriptError(const Bytes& encoded, const ErrorCode expected,
+                                const std::string_view context) {
+  TranscriptParser parser;
+  const Error fatal = parser.Process(Direction::kInitiatorToResponder, encoded);
+  Expect(fatal.code == expected, context);
+
+  const GoldenFrame* const hello = FindGoldenFrame("hello_initiator");
+  Bytes valid;
+  if (hello == nullptr || !DecodeHex(hello->hex, valid)) {
+    Expect(false, "fatal-state HELLO fixture is valid");
+    return;
+  }
+  const Error after_fatal = parser.Process(hello->direction, valid);
+  Expect(after_fatal.code == ErrorCode::kStateViolation,
+         "connection-fatal error terminates later transcript parsing");
+}
+
 void TestGoldenVectors() {
   static_assert(kGoldenCases.size() == 29,
                 "the native suite must cover all 29 v1 golden cases");
@@ -537,6 +554,76 @@ void TestNegotiatedBodyLimitPrecedesBodyParsing() {
          "negotiated body limit is enforced before malformed body parsing");
 }
 
+void TestFatalTranscriptState() {
+  Bytes truncated = MakePingFrame();
+  truncated.pop_back();
+  ExpectFatalTranscriptError(truncated, ErrorCode::kMalformedFrame,
+                             "truncated frame is connection-fatal");
+
+  Bytes oversized = MakePingFrame();
+  SetU32(oversized, 24, static_cast<std::uint32_t>(kMaxBodyLength + 1));
+  ExpectFatalTranscriptError(oversized, ErrorCode::kFrameTooLarge,
+                             "oversized frame is connection-fatal");
+
+  Bytes wrong_version = MakePingFrame();
+  wrong_version[7] = 1;
+  ExpectFatalTranscriptError(wrong_version, ErrorCode::kUnsupportedVersion,
+                             "unsupported version is connection-fatal");
+
+  ExpectFatalTranscriptError(MakePingFrame(7, 2), ErrorCode::kMessageIdViolation,
+                             "message ID violation is connection-fatal");
+
+  ExpectFatalTranscriptError(MakeFrame(MessageType::kHello, 0, 1, Bytes{0xffU}),
+                             ErrorCode::kMalformedMessage,
+                             "malformed negotiation message is connection-fatal");
+
+  ExpectFatalTranscriptError(MakePingFrame(), ErrorCode::kStateViolation,
+                             "pre-binding control state error is connection-fatal");
+
+  ExpectFatalTranscriptError(MakeFrame(static_cast<MessageType>(0xffffU), 0, 1, {}),
+                             ErrorCode::kUnsupportedMessage,
+                             "unsupported message is connection-fatal");
+
+  Bytes critical_extension;
+  AppendTlv(critical_extension, 100, WireType::kBytes, 0x01U, {});
+  ExpectFatalTranscriptError(
+      MakeFrame(MessageType::kHello, 0, 1, {}, critical_extension),
+      ErrorCode::kUnknownCriticalField,
+      "unknown critical negotiation field is connection-fatal");
+  constexpr std::array<std::string_view, 6> kBindingFrames{
+      "hello_initiator",
+      "hello_responder",
+      "negotiate",
+      "negotiate_ack",
+      "transport_finished_initiator",
+      "transport_finished_responder",
+  };
+  TranscriptParser parser;
+  for (const std::string_view name : kBindingFrames) {
+    const GoldenFrame* const frame = FindGoldenFrame(name);
+    Bytes encoded;
+    if (frame == nullptr || !DecodeHex(frame->hex, encoded)) {
+      Expect(false, "stream-scoped error binding fixture is valid");
+      return;
+    }
+    if (!parser.Process(frame->direction, encoded).ok()) {
+      Expect(false, "stream-scoped error test reaches established state");
+      return;
+    }
+  }
+
+  const Bytes malformed_transfer =
+      MakeFrame(MessageType::kTransferOffer, 1, 4, Bytes{0xffU});
+  const Error stream_error =
+      parser.Process(Direction::kInitiatorToResponder, malformed_transfer);
+  Expect(stream_error.code == ErrorCode::kMalformedMessage,
+         "malformed established transfer remains stream-scoped");
+  const Error after_stream_error =
+      parser.Process(Direction::kInitiatorToResponder, MakePingFrame(7, 5));
+  Expect(after_stream_error.ok(),
+         "stream-scoped error does not terminate later control parsing");
+}
+
 }  // namespace
 
 int main() {
@@ -549,6 +636,7 @@ int main() {
   TestScopeAndSchemaOrdering();
   TestPreBindingBodyGate();
   TestNegotiatedBodyLimitPrecedesBodyParsing();
+  TestFatalTranscriptState();
 
   if (failures != 0) {
     std::cerr << failures << " protocol parser test(s) failed\n";
