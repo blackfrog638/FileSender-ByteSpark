@@ -2,7 +2,7 @@
   "schema_version": 3,
   "id": "XT-055",
   "task_type": "governance",
-  "state": "integrated",
+  "state": "review",
   "owner": "defect-proof-agent",
   "base_sha": "ee4cf9f70e29471ac16e06c2abdda8651117fc1b",
   "head_sha": "36bf9f875acc006f151c3104357a9943fe2a8120",
@@ -102,22 +102,8 @@
     }
   },
   "integration": {
-    "strategy": "squash",
-    "source_base": "ee4cf9f70e29471ac16e06c2abdda8651117fc1b",
-    "source_head": "38a5ee37926d8de69092f0f750d2f9f26944362d",
-    "source_commits": [
-      "4c7ee3f7453e7398fbc40613c83bbaeeda962c26",
-      "552a4a4f2668751b1347ef6e80c8144485ef8c2c",
-      "37bef1c09e6473735adc38f72782ec3cfe452969",
-      "7f6a5059a1273493cd111ddc3c1ae8596c5815d1",
-      "579349c1008276ce79d301f11650b043998f8428",
-      "36bf9f875acc006f151c3104357a9943fe2a8120",
-      "38a5ee37926d8de69092f0f750d2f9f26944362d"
-    ],
-    "source_commits_sha256": "6ee2295b8aa9288debc9c65ae34efe70ff2a26e0ee654e84e8abf2e55be52910",
-    "source_patch_id": "8687e67581ce0f8b2ab1344732c4e9994b92a20c",
-    "result": "",
-    "result_patch_id": "8687e67581ce0f8b2ab1344732c4e9994b92a20c",
+    "strategy": "",
+    "mappings": [],
     "verified_sha": ""
   },
   "verification": {
