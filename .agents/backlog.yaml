@@ -992,6 +992,68 @@
       "owned_paths": [
         "docs/roadmap.md"
       ]
+    },
+    {
+      "id": "XT-060",
+      "title": "Pairing control wire contract",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-024"
+      ],
+      "owned_paths": [
+        "protocol/spec/pairing-v1.md",
+        "protocol/spec/v1.md",
+        "protocol/testdata/security/v1/pairing-control-vectors.json",
+        "protocol/testdata/security/v1/validate_vectors.py",
+        "protocol/testdata/security/v1/README.md",
+        "protocol/security/negative-test-matrix.md",
+        "docs/adr/0002-pairing-and-transport-security.md"
+      ]
+    },
+    {
+      "id": "XT-061",
+      "title": "Tls peer certificate bounds",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-023",
+        "XT-060"
+      ],
+      "owned_paths": [
+        "native/src/security/tls/tls_provider.cpp",
+        "native/tests/security/tls/tls_provider_test.cpp"
+      ]
+    },
+    {
+      "id": "XT-062",
+      "title": "Linux secret service qualification",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-024",
+        "XT-051"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/security/identity/linux_secret_service_store.hpp",
+        "native/src/security/identity/linux_secret_service_backend.cpp",
+        "native/src/security/identity/CMakeLists.txt",
+        "native/tests/security/identity/platform_protected_store_test.cpp",
+        "native/tests/security/identity/CMakeLists.txt",
+        ".github/workflows/ci.yml",
+        "docs/adr/0006-p1-native-runtime.md",
+        "docs/adr/0009-protected-identity-storage.md",
+        "docs/testing.md"
+      ]
     }
   ]
 }

@@ -1,0 +1,139 @@
+{
+  "schema_version": 3,
+  "id": "XT-062",
+  "task_type": "feature",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-062.md",
+  "commit": {
+    "type": "feat",
+    "scope": "identity",
+    "summary": "qualify linux secret service backend"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "A qualification or lifecycle error can lose the local identity, resurrect stale trust, or make Linux pairing unavailable.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "The selected service protects the Ed25519 seed and peer trust records against synchronization, plaintext fallback, wrong-user access, and service replacement.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "desktop_bundle_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Enumeration, item size, cleanup, and retry behavior against a real service must remain bounded.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "The private libsecret 0.21.7 API and GNOME Keyring D-Bus behavior must match the qualified deployment profile without weakening other platforms.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "desktop_bundle_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Secret Service lacks CAS, so two processes and stale revisions must serialize through the payload-free runtime lock.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "Linux gains one explicitly supported service while unsupported Linux services and macOS and Windows behavior must remain fail closed and unchanged.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "desktop_bundle_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "critical",
+      "rationale": "Root replacement, peer CAS, revocation, restart, rollback, restore, deletion, and stale-generation cleanup all cross the real OS store boundary.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "accepted",
+      "references": [
+        "docs/adr/0006-p1-native-runtime.md",
+        "docs/adr/0009-protected-identity-storage.md"
+      ],
+      "rationale": "Qualifying one concrete Linux security backend changes the documented platform support and residual trust assumptions."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The existing canonical identity provider and private platform adapter boundary remain unchanged."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The roadmap planning commit already makes this task a prerequisite of cross-platform P1 acceptance."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "native_test",
+      "security_test",
+      "desktop_bundle_test",
+      "verify"
+    ],
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "tool/harness/desktop_bundle_test.sh",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "schema_version": 3,
+  "id": "XT-061",
+  "task_type": "feature",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-061.md",
+  "commit": {
+    "type": "feat",
+    "scope": "tls",
+    "summary": "enforce peer certificate limits"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Incorrect OpenSSL limit configuration can reject valid identity handshakes or leave oversized peer input unbounded.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "A pre-authentication peer controls certificate bytes before pin verification, so the registered ceiling must fail closed.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "high",
+      "rationale": "The change is the memory and parsing amplification boundary for hostile certificate input.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Both roles and every platform must enforce the exact XT-060 limit without changing the accepted TLS profile.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "Context construction and handshake verification add no new shared mutable state or callback lifetime.",
+      "gates": []
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "The pinned OpenSSL configuration and boundary behavior must match on Linux, macOS, and Windows.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The task does not create, migrate, read, or delete durable identity or trust records.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements the certificate ceiling registered by XT-060 without changing the accepted security decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The canonical TLS provider remains in place and no dependency or module boundary changes."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The roadmap planning commit already records this explicit prerequisite before XT-025."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "native_test",
+      "security_test",
+      "verify"
+    ],
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
