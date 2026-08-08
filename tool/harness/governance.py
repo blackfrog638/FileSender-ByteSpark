@@ -60,7 +60,7 @@ SCHEMA_V3_TASK_TYPES = {
     "test",
     "governance",
 }
-DEFECT_FIELDS = {
+LEGACY_DEFECT_FIELDS = {
     "severity",
     "source",
     "symptom",
@@ -73,6 +73,7 @@ DEFECT_FIELDS = {
     "regression_gate",
     "contract_disposition",
 }
+DEFECT_FIELDS = LEGACY_DEFECT_FIELDS | {"failure_fingerprint"}
 DEFECT_SEVERITIES = {"P0", "P1", "P2", "P3"}
 DEFECT_SOURCES = {
     "audit",
@@ -90,7 +91,7 @@ DEFECT_PROOF_MODES = {
     "manual",
 }
 CONTRACT_DISPOSITIONS = {"restore", "preserve", "change"}
-DEFECT_PROOF_FIELDS = {
+LEGACY_DEFECT_PROOF_FIELDS = {
     "mode",
     "gate",
     "command_sha256",
@@ -99,6 +100,12 @@ DEFECT_PROOF_FIELDS = {
     "reproduction_exit_code",
     "head_exit_code",
     "checked_at",
+}
+DEFECT_PROOF_FIELDS = LEGACY_DEFECT_PROOF_FIELDS | {
+    "failure_fingerprint_sha256",
+    "base_commit",
+    "base_exit_code",
+    "reproduction_output_sha256",
 }
 INVESTIGATION_FIELDS = {
     "question",
@@ -336,11 +343,17 @@ def validate_schema_v3(
             errors.append(
                 f"{task_id}.investigation is invalid for task_type bugfix"
             )
+        raw_defect = record.get("defect")
+        legacy_defect = (
+            state == "done"
+            and isinstance(raw_defect, dict)
+            and set(raw_defect) == LEGACY_DEFECT_FIELDS
+        )
         defect = validate_exact_object(
             errors,
-            record.get("defect"),
+            raw_defect,
             f"{task_id}.defect",
-            DEFECT_FIELDS,
+            LEGACY_DEFECT_FIELDS if legacy_defect else DEFECT_FIELDS,
         )
         severity = require_concrete_string(
             errors,
@@ -384,6 +397,35 @@ def validate_schema_v3(
                 f"{task_id}.defect.proof_mode must be one of "
                 f"{sorted(DEFECT_PROOF_MODES)}"
             )
+        failure_fingerprint = ""
+        if not legacy_defect:
+            failure_fingerprint = require_string(
+                errors,
+                defect.get("failure_fingerprint"),
+                f"{task_id}.defect.failure_fingerprint",
+                allow_empty=proof_mode != "deterministic",
+            )
+            if failure_fingerprint:
+                if "TODO" in failure_fingerprint.upper():
+                    errors.append(
+                        f"{task_id}.defect.failure_fingerprint still "
+                        "contains TODO"
+                    )
+                if "\n" in failure_fingerprint or "\r" in failure_fingerprint:
+                    errors.append(
+                        f"{task_id}.defect.failure_fingerprint must be "
+                        "single-line"
+                    )
+                if failure_fingerprint != failure_fingerprint.strip():
+                    errors.append(
+                        f"{task_id}.defect.failure_fingerprint must not have "
+                        "surrounding whitespace"
+                    )
+                if not 16 <= len(failure_fingerprint) <= 256:
+                    errors.append(
+                        f"{task_id}.defect.failure_fingerprint must contain "
+                        "16-256 characters"
+                    )
         reproduction_commit = require_string(
             errors,
             defect.get("reproduction_commit"),
@@ -462,7 +504,11 @@ def validate_schema_v3(
                 errors,
                 proof,
                 f"{task_id}.verification.defect_proof",
-                DEFECT_PROOF_FIELDS,
+                (
+                    LEGACY_DEFECT_PROOF_FIELDS
+                    if legacy_defect
+                    else DEFECT_PROOF_FIELDS
+                ),
             )
             proof_mode_value = require_string(
                 errors,
@@ -505,6 +551,66 @@ def validate_schema_v3(
                     f"{task_id}.verification.defect_proof.command_sha256 "
                     "does not match the trusted gate"
                 )
+            if not legacy_defect:
+                fingerprint_sha = require_string(
+                    errors,
+                    proof.get("failure_fingerprint_sha256"),
+                    f"{task_id}.verification.defect_proof."
+                    "failure_fingerprint_sha256",
+                )
+                if fingerprint_sha and not SHA256_PATTERN.fullmatch(
+                    fingerprint_sha
+                ):
+                    errors.append(
+                        f"{task_id}.verification.defect_proof."
+                        "failure_fingerprint_sha256 must be a SHA-256 digest"
+                    )
+                if (
+                    failure_fingerprint
+                    and fingerprint_sha
+                    and hashlib.sha256(
+                        failure_fingerprint.encode("utf-8")
+                    ).hexdigest()
+                    != fingerprint_sha
+                ):
+                    errors.append(
+                        f"{task_id}.verification.defect_proof."
+                        "failure_fingerprint_sha256 does not match "
+                        "defect.failure_fingerprint"
+                    )
+                output_sha = require_string(
+                    errors,
+                    proof.get("reproduction_output_sha256"),
+                    f"{task_id}.verification.defect_proof."
+                    "reproduction_output_sha256",
+                )
+                if output_sha and not SHA256_PATTERN.fullmatch(output_sha):
+                    errors.append(
+                        f"{task_id}.verification.defect_proof."
+                        "reproduction_output_sha256 must be a SHA-256 digest"
+                    )
+                proof_base = require_string(
+                    errors,
+                    proof.get("base_commit"),
+                    f"{task_id}.verification.defect_proof.base_commit",
+                )
+                record_base = record.get("base_sha")
+                if proof_base != record_base:
+                    errors.append(
+                        f"{task_id}.verification.defect_proof.base_commit "
+                        "does not match base_sha"
+                    )
+                if proof_base and not SHA_PATTERN.fullmatch(proof_base):
+                    errors.append(
+                        f"{task_id}.verification.defect_proof.base_commit "
+                        "must be a full lowercase SHA"
+                    )
+                base_exit = proof.get("base_exit_code")
+                if type(base_exit) is not int or base_exit != 0:
+                    errors.append(
+                        f"{task_id}.verification.defect_proof.base_exit_code "
+                        "must be zero"
+                    )
             proof_reproduction = require_string(
                 errors,
                 proof.get("reproduction_commit"),
@@ -514,6 +620,15 @@ def validate_schema_v3(
                 errors.append(
                     f"{task_id}.verification.defect_proof.reproduction_commit "
                     "does not match defect.reproduction_commit"
+                )
+            if (
+                not legacy_defect
+                and proof_reproduction
+                and proof_reproduction == record.get("base_sha")
+            ):
+                errors.append(
+                    f"{task_id}.verification.defect_proof reproduction "
+                    "must differ from task base"
                 )
             proof_head = require_string(
                 errors,
