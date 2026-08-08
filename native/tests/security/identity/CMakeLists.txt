@@ -1,1 +1,86 @@
-# XT-022 registers protected identity storage tests from this leaf directory.
+add_executable(
+  xnn_transfer_identity_tests
+  identity_repository_test.cpp
+)
+
+target_link_libraries(
+  xnn_transfer_identity_tests
+  PRIVATE
+    xnn_transfer_identity
+)
+
+if(MSVC)
+  target_compile_options(
+    xnn_transfer_identity_tests
+    PRIVATE
+      /W4
+      /permissive-
+  )
+else()
+  target_compile_options(
+    xnn_transfer_identity_tests
+    PRIVATE
+      -Wall
+      -Wextra
+      -Wpedantic
+      -Wconversion
+      -Wsign-conversion
+  )
+endif()
+
+if(XNN_TRANSFER_ENABLE_ASAN_UBSAN)
+  xnn_transfer_enable_sanitizers(xnn_transfer_identity_tests)
+endif()
+
+add_test(
+  NAME xnn_transfer_identity_tests
+  COMMAND xnn_transfer_identity_tests
+)
+
+add_executable(
+  xnn_transfer_platform_protected_store_tests
+  platform_protected_store_test.cpp
+)
+
+target_include_directories(
+  xnn_transfer_platform_protected_store_tests
+  PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../src/security/identity"
+)
+
+target_link_libraries(
+  xnn_transfer_platform_protected_store_tests
+  PRIVATE
+    Threads::Threads
+    xnn_transfer_identity
+)
+
+if(MSVC)
+  target_compile_options(
+    xnn_transfer_platform_protected_store_tests
+    PRIVATE
+      /W4
+      /permissive-
+  )
+else()
+  target_compile_options(
+    xnn_transfer_platform_protected_store_tests
+    PRIVATE
+      -Wall
+      -Wextra
+      -Wpedantic
+      -Wconversion
+      -Wsign-conversion
+  )
+endif()
+
+if(XNN_TRANSFER_ENABLE_ASAN_UBSAN)
+  xnn_transfer_enable_sanitizers(
+    xnn_transfer_platform_protected_store_tests
+  )
+endif()
+
+add_test(
+  NAME xnn_transfer_platform_protected_store_tests
+  COMMAND xnn_transfer_platform_protected_store_tests
+)
