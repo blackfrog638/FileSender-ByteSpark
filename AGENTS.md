@@ -21,6 +21,8 @@ file assigned to you before editing code.
    the integration owner may run `agent.sh accept` after integration.
 9. A bugfix restores or deliberately changes an existing contract. Missing
    roadmap behavior is a feature, not a bug, and severity never removes gates.
+10. Active tasks must not own intersecting paths. A task with relevant
+    upstream product or governance changes must rebase and repeat review.
 
 ## Architecture boundaries
 
@@ -56,13 +58,14 @@ concrete supersession claims. Temporary production code requires an
 ## Task workflow
 
 1. Run `tool/harness/agent.sh list` from the integration worktree.
-2. Claim one ready task with
+2. Claim one ready, non-conflicting task with
    `tool/harness/agent.sh claim <task-id> <owner>`.
 3. Give the output of `tool/harness/agent.sh prompt <task-id>` to the agent.
 4. The agent works only in the generated task worktree and moves the runtime
    state to `in_progress` before code changes.
 5. Keep changes inside the owned paths. Request a handoff for shared files.
-6. Run focused tests while developing, then `make verify`.
+6. Rebase when the harness reports a relevant stale base, then run focused
+   tests while developing and `make verify`.
 7. Complete `.agents/handoffs/HANDOFF_TEMPLATE.md` in the task file or PR and
    move the runtime state to `review`.
 8. The integration owner runs `agent.sh integrate <task>`, then
@@ -97,6 +100,13 @@ contract, reproduction commit, trusted regression gate, proof mode, and
 `restore`, `preserve`, or `change` disposition. Investigation records define a
 bounded question and must resolve to `bugfix`, `feature`, or `no_change` before
 review; they do not claim a product fix.
+
+Claim, review, and integration resolve in-flight state from local task branches
+and reject explicit `owned_paths` that can intersect another active task. The
+claim check and branch creation share one recoverable Git-ref lock. Review and
+integration reject a base that diverged from the integration branch or is
+behind relevant owned or global-governance changes. Unrelated product changes
+may remain parallel.
 
 Squash is the standard task integration strategy. `agent.sh integrate` records
 the complete ordered source range and proves that its aggregate payload patch

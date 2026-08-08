@@ -7,6 +7,8 @@ root="$(cd "${XNN_TRANSFER_ROOT:-$script_root}" && pwd)"
 backlog="$root/.agents/backlog.yaml"
 governance="$root/tool/harness/governance.py"
 integration_branch="${XNN_TRANSFER_INTEGRATION_BRANCH:-harness}"
+claim_lock_ref="refs/xnn-transfer/locks/claim"
+claim_lock_token=""
 
 usage() {
   cat <<'EOF'
@@ -168,6 +170,59 @@ ensure_integration_worktree() {
       "$integration_branch" "${current:-detached HEAD}" >&2
     exit 1
   fi
+}
+
+release_claim_lock() {
+  local current
+  if [[ -z "$claim_lock_token" ]]; then
+    return
+  fi
+  current="$(
+    git -C "$root" rev-parse --verify "$claim_lock_ref" 2>/dev/null ||
+      true
+  )"
+  if [[ "$current" == "$claim_lock_token" ]]; then
+    git -C "$root" update-ref -d "$claim_lock_ref" "$claim_lock_token"
+  fi
+  claim_lock_token=""
+}
+
+acquire_claim_lock() {
+  local attempt existing owner zero
+  zero="0000000000000000000000000000000000000000"
+  claim_lock_token="$(
+    printf '%s\n' "$$" |
+      git -C "$root" hash-object -w --stdin
+  )"
+  for attempt in 1 2 3; do
+    if git -C "$root" update-ref \
+      "$claim_lock_ref" "$claim_lock_token" "$zero" 2>/dev/null; then
+      trap release_claim_lock EXIT
+      trap 'exit 129' HUP
+      trap 'exit 130' INT
+      trap 'exit 143' TERM
+      return
+    fi
+    existing="$(
+      git -C "$root" rev-parse --verify "$claim_lock_ref" 2>/dev/null ||
+        true
+    )"
+    owner="$(
+      git -C "$root" cat-file blob "$existing" 2>/dev/null ||
+        true
+    )"
+    if [[ "$owner" =~ ^[0-9]+$ ]] && kill -0 "$owner" 2>/dev/null; then
+      printf 'Another claim is active in this clone (pid %s).\n' \
+        "$owner" >&2
+      exit 1
+    fi
+    if [[ -n "$existing" ]]; then
+      git -C "$root" update-ref -d "$claim_lock_ref" "$existing" ||
+        continue
+    fi
+  done
+  printf 'Cannot acquire the task claim lock.\n' >&2
+  exit 1
 }
 
 commit_record() {
@@ -365,6 +420,11 @@ claim() {
 
   branch="$(task_branch "$task_id")"
   base_sha="$(git -C "$root" rev-parse --verify "$base_ref^{commit}")"
+  acquire_claim_lock
+  python3 -B "$root/tool/harness/task_conflicts.py" \
+    --root "$root" claim "$task_id"
+  python3 -B "$root/tool/harness/task_conflicts.py" \
+    --root "$root" stale "$task_id" "$base_sha" "$integration_branch"
   zero="0000000000000000000000000000000000000000"
   if ! git -C "$root" update-ref \
     "refs/heads/$branch" \
@@ -388,6 +448,8 @@ claim() {
     "$task_id" \
     claim \
     "$(task_lifecycle_subject "$task_id" claim)"
+  release_claim_lock
+  trap - EXIT HUP INT TERM
 
   printf 'Claimed %s for %s\n' "$task_id" "$owner"
   printf 'Worktree: %s\n' "$destination"
@@ -402,7 +464,7 @@ transition() {
 
   local task_id="$1"
   local next="$2"
-  local branch current allowed worktree head reference lifecycle
+  local branch current allowed worktree head reference lifecycle base
   branch="$(task_branch "$task_id")"
   if ! git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
     printf '%s is not claimed.\n' "$task_id" >&2
@@ -432,6 +494,13 @@ transition() {
   fi
 
   if [[ "$next" == "review" ]]; then
+    base="$(
+      "$worktree/tool/harness/governance.py" get "$task_id" base_sha
+    )"
+    python3 -B "$worktree/tool/harness/task_conflicts.py" \
+      --root "$worktree" claim "$task_id"
+    python3 -B "$worktree/tool/harness/task_conflicts.py" \
+      --root "$worktree" stale "$task_id" "$base" "$integration_branch"
     head="$(
       "$worktree/tool/harness/governance.py" \
         prepare-review "$task_id"
@@ -803,6 +872,10 @@ PY
     exit 1
   fi
   base="$("$worktree/tool/harness/governance.py" get "$task_id" base_sha)"
+  python3 -B "$worktree/tool/harness/task_conflicts.py" \
+    --root "$worktree" claim "$task_id"
+  python3 -B "$worktree/tool/harness/task_conflicts.py" \
+    --root "$worktree" stale "$task_id" "$base" "$integration_branch"
   head="$("$worktree/tool/harness/governance.py" get "$task_id" head_sha)"
   review_tip="$(git -C "$root" rev-parse "$branch")"
   review_parent="$(git -C "$root" rev-parse "$review_tip^")"

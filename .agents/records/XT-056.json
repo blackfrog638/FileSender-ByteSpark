@@ -2,10 +2,10 @@
   "schema_version": 3,
   "id": "XT-056",
   "task_type": "governance",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "task-conflict-agent",
+  "base_sha": "ff99017aea0e8e8eadfa2588423bdaf7a024a746",
+  "head_sha": "d9ba7d4dd91ebdaa11253ffd8ec6d096a560ed0c",
   "handoff": ".agents/handoffs/XT-056.md",
   "commit": {
     "type": "feat",
@@ -84,7 +84,7 @@
   "impacts": {
     "adr": {
       "required": true,
-      "status": "proposed",
+      "status": "accepted",
       "references": [
         "docs/adr/0012-task-conflict-governance.md"
       ],
@@ -102,12 +102,27 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "ff99017aea0e8e8eadfa2588423bdaf7a024a746",
+    "source_head": "580390d92902ce1a6f5a7ee67d94d35fbcfb40db",
+    "source_commits": [
+      "75bf90a7f7e9d43ec4410b47386a3e03aeab5a2a",
+      "1912704638fa21d5b9b95d8ff4d8a8e1b4b24609",
+      "81209850493a89a3ad0ba18726cbacdc31756bc5",
+      "f69c1daee5786c474e03abe2dfb4de871cd7d579",
+      "2f7c0f03a2aeb3d0e42d515efb525b3d96f3e914",
+      "5cbd60c82d604b204c497c3a8cec253b647556c8",
+      "d9ba7d4dd91ebdaa11253ffd8ec6d096a560ed0c",
+      "580390d92902ce1a6f5a7ee67d94d35fbcfb40db"
+    ],
+    "source_commits_sha256": "887c12cb1656649da14b3698c10af301b35bf51d265c251a522126615df21946",
+    "source_patch_id": "241f05c9b1f52c7d09399a67d2ee554b09535159",
+    "result": "",
+    "result_patch_id": "241f05c9b1f52c7d09399a67d2ee554b09535159",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "governance_test",
       "verify"
@@ -116,7 +131,7 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:d9ba7d4dd91ebdaa11253ffd8ec6d096a560ed0c:2026-08-08T03:58:12Z"
   },
   "acceptance": {
     "accepted_by": "",

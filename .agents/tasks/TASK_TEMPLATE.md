@@ -128,6 +128,10 @@ Replace `pending` with `bugfix`, `feature`, or `no_change` before review.
 
 - State security, compatibility, platform, and performance constraints.
 - List behavior explicitly outside this task.
+- Keep `owned_paths` narrow and non-overlapping with active tasks. Claim blocks
+  exact, glob, recursive, and potential intersections.
+- Rebase before review when upstream changed an owned or global governance
+  path. Unrelated product changes may remain parallel.
 
 ## Risk profile
 

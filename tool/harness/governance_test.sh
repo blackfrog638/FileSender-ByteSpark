@@ -7,6 +7,7 @@ export PYTHONDONTWRITEBYTECODE=1
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 python3 -B "$root/tool/harness/trusted_gates_test.py"
 python3 -B "$root/tool/harness/defect_proof_test.py"
+python3 -B "$root/tool/harness/task_conflicts_test.py"
 temporary="$(mktemp -d)"
 repository="$temporary/repository"
 task_id="XT-999"
@@ -560,8 +561,30 @@ if [[ -n "$(git -C "$repository" status --short)" ]]; then
   printf 'Dirty governance fixture before claim:\n' >&2
   git -C "$repository" status --short >&2
 fi
+lock_ref="refs/xnn-transfer/locks/claim"
+live_lock="$(
+  printf '%s\n' "$$" |
+    git -C "$repository" hash-object -w --stdin
+)"
+git -C "$repository" update-ref "$lock_ref" "$live_lock"
+if "$repository/tool/harness/agent.sh" \
+  claim "$task_id" test-agent >/dev/null 2>&1; then
+  printf 'Claim ignored a live scheduler lock.\n' >&2
+  exit 1
+fi
+test "$(git -C "$repository" rev-parse "$lock_ref")" = "$live_lock"
+git -C "$repository" update-ref -d "$lock_ref" "$live_lock"
+dead_lock="$(
+  printf '99999999\n' |
+    git -C "$repository" hash-object -w --stdin
+)"
+git -C "$repository" update-ref "$lock_ref" "$dead_lock"
 "$repository/tool/harness/agent.sh" \
   claim "$task_id" test-agent >/dev/null
+if git -C "$repository" show-ref --verify --quiet "$lock_ref"; then
+  printf 'Claim left the recovered scheduler lock behind.\n' >&2
+  exit 1
+fi
 "$repository/tool/harness/agent.sh" \
   transition "$task_id" in_progress >/dev/null
 
