@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-027",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "safe-storage-agent",
   "base_sha": "e4768a348ceb844c74a52e3b0e2e6ec069e25217",
   "head_sha": "b654266c768e8e4404c7a14f9c16a0edb31ab7c3",
@@ -131,9 +131,9 @@
     ],
     "source_commits_sha256": "474cd8055d8e768c02227fe01272b9a728261a6fb2d76092198496be923a13f7",
     "source_patch_id": "17783526d00860420d1074451a3b492ae5512c2d",
-    "result": "",
+    "result": "4315236da15c6f76bbaf056ed06072aefe67ea8a",
     "result_patch_id": "17783526d00860420d1074451a3b492ae5512c2d",
-    "verified_sha": ""
+    "verified_sha": "4315236da15c6f76bbaf056ed06072aefe67ea8a"
   },
   "verification": {
     "status": "passed",
@@ -142,11 +142,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:b654266c768e8e4404c7a14f9c16a0edb31ab7c3:2026-08-08T21:54:51Z"
+    "reference": "github-actions:31281283251:9-of-10-platform-pass;local:4315236da15c6f76bbaf056ed06072aefe67ea8a:trusted-gates"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-09T06:49:05+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
