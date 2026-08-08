@@ -1,0 +1,126 @@
+{
+  "schema_version": 3,
+  "id": "XT-056",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-056.md",
+  "commit": {
+    "type": "feat",
+    "scope": "harness",
+    "summary": "reject conflicting and stale tasks"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "False negatives permit overlapping work or stale delivery, while false positives unnecessarily serialize independent tasks.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "A stale task could review under obsolete governance or overwrite a security-sensitive fix in an overlapping path.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Claim, review, and integration add bounded record and Git diff scans over the tracked task catalogue.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "medium",
+      "rationale": "Existing schema versions, non-overlapping tasks, custom base refs, and archived task records must retain their legal workflows.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Two simultaneous claims must not both pass an overlap check, and an interrupted claimant must not leave a permanent scheduler lock.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "Pattern matching, Git ancestry, and lock recovery must behave consistently on supported development hosts.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "Claim locks live in the common Git directory and must recover after process termination without entering tracked history.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0012-task-conflict-governance.md"
+      ],
+      "rationale": "Active ownership and stale-base policy are cross-workstream scheduler contracts."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task changes scheduler governance, not product runtime module boundaries."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Conflict prevention is repository governance rather than a product milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
