@@ -956,6 +956,28 @@
         "native/src/protocol/v1_parser.cpp",
         "native/tests/protocol/v1_parser_test.cpp"
       ]
+    },
+    {
+      "id": "XT-058",
+      "title": "Attributed defect proof",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-057"
+      ],
+      "owned_paths": [
+        "tool/harness/defect_proof.py",
+        "tool/harness/defect_proof_test.py",
+        "tool/harness/governance.py",
+        "tool/harness/governance_test.sh",
+        "tool/harness/new_task.sh",
+        ".agents/records/README.md",
+        ".agents/tasks/TASK_TEMPLATE.md",
+        "docs/adr/0013-attributed-defect-proof.md"
+      ]
     }
   ]
 }
