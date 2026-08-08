@@ -2,7 +2,7 @@
   "schema_version": 3,
   "id": "XT-057",
   "task_type": "bugfix",
-  "state": "integrated",
+  "state": "done",
   "owner": "protocol-bugfix-agent",
   "base_sha": "65e445e21516a5bf509fb8f803ac8f893173bb95",
   "head_sha": "cacc5a53e55123d7acf0e76503696f36119df08e",
@@ -113,9 +113,9 @@
     ],
     "source_commits_sha256": "fedbd23dcded7eebc3f008b64a50d06544f29abe8e107aa597f532db0acd3a14",
     "source_patch_id": "2864679ef7e6bf84fbd1c8fa1fbead6c411ece52",
-    "result": "",
+    "result": "5798fcf07cf4b06644e0578e15372b8e79450212",
     "result_patch_id": "2864679ef7e6bf84fbd1c8fa1fbead6c411ece52",
-    "verified_sha": ""
+    "verified_sha": "5798fcf07cf4b06644e0578e15372b8e79450212"
   },
   "verification": {
     "status": "passed",
@@ -129,7 +129,7 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:cacc5a53e55123d7acf0e76503696f36119df08e:2026-08-08T05:13:12Z",
+    "reference": "github-actions:31241265017",
     "defect_proof": {
       "mode": "deterministic",
       "gate": "native_test",
@@ -142,9 +142,9 @@
     }
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-08T13:29:13+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   },
   "defect": {
     "severity": "P1",
