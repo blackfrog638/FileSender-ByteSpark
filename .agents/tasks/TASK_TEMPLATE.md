@@ -89,7 +89,8 @@ Bugfix records add:
     "proof_mode": "deterministic",
     "reproduction_commit": "",
     "regression_gate": "native_test",
-    "contract_disposition": "restore"
+    "contract_disposition": "restore",
+    "failure_fingerprint": "FAILED: exact stable regression assertion"
   }
 }
 ```
@@ -99,14 +100,18 @@ Severity is `P0` through `P3`. Proof mode is `deterministic`, `sanitizer`,
 during development but must be a full SHA before review. The regression gate
 is a trusted manifest gate and must also appear in `verification.gates`.
 Disposition is `restore`, `preserve`, or `change`; `change` requires an ADR.
+For deterministic proof, `failure_fingerprint` is exact single-line output
+between 16 and 256 characters that identifies the intended regression. It has
+no surrounding whitespace and must equal one complete gate output line.
 
 For `deterministic`, commit the focused regression gate while it still fails,
 then set `reproduction_commit` to that commit. `transition review` runs the
-resolved gate at that detached revision and at the reviewed head. Review
-requires failure at reproduction and success at head; the harness generates
-`verification.defect_proof`. Do not hand-edit that evidence. The reproduction
-must be between the task base and reviewed head. Other proof modes currently
-fail closed at review until their mode-specific executor is implemented.
+resolved gate at the task base, detached reproduction revision, and reviewed
+head. Review requires base success, attributed reproduction failure, and head
+success; the harness generates `verification.defect_proof`. Do not hand-edit
+that evidence. The reproduction must be strictly between the task base and
+reviewed head. Other proof modes currently fail closed at review until their
+mode-specific executor is implemented.
 
 Investigation records instead add:
 

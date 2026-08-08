@@ -410,6 +410,7 @@ bugfix["defect"] = {
     "reproduction_commit": "",
     "regression_gate": "verify",
     "contract_disposition": "restore",
+    "failure_fingerprint": "FAILED: fatal parser accepts later input",
 }
 
 try:
@@ -434,6 +435,32 @@ try:
     invalid = copy.deepcopy(bugfix)
     invalid["defect"]["regression_command"] = "true"
     validate_candidate(invalid, "unknown defect field", "has unknown fields")
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["defect"].pop("failure_fingerprint")
+    validate_candidate(
+        invalid,
+        "missing failure fingerprint",
+        "defect is missing fields: failure_fingerprint",
+    )
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["defect"]["failure_fingerprint"] = "generic"
+    validate_candidate(
+        invalid,
+        "short failure fingerprint",
+        "failure_fingerprint must contain 16-256 characters",
+    )
+
+    invalid = copy.deepcopy(bugfix)
+    invalid["defect"]["failure_fingerprint"] = (
+        " FAILED: fatal parser accepts later input "
+    )
+    validate_candidate(
+        invalid,
+        "padded failure fingerprint",
+        "failure_fingerprint must not have surrounding whitespace",
+    )
 
     invalid = copy.deepcopy(bugfix)
     invalid["defect"]["severity"] = "urgent"
@@ -1065,8 +1092,10 @@ assert set(bugfix["defect"]) == {
     "reproduction_commit",
     "regression_gate",
     "contract_disposition",
+    "failure_fingerprint",
 }
 assert bugfix["defect"]["reproduction_commit"] == ""
+assert "TODO" in bugfix["defect"]["failure_fingerprint"]
 assert "TODO" in bugfix["defect"]["severity"]
 bugfix_spec = (
     root / ".agents" / "tasks" / "XT-997-bugfix-fixture.md"

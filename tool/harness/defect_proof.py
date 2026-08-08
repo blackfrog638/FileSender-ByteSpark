@@ -8,6 +8,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -76,22 +77,28 @@ def write_record(root: Path, task_id: str, record: dict[str, Any]) -> None:
     )
 
 
-def run_gate(command: str, worktree: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["bash", "-lc", command],
-        cwd=worktree,
-        check=False,
-        capture_output=True,
-        text=True,
+def proof_environment(root: Path) -> dict[str, str]:
+    environment = os.environ.copy()
+    environment["XNN_TRANSFER_VCPKG_ROOT"] = str(
+        (root / "out" / "tools" / "vcpkg").resolve()
     )
+    return environment
 
 
 def command_digest(command: str) -> str:
     return hashlib.sha256(command.encode("utf-8")).hexdigest()
 
 
+def result_output(result: subprocess.CompletedProcess[str]) -> str:
+    return result.stdout + result.stderr
+
+
+def output_digest(result: subprocess.CompletedProcess[str]) -> str:
+    return hashlib.sha256(result_output(result).encode("utf-8")).hexdigest()
+
+
 def result_tail(result: subprocess.CompletedProcess[str]) -> str:
-    output = result.stdout + result.stderr
+    output = result_output(result)
     return output[-4000:] if output else "(no output)"
 
 
@@ -109,6 +116,39 @@ def remove_worktree(root: Path, worktree: Path) -> None:
             "cannot remove reproduction worktree:\n"
             + (result.stderr or result.stdout)
         )
+
+
+def run_detached_gate(
+    root: Path,
+    commit: str,
+    command: str,
+    worktree: Path,
+) -> subprocess.CompletedProcess[str]:
+    added = git(
+        root,
+        "worktree",
+        "add",
+        "--detach",
+        str(worktree),
+        commit,
+        check=False,
+    )
+    if added.returncode != 0:
+        raise DefectProofError(
+            f"cannot create detached worktree for {commit}:\n"
+            + (added.stderr or added.stdout)
+        )
+    try:
+        return subprocess.run(
+            ["bash", "-lc", command],
+            cwd=worktree,
+            env=proof_environment(root),
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        remove_worktree(root, worktree)
 
 
 def run_proof(
@@ -152,6 +192,8 @@ def run_proof(
             raise DefectProofError(f"{label} commit is unavailable: {commit}")
     if not is_ancestor(root, base, reproduction):
         raise DefectProofError("reproduction commit is outside the task base")
+    if base == reproduction:
+        raise DefectProofError("task base and reproduction commit must differ")
     if not is_ancestor(root, reproduction, head_commit):
         raise DefectProofError("reproduction commit is not an ancestor of head")
     if reproduction == head_commit:
@@ -177,26 +219,38 @@ def run_proof(
     if git_text(root, "status", "--porcelain"):
         raise DefectProofError("task worktree must be clean before defect proof")
 
-    with tempfile.TemporaryDirectory(prefix=f"xnn-{task_id.lower()}-proof-") as tmp:
-        reproduction_worktree = Path(tmp) / "reproduction"
-        added = git(
-            root,
-            "worktree",
-            "add",
-            "--detach",
-            str(reproduction_worktree),
-            reproduction,
-            check=False,
+    failure_fingerprint = defect.get("failure_fingerprint")
+    if (
+        not isinstance(failure_fingerprint, str)
+        or not failure_fingerprint.strip()
+        or failure_fingerprint != failure_fingerprint.strip()
+        or "TODO" in failure_fingerprint.upper()
+        or "\n" in failure_fingerprint
+        or "\r" in failure_fingerprint
+        or not 16 <= len(failure_fingerprint) <= 256
+    ):
+        raise DefectProofError(
+            "failure fingerprint must be 16-256 concrete single-line characters"
         )
-        if added.returncode != 0:
+
+    with tempfile.TemporaryDirectory(prefix=f"xnn-{task_id.lower()}-proof-") as tmp:
+        base_result = run_detached_gate(
+            root,
+            base,
+            command,
+            Path(tmp) / "base",
+        )
+        if base_result.returncode != 0:
             raise DefectProofError(
-                "cannot create reproduction worktree:\n"
-                + (added.stderr or added.stdout)
+                f"regression gate failed at task base with exit "
+                f"{base_result.returncode}:\n{result_tail(base_result)}"
             )
-        try:
-            reproduction_result = run_gate(command, reproduction_worktree)
-        finally:
-            remove_worktree(root, reproduction_worktree)
+        reproduction_result = run_detached_gate(
+            root,
+            reproduction,
+            command,
+            Path(tmp) / "reproduction",
+        )
 
     if reproduction_result.returncode == 0:
         raise DefectProofError(
@@ -209,8 +263,21 @@ def run_proof(
             f"{reproduction_result.returncode}:\n"
             f"{result_tail(reproduction_result)}"
         )
+    if failure_fingerprint not in result_output(reproduction_result).splitlines():
+        raise DefectProofError(
+            "regression gate failure did not contain the declared "
+            f"fingerprint as a complete line {failure_fingerprint!r}:\n"
+            f"{result_tail(reproduction_result)}"
+        )
 
-    head_result = run_gate(command, root)
+    head_result = subprocess.run(
+        ["bash", "-lc", command],
+        cwd=root,
+        env=proof_environment(root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
     if head_result.returncode != 0:
         raise DefectProofError(
             f"regression gate failed at reviewed head with exit "
@@ -223,10 +290,14 @@ def run_proof(
         "mode": "deterministic",
         "gate": gate,
         "command_sha256": command_digest(command),
+        "failure_fingerprint_sha256": command_digest(failure_fingerprint),
+        "base_commit": base,
         "reproduction_commit": reproduction,
         "head_commit": head_commit,
+        "base_exit_code": base_result.returncode,
         "reproduction_exit_code": reproduction_result.returncode,
         "head_exit_code": head_result.returncode,
+        "reproduction_output_sha256": output_digest(reproduction_result),
         "checked_at": dt.datetime.now(dt.timezone.utc).isoformat(
             timespec="seconds"
         ),

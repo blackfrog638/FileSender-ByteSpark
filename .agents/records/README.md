@@ -29,32 +29,45 @@ governance. New tasks use schema version 3 and contain:
 A `bugfix` also contains a `defect` object with severity, report source,
 symptom, existing expected contract, actual behavior, bounded trigger,
 affected-since value, proof mode, reproduction commit, trusted regression
-gate, and contract disposition. The reproduction commit may be empty only
-before review. The regression gate must be registered and included in
-`verification.gates`. Dispositions are:
+gate, failure fingerprint, and contract disposition. The reproduction commit
+may be empty only before review. The regression gate must be registered and
+included in `verification.gates`. A deterministic fingerprint is exact,
+single-line stable failure text between 16 and 256 characters, with no
+surrounding whitespace. It must equal one complete reproduction output line.
+Dispositions are:
 
 - `restore`: return to an existing documented contract;
 - `preserve`: repair an internal defect without external behavior change;
 - `change`: intentionally change the contract and bind an ADR.
 
 A deterministic bugfix cannot enter review until `transition review` executes
-the exact regression gate in a detached reproduction worktree and at the
-reviewed head. The first execution must return a nonzero, non-infrastructure
-exit code; the second must return zero. The generated
+the exact regression gate at the task base, in a detached reproduction
+worktree, and at reviewed head. The task base must pass. The reproduction must
+return a nonzero, non-infrastructure exit code and its combined output must
+contain `failure_fingerprint`. Reviewed head must pass. The generated
 `verification.defect_proof` object binds:
 
 - proof mode and regression gate ID;
 - SHA-256 of the resolved trusted command;
-- reproduction and reviewed-head commit IDs;
-- both exit codes and the check time.
+- SHA-256 of the failure fingerprint and reproduction output;
+- base, reproduction, and reviewed-head commit IDs;
+- all three exit codes and the check time.
 
 The reproduction commit must be an ancestor of the reviewed head and no older
-than the task base. Governance revalidates the binding from durable metadata.
+than the task base; it cannot equal the base. Base and reproduction execute in
+separate detached worktrees. Both receive the pinned vcpkg root derived from
+the task worktree rather than a caller-supplied path, and both worktrees are
+removed on success and error paths. Governance revalidates the binding from
+durable metadata.
 `mark-review` executes and overwrites the generated proof at the mutation
 boundary, so calling the low-level command cannot substitute task-authored
 fields for execution.
 `sanitizer`, `stress`, `platform_ci`, and `manual` remain valid planning modes
 but have no review executor yet, so they fail closed at review.
+
+Accepted legacy bugfix records retain the earlier two-revision proof shape.
+Active deterministic records must use attributed three-revision proof; the
+task generator always emits `failure_fingerprint`.
 
 An `investigation` contains a bounded question, scope, required evidence, exit
 criteria, and outcome disposition. `pending` is allowed during investigation

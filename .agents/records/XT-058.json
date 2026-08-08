@@ -2,10 +2,10 @@
   "schema_version": 3,
   "id": "XT-058",
   "task_type": "governance",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "defect-proof-attribution-agent",
+  "base_sha": "f7e50f109b77b82e4109d276ddc014d6788690fa",
+  "head_sha": "01dd467926bd924e9e2317e466a88c9cf2bc517e",
   "handoff": ".agents/handoffs/XT-058.md",
   "commit": {
     "type": "fix",
@@ -81,7 +81,7 @@
   "impacts": {
     "adr": {
       "required": true,
-      "status": "proposed",
+      "status": "accepted",
       "references": [
         "docs/adr/0013-attributed-defect-proof.md"
       ],
@@ -99,12 +99,28 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "f7e50f109b77b82e4109d276ddc014d6788690fa",
+    "source_head": "bf7e18e736f147ca069f9d3d87ccbcbebca88067",
+    "source_commits": [
+      "5158ac92f0fc65cc360bc805810968eeeed09500",
+      "c53ae100354d3bb94780a71ca743da4d816ee656",
+      "d7024a49cc48029e56c3a6379f22a133e2ee24c8",
+      "3ca0817cac0a9057ebf294db1b6d221fec44bba3",
+      "bbeaa63f025a01e5bf5de87128abbca70a533839",
+      "de640c7366286be2f1e8d1bca2e32a0ca85cd2d2",
+      "b760ac69b058b5af7bf1217d2af76814b06e5abe",
+      "01dd467926bd924e9e2317e466a88c9cf2bc517e",
+      "bf7e18e736f147ca069f9d3d87ccbcbebca88067"
+    ],
+    "source_commits_sha256": "01d466effff03bbfcb5f0b5856d0c2b83518c273379329873672d69c3fedc4f2",
+    "source_patch_id": "ba3f229f7f79831e6d702e704353eb143ca82539",
+    "result": "",
+    "result_patch_id": "ba3f229f7f79831e6d702e704353eb143ca82539",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "governance_test",
       "verify"
@@ -113,7 +129,7 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:01dd467926bd924e9e2317e466a88c9cf2bc517e:2026-08-08T06:39:15Z"
   },
   "acceptance": {
     "accepted_by": "",
