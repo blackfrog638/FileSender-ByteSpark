@@ -12,8 +12,29 @@
 namespace xnn_transfer::core::storage {
 namespace {
 
+constexpr std::string_view kReservedTemporaryDirectory = ".xnn-transfer-tmp";
+
 [[nodiscard]] bool IsAsciiAlpha(const char value) noexcept {
   return (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z');
+}
+
+[[nodiscard]] bool AsciiCaseInsensitiveEquals(const std::string_view left,
+                                              const std::string_view right) noexcept {
+  if (left.size() != right.size()) {
+    return false;
+  }
+  for (std::size_t index = 0; index < left.size(); ++index) {
+    const char left_folded = left[index] >= 'A' && left[index] <= 'Z'
+                                 ? left[index] - 'A' + 'a'
+                                 : left[index];
+    const char right_folded = right[index] >= 'A' && right[index] <= 'Z'
+                                  ? right[index] - 'A' + 'a'
+                                  : right[index];
+    if (left_folded != right_folded) {
+      return false;
+    }
+  }
+  return true;
 }
 
 [[nodiscard]] bool IsNoncharacter(const utf8proc_int32_t codepoint) noexcept {
@@ -137,6 +158,10 @@ PathValidationResult ValidateReceivePath(const std::span<const std::uint8_t> enc
     }
     if (component == "..") {
       return PathValidationResult(ValidationError::kPathTraversal);
+    }
+    if (components.empty() &&
+        AsciiCaseInsensitiveEquals(component, kReservedTemporaryDirectory)) {
+      return PathValidationResult(ValidationError::kPathReservedComponent);
     }
     components.emplace_back(component);
     if (components.size() > kMaxPathComponents) {

@@ -21,6 +21,9 @@
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
+#if defined(__APPLE__)
+#include <sys/acl.h>
+#endif
 #endif
 
 namespace xnn_transfer::core::storage {
@@ -58,6 +61,21 @@ constexpr std::string_view kTemporaryPrefix = "part-";
   }
 }
 
+[[nodiscard]] PlatformError ValidateNoExtendedAcl(const int fd) noexcept {
+#if defined(__APPLE__)
+  errno = 0;
+  acl_t const acl = ::acl_get_fd_np(fd, ACL_TYPE_EXTENDED);
+  if (acl == nullptr) {
+    return errno == ENOENT ? PlatformError::kNone : ErrorFromErrno(errno);
+  }
+  static_cast<void>(::acl_free(acl));
+  return PlatformError::kInvalidRoot;
+#else
+  static_cast<void>(fd);
+  return PlatformError::kNone;
+#endif
+}
+
 [[nodiscard]] PlatformError ValidateTrustedDirectory(const int fd) noexcept {
   struct stat metadata{};
   if (::fstat(fd, &metadata) != 0) {
@@ -67,7 +85,7 @@ constexpr std::string_view kTemporaryPrefix = "part-";
       (metadata.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
     return PlatformError::kInvalidRoot;
   }
-  return PlatformError::kNone;
+  return ValidateNoExtendedAcl(fd);
 }
 
 [[nodiscard]] bool StartsWith(const std::string_view value,
@@ -88,14 +106,16 @@ constexpr std::string_view kTemporaryPrefix = "part-";
   }
 
   PlatformError first_error = PlatformError::kNone;
+  bool removed_any = false;
   errno = 0;
   while (dirent* const entry = ::readdir(directory)) {
     const std::string_view name(entry->d_name);
     if (!StartsWith(name, kTemporaryPrefix)) {
       continue;
     }
-    if (::unlinkat(temporary_directory_fd, entry->d_name, 0) != 0 && errno != ENOENT &&
-        first_error == PlatformError::kNone) {
+    if (::unlinkat(temporary_directory_fd, entry->d_name, 0) == 0) {
+      removed_any = true;
+    } else if (errno != ENOENT && first_error == PlatformError::kNone) {
       first_error = ErrorFromErrno(errno);
     }
     errno = 0;
@@ -104,6 +124,10 @@ constexpr std::string_view kTemporaryPrefix = "part-";
     first_error = ErrorFromErrno(errno);
   }
   if (::closedir(directory) != 0 && first_error == PlatformError::kNone) {
+    first_error = ErrorFromErrno(errno);
+  }
+  if (removed_any && ::fsync(temporary_directory_fd) != 0 &&
+      first_error == PlatformError::kNone) {
     first_error = ErrorFromErrno(errno);
   }
   return {.error = first_error};
@@ -404,8 +428,9 @@ class PosixFilesystemBackend final : public PlatformBackend {
   const int root_fd =
       ::open(root_path.c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
   if (root_fd < 0) {
-    return {.error = errno == ELOOP || errno == ENOTDIR ? PlatformError::kInvalidRoot
-                                                        : ErrorFromErrno(errno)};
+    return {.error = errno == ELOOP || errno == ENOTDIR || errno == ENOENT
+                         ? PlatformError::kInvalidRoot
+                         : ErrorFromErrno(errno)};
   }
   const PlatformError root_trust_error = ValidateTrustedDirectory(root_fd);
   if (root_trust_error != PlatformError::kNone) {
@@ -438,6 +463,13 @@ class PosixFilesystemBackend final : public PlatformBackend {
     ::close(root_fd);
     return {.error = PlatformError::kInvalidRoot};
   }
+  const PlatformError temporary_acl_error =
+      ValidateNoExtendedAcl(temporary_directory_fd);
+  if (temporary_acl_error != PlatformError::kNone) {
+    ::close(temporary_directory_fd);
+    ::close(root_fd);
+    return {.error = temporary_acl_error};
+  }
 
   const int lock_fd =
       ::openat(temporary_directory_fd, kLockFile.data(),
@@ -456,6 +488,13 @@ class PosixFilesystemBackend final : public PlatformBackend {
     ::close(temporary_directory_fd);
     ::close(root_fd);
     return {.error = PlatformError::kInvalidRoot};
+  }
+  const PlatformError lock_acl_error = ValidateNoExtendedAcl(lock_fd);
+  if (lock_acl_error != PlatformError::kNone) {
+    ::close(lock_fd);
+    ::close(temporary_directory_fd);
+    ::close(root_fd);
+    return {.error = lock_acl_error};
   }
   if (::flock(lock_fd, LOCK_EX | LOCK_NB) != 0) {
     const PlatformError error =

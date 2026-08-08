@@ -159,13 +159,14 @@ class NativeApi final {
   RtlNtStatusToDosErrorFunction rtl_nt_status_to_dos_error_{};
 };
 
-[[nodiscard]] PlatformError ErrorFromWindows(const DWORD error) noexcept {
+[[nodiscard]] constexpr PlatformError ErrorFromWindows(const DWORD error) noexcept {
   switch (error) {
     case ERROR_SUCCESS:
       return PlatformError::kNone;
     case ERROR_DISK_FULL:
     case ERROR_HANDLE_DISK_FULL:
     case ERROR_NOT_ENOUGH_QUOTA:
+    case ERROR_DISK_QUOTA_EXCEEDED:
       return PlatformError::kNoSpace;
     case ERROR_ACCESS_DENIED:
     case ERROR_PRIVILEGE_NOT_HELD:
@@ -180,6 +181,7 @@ class NativeApi final {
     case ERROR_INVALID_REPARSE_DATA:
     case ERROR_REPARSE_TAG_INVALID:
     case ERROR_REPARSE_TAG_MISMATCH:
+    case ERROR_REPARSE_POINT_ENCOUNTERED:
       return PlatformError::kInvalidRoot;
     case ERROR_SHARING_VIOLATION:
     case ERROR_LOCK_VIOLATION:
@@ -193,6 +195,10 @@ class NativeApi final {
       return PlatformError::kIoFailure;
   }
 }
+
+static_assert(ErrorFromWindows(ERROR_DISK_QUOTA_EXCEEDED) == PlatformError::kNoSpace);
+static_assert(ErrorFromWindows(ERROR_REPARSE_POINT_ENCOUNTERED) ==
+              PlatformError::kInvalidRoot);
 
 [[nodiscard]] bool IsUnsupportedInformationError(const DWORD error) noexcept {
   return error == ERROR_INVALID_PARAMETER || error == ERROR_INVALID_FUNCTION ||
@@ -481,7 +487,8 @@ struct DispositionInformationEx {
   std::vector<std::wstring> stale_names;
   alignas(FILE_ID_BOTH_DIR_INFO) std::array<std::byte, 64 * 1024> buffer{};
   bool restart = true;
-  while (true) {
+  bool more_stale_entries = false;
+  while (!more_stale_entries) {
     const FILE_INFO_BY_HANDLE_CLASS information_class =
         restart ? FileIdBothDirectoryRestartInfo : FileIdBothDirectoryInfo;
     restart = false;
@@ -511,7 +518,8 @@ struct DispositionInformationEx {
       const std::wstring_view name(entry->FileName, name_bytes / sizeof(wchar_t));
       if (StartsWith(name, kTemporaryPrefix) && IsSingleComponent(name)) {
         if (stale_names.size() >= kMaxStaleTemporaries) {
-          return {.error = PlatformError::kBusy};
+          more_stale_entries = true;
+          break;
         }
         stale_names.emplace_back(name);
       }
@@ -549,6 +557,9 @@ struct DispositionInformationEx {
   if (first_error == PlatformError::kNone) {
     first_error = flush_error;
   }
+  if (first_error == PlatformError::kNone && more_stale_entries) {
+    first_error = PlatformError::kBusy;
+  }
   return {.error = first_error};
 }
 
@@ -585,13 +596,13 @@ struct DestinationParent {
 [[nodiscard]] PlatformError CheckFreeSpace(const HANDLE directory,
                                            const std::uint64_t required_bytes) {
   const DWORD required = ::GetFinalPathNameByHandleW(
-      directory, nullptr, 0, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+      directory, nullptr, 0, FILE_NAME_NORMALIZED | VOLUME_NAME_GUID);
   if (required == 0) {
     return ErrorFromWindows(::GetLastError());
   }
   std::wstring path(static_cast<std::size_t>(required), L'\0');
   const DWORD written = ::GetFinalPathNameByHandleW(
-      directory, path.data(), required, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+      directory, path.data(), required, FILE_NAME_NORMALIZED | VOLUME_NAME_GUID);
   if (written == 0 || written >= required) {
     return ErrorFromWindows(::GetLastError());
   }
