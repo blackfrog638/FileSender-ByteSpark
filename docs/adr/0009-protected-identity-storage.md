@@ -257,9 +257,9 @@ Platform adapter status is:
 
 | Platform | Required facility | Status |
 | --- | --- | --- |
-| macOS | non-synchronizing `ThisDeviceOnly` Keychain items | adapter implemented; integration evidence in progress |
-| Windows | current-user Credential Manager with `CRED_PERSIST_LOCAL_MACHINE` | adapter implemented; integration evidence in progress |
-| Linux | qualified device-local, non-synchronizing Secret Service items | adapter implemented; concrete backend qualification unresolved |
+| macOS | non-synchronizing `ThisDeviceOnly` Keychain items | adapter and native/packaged integration gates passing |
+| Windows | current-user Credential Manager with `CRED_PERSIST_LOCAL_MACHINE` | adapter and native/packaged integration gates passing |
+| Linux | qualified device-local, non-synchronizing Secret Service items | adapter gates passing; concrete backend qualification unresolved |
 
 All adapters store the common private `XNSP` version-1 envelope: magic,
 envelope version, revision, payload length, and canonical record bytes. The
@@ -328,9 +328,10 @@ file is synchronization metadata only and never contains a key or record.
 
 The platform-independent schema, failure model, internal codec, cryptographic
 helpers, validator boundary, fake-store transaction tests, and repository
-state machine can be accepted independently. The ADR remains proposed, and no
-platform support may be claimed, until each production adapter has integration
-evidence for:
+state machine can be accepted independently. macOS and Windows have native
+credential lifecycle and packaged-library evidence. Linux has compile, link,
+negative qualification, and lock evidence, but remains explicitly unsupported
+until a concrete Secret Service passes the remaining integration evidence:
 
 - non-synchronizing device-local protection and qualification;
 - bounded enumerate/get/CAS put/delete behavior across processes;

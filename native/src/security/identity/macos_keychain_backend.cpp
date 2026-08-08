@@ -345,6 +345,9 @@ class MacosKeychainBackend final : public PlatformProtectedStoreBackend {
                            CFSTR("XnnTransfer protected identity"));
       status = SecItemAdd(query.get(), nullptr);
       if (status == errSecDuplicateItem) {
+        CFDictionaryRemoveValue(query.get(), kSecValueData);
+        CFDictionaryRemoveValue(query.get(), kSecAttrAccessible);
+        CFDictionaryRemoveValue(query.get(), kSecAttrLabel);
         status = SecItemUpdate(query.get(), update.get());
       }
     }

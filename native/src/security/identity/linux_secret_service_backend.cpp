@@ -683,10 +683,6 @@ Result<std::unique_ptr<ProtectedStore>> CreateLinuxSecretServiceProtectedStore(
     return Result<std::unique_ptr<ProtectedStore>>::Failure(
         ErrorCode::kStorageUnavailable);
   }
-  auto backend_result = CreateBackend(qualifier);
-  if (!backend_result.ok()) {
-    return Result<std::unique_ptr<ProtectedStore>>::Failure(backend_result.error());
-  }
   const char* runtime_directory = std::getenv("XDG_RUNTIME_DIR");
   if (runtime_directory == nullptr) {
     return Result<std::unique_ptr<ProtectedStore>>::Failure(
@@ -694,6 +690,17 @@ Result<std::unique_ptr<ProtectedStore>> CreateLinuxSecretServiceProtectedStore(
   }
   try {
     auto operation_lock = internal::MakePosixDirectoryLock(runtime_directory);
+    auto guard_result = operation_lock->Acquire();
+    if (!guard_result.ok()) {
+      return Result<std::unique_ptr<ProtectedStore>>::Failure(guard_result.error());
+    }
+    auto guard = std::move(guard_result).value();
+    guard.reset();
+
+    auto backend_result = CreateBackend(qualifier);
+    if (!backend_result.ok()) {
+      return Result<std::unique_ptr<ProtectedStore>>::Failure(backend_result.error());
+    }
     std::unique_ptr<ProtectedStore> store = MakePlatformProtectedStore(
         std::move(backend_result).value(), std::move(operation_lock));
     if (store == nullptr) {
