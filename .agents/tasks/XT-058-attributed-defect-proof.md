@@ -15,6 +15,7 @@ owned_paths:
   - .agents/records/README.md
   - .agents/tasks/TASK_TEMPLATE.md
   - docs/adr/0013-attributed-defect-proof.md
+  - AGENTS.md
 contract_changes:
   - Require attributed three-revision evidence for active deterministic bugfixes
 handoff: .agents/handoffs/XT-058.md
