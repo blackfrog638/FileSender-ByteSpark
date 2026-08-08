@@ -1,3 +1,6 @@
+// Pinned libsecret path helpers expose noninteractive raw D-Bus operations.
+#define SECRET_API_SUBJECT_TO_CHANGE
+
 #include <fcntl.h>
 #include <libsecret/secret.h>
 #include <limits.h>

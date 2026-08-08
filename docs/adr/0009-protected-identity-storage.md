@@ -267,6 +267,11 @@ Locked items return `storage_locked`; an absent service, absent default
 collection, service-owner change, denied operation, malformed attributes,
 duplicate item, or unexpected response fails closed.
 
+The noninteractive raw D-Bus path helpers used for encrypted values are in
+libsecret's unstable API surface. The private Linux implementation explicitly
+opts into that surface; the exact 0.21.7 dependency pin and Linux compilation
+gate are therefore compatibility requirements.
+
 Factory construction requires a backend qualifier. Before invoking it, the
 adapter resolves the unique D-Bus owner, verifies that the service runs as the
 current user, and supplies the owner's PID and `/proc/<pid>/exe` path. The
