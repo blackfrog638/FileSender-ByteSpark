@@ -4,6 +4,7 @@ add_library(
   codec.cpp
   crypto.cpp
   identity_repository.cpp
+  linux_secret_service_store.cpp
   secret_buffer.cpp
   types.cpp
 )
@@ -20,6 +21,19 @@ target_link_libraries(
   PRIVATE
     OpenSSL::Crypto
 )
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  target_sources(
+    xnn_transfer_identity
+    PRIVATE
+      linux_secret_service_backend.cpp
+  )
+  target_link_libraries(
+    xnn_transfer_identity
+    PRIVATE
+      XnnDependencies::libsecret
+  )
+endif()
 
 if(MSVC)
   target_compile_options(

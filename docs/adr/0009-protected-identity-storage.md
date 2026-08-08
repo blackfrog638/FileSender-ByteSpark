@@ -253,19 +253,49 @@ old peer items without the matching old root store ID does not restore trust.
 
 ### Platform status
 
-The following production adapters remain unresolved blockers:
+Platform adapter status is:
 
 | Platform | Required facility | Status |
 | --- | --- | --- |
 | macOS | non-synchronizing `ThisDeviceOnly` Keychain items | unresolved |
 | Windows | current-user Credential Manager with `CRED_PERSIST_LOCAL_MACHINE` | unresolved |
-| Linux | qualified device-local, non-synchronizing Secret Service items | unresolved |
+| Linux | qualified device-local, non-synchronizing Secret Service items | adapter implemented; concrete backend qualification unresolved |
 
-Until a backend proves the keyed enumeration/get/CAS put/delete contract,
-non-synchronization, item limits, deletion, and fault behavior, that platform
-reports `storage_unavailable`. There is no filesystem, environment-variable,
-or production in-memory fallback. Process and cross-process platform locking
-remain adapter responsibilities.
+The Linux adapter uses pinned libsecret 0.21.7 and only the default persistent
+collection. It does not unlock collections or execute Secret Service prompts.
+Locked items return `storage_locked`; an absent service, absent default
+collection, service-owner change, denied operation, malformed attributes,
+duplicate item, or unexpected response fails closed.
+
+Factory construction requires a backend qualifier. Before invoking it, the
+adapter resolves the unique D-Bus owner, verifies that the service runs as the
+current user, and supplies the owner's PID and `/proc/<pid>/exe` path. The
+qualifier must establish from deployment-owned evidence that this exact
+service is device-local and non-synchronizing. There is deliberately no
+built-in executable allowlist. An absent, throwing, or rejecting qualifier
+returns `storage_unavailable`, so the repository currently enables no concrete
+Linux service by default.
+
+The libsecret session must negotiate
+`dh-ietf1024-sha256-aes128-cbc-pkcs7`; a plaintext session is rejected. Binary
+values use libsecret `SecretValue` secure memory and a private `XNSL` version-1
+envelope containing the revision, payload length, and canonical record bytes.
+Only the schema, application identifier, and item identifier are non-secret
+lookup attributes.
+
+Secret Service does not expose compare-and-swap. Cooperating XnnTransfer
+processes serialize the read-check-write sequence with `flock` on a
+payload-free lock file in `XDG_RUNTIME_DIR`. The adapter rejects a relative,
+non-user-owned, group/other-accessible, symlinked, multiply linked, or
+non-regular lock path. Every operation rechecks the unique service owner,
+default collection alias, and lock state. Create, replace, and delete use
+direct D-Bus calls and reject any prompt instead of displaying it.
+
+Until a concrete backend proves non-synchronization, item limits, deletion,
+restart persistence, and locked/denied behavior in platform integration tests,
+Linux pairing remains explicitly unsupported. There is no filesystem,
+environment-variable, or production in-memory secret fallback; the runtime
+file is synchronization metadata only and never contains a key or record.
 
 ## Acceptance boundary
 
