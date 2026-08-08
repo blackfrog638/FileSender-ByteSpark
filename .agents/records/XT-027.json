@@ -4,7 +4,7 @@
   "task_type": "implementation",
   "state": "in_progress",
   "owner": "safe-storage-agent",
-  "base_sha": "b8ebe5dd2e4d60ce46bde4770cb781df4e80f3d5",
+  "base_sha": "e4768a348ceb844c74a52e3b0e2e6ec069e25217",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-027.md",
   "architecture_change": {
