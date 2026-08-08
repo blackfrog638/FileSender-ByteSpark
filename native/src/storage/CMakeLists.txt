@@ -13,10 +13,17 @@ if(WIN32)
   )
 endif()
 
+target_compile_features(xnn_transfer_storage PUBLIC cxx_std_20)
+set_target_properties(
+  xnn_transfer_storage
+  PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+)
+
 target_include_directories(
   xnn_transfer_storage
   PUBLIC
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/native/include>"
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../../include>"
     "$<INSTALL_INTERFACE:include>"
 )
 

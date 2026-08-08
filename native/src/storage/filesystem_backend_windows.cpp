@@ -829,8 +829,7 @@ class WindowsFilesystemBackend final : public PlatformBackend {
   [[nodiscard]] DWORD RenameNoReplace(const HANDLE file, const HANDLE parent,
                                       const std::wstring_view filename) const {
     const std::size_t filename_bytes = filename.size() * sizeof(wchar_t);
-    const std::size_t buffer_bytes =
-        offsetof(FILE_RENAME_INFO, FileName) + filename_bytes + sizeof(wchar_t);
+    const std::size_t buffer_bytes = sizeof(FILE_RENAME_INFO) + filename_bytes;
     if (filename_bytes > std::numeric_limits<DWORD>::max() ||
         buffer_bytes > std::numeric_limits<DWORD>::max()) {
       return ERROR_INVALID_NAME;
