@@ -1,8 +1,9 @@
 # ADR 0012: Task conflict and stale-base governance
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-08-08
 - Proposed by task: XT-056
+- Accepted by task: XT-056
 
 ## Context
 
@@ -21,10 +22,11 @@ unrelated workstreams and make parallel work ineffective.
 
 ### Active ownership
 
-Claim compares the target task's explicit `owned_paths` with every other task
-in `claimed`, `in_progress`, `blocked`, `review`, or `integrated`. In-flight
-state is read from local task branches; durable `integrated` and `done` records
-override an older source-branch state.
+Claim, review, and integration compare the target task's explicit
+`owned_paths` with every other task in `claimed`, `in_progress`, `blocked`,
+`review`, or `integrated`. Rechecking closes concurrent activation and
+hand-created-branch bypasses. In-flight state is read from local task branches;
+durable `integrated` and `done` records override an older source-branch state.
 
 Exact paths and globs are compared conservatively. A concrete match, recursive
 prefix intersection, or unresolved potential intersection is a conflict.
