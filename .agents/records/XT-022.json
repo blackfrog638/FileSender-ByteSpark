@@ -115,7 +115,7 @@
     ],
     "source_commits_sha256": "6c4c58f317a6ec2dbe695a21ac10343543469310d431fbbb416d851e21674a83",
     "source_patch_id": "06388a3393e55c120c45b1888cdd8799f250ef78",
-    "result": "",
+    "result": "135a60231b4976bfa8ff8030db1acc6510f17410",
     "result_patch_id": "06388a3393e55c120c45b1888cdd8799f250ef78",
     "verified_sha": ""
   },
