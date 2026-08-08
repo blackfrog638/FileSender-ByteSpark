@@ -100,6 +100,14 @@ during development but must be a full SHA before review. The regression gate
 is a trusted manifest gate and must also appear in `verification.gates`.
 Disposition is `restore`, `preserve`, or `change`; `change` requires an ADR.
 
+For `deterministic`, commit the focused regression gate while it still fails,
+then set `reproduction_commit` to that commit. `transition review` runs the
+resolved gate at that detached revision and at the reviewed head. Review
+requires failure at reproduction and success at head; the harness generates
+`verification.defect_proof`. Do not hand-edit that evidence. The reproduction
+must be between the task base and reviewed head. Other proof modes currently
+fail closed at review until their mode-specific executor is implemented.
+
 Investigation records instead add:
 
 ```json
