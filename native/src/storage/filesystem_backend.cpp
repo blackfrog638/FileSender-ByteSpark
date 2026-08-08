@@ -347,6 +347,12 @@ class PosixFilesystemBackend final : public PlatformBackend {
         ::close(current);
         return {.error = error};
       }
+      if (::fsync(current) != 0) {
+        const PlatformError error = ErrorFromErrno(errno);
+        ::close(next);
+        ::close(current);
+        return {.error = error};
+      }
       ::close(current);
       current = next;
     }
@@ -416,7 +422,8 @@ class PosixFilesystemBackend final : public PlatformBackend {
   }
   struct stat lock_metadata{};
   if (::fstat(lock_fd, &lock_metadata) != 0 || !S_ISREG(lock_metadata.st_mode) ||
-      lock_metadata.st_uid != ::geteuid() || lock_metadata.st_nlink != 1) {
+      lock_metadata.st_uid != ::geteuid() || lock_metadata.st_nlink != 1 ||
+      (lock_metadata.st_mode & 0777) != 0600) {
     ::close(lock_fd);
     ::close(temporary_directory_fd);
     ::close(root_fd);
