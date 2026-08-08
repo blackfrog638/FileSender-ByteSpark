@@ -917,6 +917,28 @@
         "tool/harness/defect_proof.py",
         "tool/harness/defect_proof_test.py"
       ]
+    },
+    {
+      "id": "XT-056",
+      "title": "Task conflict gates",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-055"
+      ],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/records/README.md",
+        ".agents/tasks/TASK_TEMPLATE.md",
+        "docs/adr/0012-task-conflict-governance.md",
+        "tool/harness/agent.sh",
+        "tool/harness/governance_test.sh",
+        "tool/harness/task_conflicts.py",
+        "tool/harness/task_conflicts_test.py"
+      ]
     }
   ]
 }
