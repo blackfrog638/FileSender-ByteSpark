@@ -35,6 +35,13 @@ target_link_libraries(
     Threads::Threads
     xnn_transfer_storage
 )
+if(WIN32)
+  target_link_libraries(
+    xnn_transfer_storage_tests
+    PRIVATE
+      Advapi32
+  )
+endif()
 
 if(MSVC)
   target_compile_options(

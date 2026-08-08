@@ -5,9 +5,11 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <span>
 #include <string>
@@ -17,6 +19,16 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <AccCtrl.h>
+#include <Aclapi.h>
+#include <Windows.h>
+#include <winioctl.h>
+#endif
 
 namespace {
 
@@ -297,11 +309,112 @@ class ScopedDirectory final {
   return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
+[[nodiscard]] std::string PathUtf8(const std::filesystem::path& path) {
+  const std::u8string encoded = path.u8string();
+  return {reinterpret_cast<const char*>(encoded.data()), encoded.size()};
+}
+
 void WriteFile(const std::filesystem::path& path, const std::string_view contents) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   output.write(contents.data(), static_cast<std::streamsize>(contents.size()));
   Expect(output.good(), "test fixture file is written");
 }
+
+#if defined(_WIN32)
+struct MountPointReparseData {
+  DWORD tag;
+  WORD data_length;
+  WORD reserved;
+  WORD substitute_name_offset;
+  WORD substitute_name_length;
+  WORD print_name_offset;
+  WORD print_name_length;
+  wchar_t path_buffer[1];
+};
+
+[[nodiscard]] bool CreateJunction(const std::filesystem::path& junction,
+                                  const std::filesystem::path& target) {
+  std::error_code error;
+  const std::filesystem::path absolute_target =
+      std::filesystem::absolute(target, error);
+  if (error || !std::filesystem::create_directory(junction, error) || error) {
+    return false;
+  }
+
+  const std::wstring target_name = absolute_target.native();
+  const std::wstring substitute_name = L"\\??\\" + target_name;
+  const std::size_t substitute_bytes = substitute_name.size() * sizeof(wchar_t);
+  const std::size_t print_bytes = target_name.size() * sizeof(wchar_t);
+  const std::size_t path_bytes =
+      substitute_bytes + sizeof(wchar_t) + print_bytes + sizeof(wchar_t);
+  const std::size_t buffer_size =
+      offsetof(MountPointReparseData, path_buffer) + path_bytes;
+  if (buffer_size > MAXIMUM_REPARSE_DATA_BUFFER_SIZE ||
+      buffer_size - 8U > static_cast<std::size_t>(std::numeric_limits<WORD>::max())) {
+    std::filesystem::remove(junction, error);
+    return false;
+  }
+
+  std::vector<std::byte> buffer(buffer_size);
+  auto* const reparse = reinterpret_cast<MountPointReparseData*>(buffer.data());
+  reparse->tag = IO_REPARSE_TAG_MOUNT_POINT;
+  reparse->data_length = static_cast<WORD>(buffer_size - 8U);
+  reparse->reserved = 0;
+  reparse->substitute_name_offset = 0;
+  reparse->substitute_name_length = static_cast<WORD>(substitute_bytes);
+  reparse->print_name_offset = static_cast<WORD>(substitute_bytes + sizeof(wchar_t));
+  reparse->print_name_length = static_cast<WORD>(print_bytes);
+  std::memcpy(reparse->path_buffer, substitute_name.data(), substitute_bytes);
+  std::memcpy(reinterpret_cast<std::byte*>(reparse->path_buffer) + substitute_bytes +
+                  sizeof(wchar_t),
+              target_name.data(), print_bytes);
+
+  const HANDLE handle =
+      ::CreateFileW(junction.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+                    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+  if (handle == INVALID_HANDLE_VALUE) {
+    std::filesystem::remove(junction, error);
+    return false;
+  }
+  DWORD bytes_returned = 0;
+  const BOOL set = ::DeviceIoControl(handle, FSCTL_SET_REPARSE_POINT, reparse,
+                                     static_cast<DWORD>(buffer_size), nullptr, 0,
+                                     &bytes_returned, nullptr);
+  const BOOL closed = ::CloseHandle(handle);
+  if (set == FALSE || closed == FALSE) {
+    std::filesystem::remove(junction, error);
+    return false;
+  }
+  return true;
+}
+
+[[nodiscard]] bool SetPermissiveDacl(const std::filesystem::path& path) {
+  std::array<std::byte, SECURITY_MAX_SID_SIZE> sid_storage{};
+  DWORD sid_size = static_cast<DWORD>(sid_storage.size());
+  auto* const everyone_sid = reinterpret_cast<PSID>(sid_storage.data());
+  if (::CreateWellKnownSid(WinWorldSid, nullptr, everyone_sid, &sid_size) == FALSE) {
+    return false;
+  }
+
+  EXPLICIT_ACCESSW access{};
+  access.grfAccessPermissions = GENERIC_ALL;
+  access.grfAccessMode = SET_ACCESS;
+  access.grfInheritance = SUB_CONTAINERS_AND_OBJECTS_INHERIT;
+  access.Trustee.TrusteeForm = TRUSTEE_IS_SID;
+  access.Trustee.TrusteeType = TRUSTEE_IS_WELL_KNOWN_GROUP;
+  access.Trustee.ptstrName = static_cast<LPWSTR>(everyone_sid);
+  PACL acl = nullptr;
+  if (::SetEntriesInAclW(1, &access, nullptr, &acl) != ERROR_SUCCESS) {
+    return false;
+  }
+  const DWORD result = ::SetNamedSecurityInfoW(
+      const_cast<LPWSTR>(path.c_str()), SE_FILE_OBJECT,
+      DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION, nullptr, nullptr,
+      acl, nullptr);
+  ::LocalFree(acl);
+  return result == ERROR_SUCCESS;
+}
+#endif
 
 void TestManifestFixtureOwnershipAndPathValidation() {
   static_assert(kManifestFixtureCases.size() == 66);
@@ -615,17 +728,12 @@ void TestConcurrentReservationAndIdempotentAbort() {
 
 void TestRealFilesystemCommitAndCollision() {
   ScopedDirectory root("commit");
-  FilesystemBackendOpenResult opened = OpenFilesystemBackend(root.path().string());
-#if defined(_WIN32)
-  Expect(!opened.ok() && opened.error == PlatformError::kUnsupported,
-         "Windows backend fails closed until reparse-safe support exists");
-  return;
-#else
+  FilesystemBackendOpenResult opened = OpenFilesystemBackend(PathUtf8(root.path()));
   Expect(opened.ok(), "filesystem backend opens a real root");
   if (!opened.ok()) {
     return;
   }
-  FilesystemBackendOpenResult competing = OpenFilesystemBackend(root.path().string());
+  FilesystemBackendOpenResult competing = OpenFilesystemBackend(PathUtf8(root.path()));
   Expect(!competing.ok() && competing.error == PlatformError::kBusy,
          "one process owns destination cleanup state");
 
@@ -649,7 +757,6 @@ void TestRealFilesystemCommitAndCollision() {
              collision_result.platform_error == PlatformError::kDestinationExists,
          "existing destination rejects no-replace commit");
   Expect(ReadFile(destination) == "hello", "collision never replaces destination");
-#endif
 }
 
 void TestRealFilesystemRejectsPermissiveLockMode() {
@@ -688,11 +795,58 @@ void TestRealFilesystemRejectsPermissiveLockMode() {
 #endif
 }
 
-void TestRealFilesystemLinkContainment() {
+void TestRealFilesystemRejectsPermissiveDirectories() {
 #if !defined(_WIN32)
+  {
+    ScopedDirectory root("root-mode");
+    std::error_code error;
+    std::filesystem::permissions(
+        root.path(),
+        std::filesystem::perms::owner_all | std::filesystem::perms::group_write,
+        std::filesystem::perm_options::replace, error);
+    Expect(!error, "permissive root fixture is created");
+    const FilesystemBackendOpenResult opened =
+        OpenFilesystemBackend(PathUtf8(root.path()));
+    Expect(!opened.ok() && opened.error == PlatformError::kInvalidRoot,
+           "group-writable destination root is rejected");
+  }
+
+  {
+    ScopedDirectory root("parent-mode");
+    FilesystemBackendOpenResult opened = OpenFilesystemBackend(PathUtf8(root.path()));
+    Expect(opened.ok(), "intermediate-mode backend opens");
+    if (!opened.ok()) {
+      return;
+    }
+
+    const std::filesystem::path intermediate = root.path() / "permissive";
+    std::error_code error;
+    std::filesystem::create_directory(intermediate, error);
+    std::filesystem::permissions(
+        intermediate,
+        std::filesystem::perms::owner_all | std::filesystem::perms::group_write,
+        std::filesystem::perm_options::replace, error);
+    Expect(!error, "permissive intermediate fixture is created");
+
+    auto budget = std::make_shared<TemporaryBudget>(8);
+    ReceiveTransaction transaction(Request("permissive/file.bin", 1), budget,
+                                   std::make_unique<FakeVerifier>(), *opened.backend);
+    Expect(transaction.Begin().ok() && transaction.Write(Bytes("x")).ok(),
+           "permissive-intermediate transaction stages safely");
+    const TransactionResult result = transaction.SealAndCommit();
+    Expect(result.error == TransactionError::kCommitFailed &&
+               result.platform_error == PlatformError::kInvalidRoot,
+           "group-writable intermediate is rejected");
+    Expect(!std::filesystem::exists(intermediate / "file.bin"),
+           "permissive intermediate receives no destination file");
+  }
+#endif
+}
+
+void TestRealFilesystemLinkContainment() {
   ScopedDirectory root("links");
   ScopedDirectory outside("outside");
-  FilesystemBackendOpenResult opened = OpenFilesystemBackend(root.path().string());
+  FilesystemBackendOpenResult opened = OpenFilesystemBackend(PathUtf8(root.path()));
   Expect(opened.ok(), "link test backend opens");
   if (!opened.ok()) {
     return;
@@ -700,10 +854,22 @@ void TestRealFilesystemLinkContainment() {
   auto budget = std::make_shared<TemporaryBudget>(64);
 
   std::error_code error;
+#if defined(_WIN32)
+  const bool parent_link_created =
+      CreateJunction(root.path() / "linked-parent", outside.path());
+  Expect(parent_link_created, "parent junction fixture is created");
+#else
   std::filesystem::create_directory_symlink(outside.path(),
                                             root.path() / "linked-parent", error);
   Expect(!error, "parent symlink fixture is created");
-  if (!error) {
+#endif
+  if (
+#if defined(_WIN32)
+      parent_link_created
+#else
+      !error
+#endif
+  ) {
     ReceiveTransaction parent_link(Request("linked-parent/escape.bin", 1), budget,
                                    std::make_unique<FakeVerifier>(), *opened.backend);
     Expect(parent_link.Begin().ok() && parent_link.Write(Bytes("x")).ok(),
@@ -715,12 +881,25 @@ void TestRealFilesystemLinkContainment() {
            "parent symlink cannot escape the root");
   }
 
+#if defined(_WIN32)
+  WriteFile(outside.path() / "marker.bin", "outside");
+  const bool destination_link_created =
+      CreateJunction(root.path() / "destination-link", outside.path());
+  Expect(destination_link_created, "destination junction fixture is created");
+#else
   WriteFile(outside.path() / "target.bin", "outside");
   error.clear();
   std::filesystem::create_symlink(outside.path() / "target.bin",
                                   root.path() / "destination-link", error);
   Expect(!error, "destination symlink fixture is created");
-  if (!error) {
+#endif
+  if (
+#if defined(_WIN32)
+      destination_link_created
+#else
+      !error
+#endif
+  ) {
     ReceiveTransaction destination_link(Request("destination-link", 1), budget,
                                         std::make_unique<FakeVerifier>(),
                                         *opened.backend);
@@ -730,28 +909,43 @@ void TestRealFilesystemLinkContainment() {
     Expect(result.error == TransactionError::kCommitFailed &&
                result.platform_error == PlatformError::kDestinationExists,
            "destination symlink is an existing collision");
+#if defined(_WIN32)
+    Expect(ReadFile(outside.path() / "marker.bin") == "outside",
+           "destination junction target is unchanged");
+#else
     Expect(ReadFile(outside.path() / "target.bin") == "outside",
            "destination symlink target is unchanged");
+#endif
   }
 
+#if defined(_WIN32)
+  const bool root_link_created =
+      CreateJunction(outside.path() / "root-link", root.path());
+  Expect(root_link_created, "root junction fixture is created");
+#else
   error.clear();
   std::filesystem::create_directory_symlink(root.path(), outside.path() / "root-link",
                                             error);
   Expect(!error, "root symlink fixture is created");
-  if (!error) {
+#endif
+  if (
+#if defined(_WIN32)
+      root_link_created
+#else
+      !error
+#endif
+  ) {
     const FilesystemBackendOpenResult symlink_root =
-        OpenFilesystemBackend((outside.path() / "root-link").string());
+        OpenFilesystemBackend(PathUtf8(outside.path() / "root-link"));
     Expect(!symlink_root.ok() && symlink_root.error == PlatformError::kInvalidRoot,
            "symlink destination root is rejected");
   }
-#endif
 }
 
 void TestRealFilesystemSymlinkRace() {
-#if !defined(_WIN32)
   ScopedDirectory root("race");
   ScopedDirectory outside("race-outside");
-  FilesystemBackendOpenResult opened = OpenFilesystemBackend(root.path().string());
+  FilesystemBackendOpenResult opened = OpenFilesystemBackend(PathUtf8(root.path()));
   Expect(opened.ok(), "race test backend opens");
   if (!opened.ok()) {
     return;
@@ -775,8 +969,12 @@ void TestRealFilesystemSymlinkRace() {
     while (!stop.load(std::memory_order_acquire)) {
       std::error_code ignored;
       std::filesystem::remove(root.path() / "race", ignored);
+#if defined(_WIN32)
+      static_cast<void>(CreateJunction(root.path() / "race", outside.path()));
+#else
       std::filesystem::create_directory_symlink(outside.path(), root.path() / "race",
                                                 ignored);
+#endif
       std::filesystem::remove(root.path() / "race", ignored);
       std::filesystem::create_directory(root.path() / "race", ignored);
     }
@@ -790,14 +988,12 @@ void TestRealFilesystemSymlinkRace() {
          "symlink race either commits beneath root or fails closed");
   Expect(!std::filesystem::exists(outside.path() / "file.bin"),
          "symlink race cannot create outside the root");
-#endif
 }
 
 void TestRestartCleanupAndDestructorAbort() {
-#if !defined(_WIN32)
   ScopedDirectory root("restart");
   {
-    FilesystemBackendOpenResult opened = OpenFilesystemBackend(root.path().string());
+    FilesystemBackendOpenResult opened = OpenFilesystemBackend(PathUtf8(root.path()));
     Expect(opened.ok(), "restart test backend opens");
     if (!opened.ok()) {
       return;
@@ -814,9 +1010,66 @@ void TestRestartCleanupAndDestructorAbort() {
   const std::filesystem::path stale = root.path() / ".xnn-transfer-tmp" / "part-stale";
   WriteFile(stale, "stale");
   Expect(std::filesystem::exists(stale), "stale restart fixture exists");
-  FilesystemBackendOpenResult reopened = OpenFilesystemBackend(root.path().string());
+#if defined(_WIN32)
+  ScopedDirectory outside("restart-outside");
+  WriteFile(outside.path() / "marker.bin", "outside");
+  const std::filesystem::path stale_junction =
+      root.path() / ".xnn-transfer-tmp" / "part-stale-junction";
+  const bool stale_junction_created = CreateJunction(stale_junction, outside.path());
+  Expect(stale_junction_created, "stale junction fixture exists");
+#endif
+  FilesystemBackendOpenResult reopened = OpenFilesystemBackend(PathUtf8(root.path()));
   Expect(reopened.ok(), "backend reopens after prior owner exits");
   Expect(!std::filesystem::exists(stale), "startup removes stale temporary files");
+#if defined(_WIN32)
+  Expect(!std::filesystem::exists(stale_junction),
+         "startup removes a stale junction without following it");
+  Expect(ReadFile(outside.path() / "marker.bin") == "outside",
+         "startup stale cleanup preserves the junction target");
+#endif
+}
+
+void TestWindowsRootEncodingAndProtectedDacl() {
+#if defined(_WIN32)
+  const FilesystemBackendOpenResult invalid_utf8 =
+      OpenFilesystemBackend(std::string("\xc3\x28", 2));
+  Expect(!invalid_utf8.ok() && invalid_utf8.error == PlatformError::kInvalidRoot,
+         "Windows root conversion rejects malformed UTF-8");
+
+  ScopedDirectory unicode_parent("windows-unicode");
+  const std::filesystem::path unicode_root =
+      unicode_parent.path() / L"\u63a5\u6536\u76ee\u5f55";
+  std::error_code error;
+  std::filesystem::create_directory(unicode_root, error);
+  Expect(!error, "non-ASCII Windows root fixture is created");
+  FilesystemBackendOpenResult unicode_opened =
+      OpenFilesystemBackend(PathUtf8(unicode_root));
+  Expect(unicode_opened.ok(), "strict UTF-8 conversion accepts a valid Windows root");
+
+  ScopedDirectory root("windows-dacl");
+  const std::filesystem::path temporary_directory = root.path() / ".xnn-transfer-tmp";
+  error.clear();
+  std::filesystem::create_directory(temporary_directory, error);
+  Expect(!error && SetPermissiveDacl(temporary_directory),
+         "permissive temporary-directory DACL fixture is created");
+  const FilesystemBackendOpenResult permissive_directory =
+      OpenFilesystemBackend(PathUtf8(root.path()));
+  Expect(!permissive_directory.ok() &&
+             permissive_directory.error == PlatformError::kInvalidRoot,
+         "existing temporary directory with a permissive DACL is rejected");
+
+  ScopedDirectory lock_root("windows-lock-dacl");
+  {
+    FilesystemBackendOpenResult opened =
+        OpenFilesystemBackend(PathUtf8(lock_root.path()));
+    Expect(opened.ok(), "backend creates protected Windows lock metadata");
+  }
+  const std::filesystem::path lock = lock_root.path() / ".xnn-transfer-tmp" / ".lock";
+  Expect(SetPermissiveDacl(lock), "permissive lock DACL fixture is created");
+  const FilesystemBackendOpenResult permissive_lock =
+      OpenFilesystemBackend(PathUtf8(lock_root.path()));
+  Expect(!permissive_lock.ok() && permissive_lock.error == PlatformError::kInvalidRoot,
+         "existing lock with a permissive DACL is rejected");
 #endif
 }
 
@@ -833,9 +1086,11 @@ int main() {
   TestConcurrentReservationAndIdempotentAbort();
   TestRealFilesystemCommitAndCollision();
   TestRealFilesystemRejectsPermissiveLockMode();
+  TestRealFilesystemRejectsPermissiveDirectories();
   TestRealFilesystemLinkContainment();
   TestRealFilesystemSymlinkRace();
   TestRestartCleanupAndDestructorAbort();
+  TestWindowsRootEncodingAndProtectedDacl();
 
   if (failures != 0) {
     std::cerr << failures << " storage assertion(s) failed\n";
