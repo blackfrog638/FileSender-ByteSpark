@@ -1,0 +1,107 @@
+{
+  "schema_version": 3,
+  "id": "XT-059",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-059.md",
+  "commit": {
+    "type": "docs",
+    "scope": "roadmap",
+    "summary": "publish current delivery status"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "low",
+      "rationale": "Incorrect status text could misdirect scheduling or overstate delivered product behavior.",
+      "gates": [
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "none",
+      "rationale": "This task changes delivery documentation and no runtime trust boundary or security control.",
+      "gates": []
+    },
+    "performance": {
+      "level": "none",
+      "rationale": "Documentation changes do not execute in the product or verification hot path.",
+      "gates": []
+    },
+    "compatibility": {
+      "level": "low",
+      "rationale": "The roadmap must preserve accepted milestone-closing and dependency semantics.",
+      "gates": [
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "The task does not change scheduler state, locks, or concurrent runtime behavior.",
+      "gates": []
+    },
+    "platform": {
+      "level": "none",
+      "rationale": "Markdown content is platform-neutral and changes no platform implementation.",
+      "gates": []
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "No product or harness persisted schema changes.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task reports accepted state and does not create or alter a durable decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Runtime modules, ownership boundaries, and dependency directions are unchanged."
+    },
+    "roadmap": {
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "The task adds an explicit current delivery snapshot and task-state column."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "verify"
+    ],
+    "commands": [
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
