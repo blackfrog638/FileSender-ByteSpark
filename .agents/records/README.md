@@ -5,9 +5,11 @@ of truth for task state, review evidence, integration provenance, and document
 impact. Local `branch.task/XT-NNN.xnn*` Git configuration is only a scheduler
 cache for worktrees in one clone.
 
-Archived records may use schema version 1. Risk-governed tasks use schema
-version 2 and contain:
+Archived records may use schema version 1. Schema version 2 introduced risk
+governance. New tasks use schema version 3 and contain:
 
+- `task_type`: `feature`, `bugfix`, `refactor`, `investigation`, `test`, or
+  `governance`;
 - `state`: `ready`, `claimed`, `in_progress`, `blocked`, `review`,
   `integrated`, or `done`;
 - `base_sha` and `head_sha`: the task branch range reviewed for delivery;
@@ -24,10 +26,26 @@ version 2 and contain:
   CI evidence reference;
 - `acceptance`: the integration owner and acceptance time.
 
+A `bugfix` also contains a `defect` object with severity, report source,
+symptom, existing expected contract, actual behavior, bounded trigger,
+affected-since value, proof mode, reproduction commit, trusted regression
+gate, and contract disposition. The reproduction commit may be empty only
+before review. The regression gate must be registered and included in
+`verification.gates`. Dispositions are:
+
+- `restore`: return to an existing documented contract;
+- `preserve`: repair an internal defect without external behavior change;
+- `change`: intentionally change the contract and bind an ADR.
+
+An `investigation` contains a bounded question, scope, required evidence, exit
+criteria, and outcome disposition. `pending` is allowed during investigation
+but not at review; final dispositions are `bugfix`, `feature`, or `no_change`.
+Other task types contain neither `defect` nor `investigation`.
+
 `tool/harness/agent.sh validate` validates every record. A `done` record must
 have complete acceptance and verification fields.
 
-Each schema version 2 risk uses one of `none`, `low`, `medium`, `high`, or
+Each schema version 2 or 3 risk uses one of `none`, `low`, `medium`, `high`, or
 `critical`. Every dimension needs a concrete rationale. For new tasks, a
 non-`none` risk names one or more gate IDs from `.agents/manifest.yaml`, and
 `verification.commands` is the exact resolved command list. Legacy records may
