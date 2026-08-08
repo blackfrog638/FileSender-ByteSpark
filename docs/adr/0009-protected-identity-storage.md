@@ -1,8 +1,9 @@
 # ADR 0009: Protected identity and pairing-record storage
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-08-08
 - Owner task: XT-022
+- Accepted by task: XT-022
 - Security profile: `docs/adr/0002-pairing-and-transport-security.md`
 
 ## Context

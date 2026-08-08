@@ -80,7 +80,7 @@
   "impacts": {
     "adr": {
       "required": true,
-      "status": "proposed",
+      "status": "accepted",
       "references": [
         "docs/adr/0009-protected-identity-storage.md"
       ],
