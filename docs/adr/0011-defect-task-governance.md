@@ -1,8 +1,8 @@
 # ADR 0011: Typed defect task governance
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-08-08
-- Proposed by task: XT-054
+- Accepted by task: XT-054
 
 ## Context
 

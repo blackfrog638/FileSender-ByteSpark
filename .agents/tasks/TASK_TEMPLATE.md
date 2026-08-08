@@ -24,6 +24,19 @@ Create the matching machine-readable `.agents/records/XT-000.json`. Declare
 ADR, architecture, and roadmap impact there. Use `not_required` only with a
 concrete rationale.
 
+Select one schema version 3 task type:
+
+```json
+{
+  "schema_version": 3,
+  "task_type": "feature"
+}
+```
+
+Allowed types are `feature`, `bugfix`, `refactor`, `investigation`, `test`, and
+`governance`. A bugfix must violate an existing contract or invariant; missing
+roadmap behavior remains a feature.
+
 Declare the delivery commit metadata in that record:
 
 ```json
@@ -59,6 +72,50 @@ removal tasks name obsolete paths, symbols, or targets; review proves those
 claims against the resulting tree. Temporary production code uses a registered
 `XNN-TEMPORARY(lease-id)` marker and a later removal task.
 
+## Defect contract
+
+Bugfix records add:
+
+```json
+{
+  "defect": {
+    "severity": "P1",
+    "source": "test",
+    "symptom": "Describe the observed failure.",
+    "expected_contract": "Cite the existing contract or invariant.",
+    "actual_behavior": "Describe the violating behavior.",
+    "trigger": "Describe the bounded trigger.",
+    "affected_since": "Commit, task, release, or unknown.",
+    "proof_mode": "deterministic",
+    "reproduction_commit": "",
+    "regression_gate": "native_test",
+    "contract_disposition": "restore"
+  }
+}
+```
+
+Severity is `P0` through `P3`. Proof mode is `deterministic`, `sanitizer`,
+`stress`, `platform_ci`, or `manual`. The reproduction commit may remain empty
+during development but must be a full SHA before review. The regression gate
+is a trusted manifest gate and must also appear in `verification.gates`.
+Disposition is `restore`, `preserve`, or `change`; `change` requires an ADR.
+
+Investigation records instead add:
+
+```json
+{
+  "investigation": {
+    "question": "State one bounded question.",
+    "scope": "Define the evidence boundary.",
+    "evidence_required": "List the required evidence.",
+    "exit_criteria": "Define when the question is answered.",
+    "outcome_disposition": "pending"
+  }
+}
+```
+
+Replace `pending` with `bugfix`, `feature`, or `no_change` before review.
+
 ## Constraints
 
 - State security, compatibility, platform, and performance constraints.
@@ -66,7 +123,7 @@ claims against the resulting tree. Temporary production code uses a registered
 
 ## Risk profile
 
-Use record schema version 2 and assess every dimension:
+Use record schema version 3 and assess every dimension:
 
 ```json
 {
