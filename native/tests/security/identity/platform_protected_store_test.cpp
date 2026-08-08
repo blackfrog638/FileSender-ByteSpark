@@ -16,13 +16,25 @@
 #include <utility>
 #include <vector>
 
-#include "linux_secret_service_store_internal.hpp"
+#include "platform_protected_store_internal.hpp"
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__APPLE__)
 #include <sys/stat.h>
 #include <unistd.h>
+#endif
 
+#if defined(__linux__)
 #include "xnn_transfer/core/security/identity/linux_secret_service_store.hpp"
+#endif
+
+#if defined(__APPLE__)
+#include "xnn_transfer/core/security/identity/macos_keychain_store.hpp"
+#endif
+
+#if defined(_WIN32)
+#include <process.h>
+
+#include "xnn_transfer/core/security/identity/windows_credential_store.hpp"
 #endif
 
 namespace {
@@ -35,11 +47,15 @@ using xnn_transfer::core::security::identity::ProtectedItemMetadata;
 using xnn_transfer::core::security::identity::ProtectedStore;
 using xnn_transfer::core::security::identity::Result;
 using xnn_transfer::core::security::identity::SecretBuffer;
-using xnn_transfer::core::security::identity::internal::LinuxSecretServiceBackend;
-using xnn_transfer::core::security::identity::internal::LinuxSecretServiceItem;
-using xnn_transfer::core::security::identity::internal::LinuxStoreLockGuard;
-using xnn_transfer::core::security::identity::internal::LinuxStoreOperationLock;
-using xnn_transfer::core::security::identity::internal::MakeLinuxSecretServiceStore;
+using xnn_transfer::core::security::identity::internal::
+    DecodePlatformProtectedItemEnvelope;
+using xnn_transfer::core::security::identity::internal::
+    EncodePlatformProtectedItemEnvelope;
+using xnn_transfer::core::security::identity::internal::MakePlatformProtectedStore;
+using xnn_transfer::core::security::identity::internal::PlatformProtectedItem;
+using xnn_transfer::core::security::identity::internal::PlatformProtectedStoreBackend;
+using xnn_transfer::core::security::identity::internal::PlatformStoreLockGuard;
+using xnn_transfer::core::security::identity::internal::PlatformStoreOperationLock;
 
 int failures = 0;
 
@@ -61,6 +77,34 @@ SecretBuffer ByteBuffer(const std::uint8_t value) {
   return SecretBuffer(bytes);
 }
 
+void TestPlatformItemEnvelope() {
+  PlatformProtectedItem item("root", 7, ByteBuffer(0x42));
+  auto encoded = EncodePlatformProtectedItemEnvelope(item);
+  Expect(encoded.ok(), "platform item envelope encodes");
+  if (!encoded.ok()) {
+    return;
+  }
+
+  auto decoded = DecodePlatformProtectedItemEnvelope("root", encoded.value().bytes());
+  Expect(decoded.ok() && decoded.value().item_id == "root" &&
+             decoded.value().revision == 7 &&
+             decoded.value().payload.bytes()[0] == 0x42,
+         "platform item envelope round-trips");
+
+  std::vector<std::uint8_t> corrupt(encoded.value().bytes().begin(),
+                                    encoded.value().bytes().end());
+  corrupt[0] ^= 0xff;
+  ExpectError(DecodePlatformProtectedItemEnvelope("root", corrupt),
+              ErrorCode::kCorruptRecord, "platform item magic corruption fails closed");
+  corrupt.assign(encoded.value().bytes().begin(), encoded.value().bytes().end() - 1);
+  ExpectError(DecodePlatformProtectedItemEnvelope("root", corrupt),
+              ErrorCode::kCorruptRecord, "platform item truncation fails closed");
+
+  PlatformProtectedItem invalid("root", 0, ByteBuffer(0x42));
+  ExpectError(EncodePlatformProtectedItemEnvelope(invalid), ErrorCode::kInvalidArgument,
+              "platform item envelope rejects revision zero");
+}
+
 struct StoredItem {
   std::uint64_t revision{};
   std::vector<std::uint8_t> payload{};
@@ -80,7 +124,7 @@ struct FakeState {
   std::mutex operation_mutex{};
 };
 
-class FakeGuard final : public LinuxStoreLockGuard {
+class FakeGuard final : public PlatformStoreLockGuard {
  public:
   FakeGuard(std::shared_ptr<FakeState> state, std::unique_lock<std::mutex> lock)
       : state_(std::move(state)), lock_(std::move(lock)) {
@@ -94,39 +138,39 @@ class FakeGuard final : public LinuxStoreLockGuard {
   std::unique_lock<std::mutex> lock_;
 };
 
-class FakeLock final : public LinuxStoreOperationLock {
+class FakeLock final : public PlatformStoreOperationLock {
  public:
   explicit FakeLock(std::shared_ptr<FakeState> state) : state_(std::move(state)) {}
 
-  Result<std::unique_ptr<LinuxStoreLockGuard>> Acquire() override {
+  Result<std::unique_ptr<PlatformStoreLockGuard>> Acquire() override {
     const ErrorCode error = state_->next_lock_error.exchange(ErrorCode::kNone);
     if (error != ErrorCode::kNone) {
-      return Result<std::unique_ptr<LinuxStoreLockGuard>>::Failure(error);
+      return Result<std::unique_ptr<PlatformStoreLockGuard>>::Failure(error);
     }
     state_->lock_acquisitions.fetch_add(1);
     std::unique_lock<std::mutex> lock(state_->operation_mutex);
-    std::unique_ptr<LinuxStoreLockGuard> guard =
+    std::unique_ptr<PlatformStoreLockGuard> guard =
         std::make_unique<FakeGuard>(state_, std::move(lock));
-    return Result<std::unique_ptr<LinuxStoreLockGuard>>::Success(std::move(guard));
+    return Result<std::unique_ptr<PlatformStoreLockGuard>>::Success(std::move(guard));
   }
 
  private:
   std::shared_ptr<FakeState> state_;
 };
 
-class FakeBackend final : public LinuxSecretServiceBackend {
+class FakeBackend final : public PlatformProtectedStoreBackend {
  public:
   explicit FakeBackend(std::shared_ptr<FakeState> state) : state_(std::move(state)) {}
 
-  Result<std::vector<LinuxSecretServiceItem>> Load(
+  Result<std::vector<PlatformProtectedItem>> Load(
       const std::optional<std::string_view> item_id) override {
     RecordCall();
     if (state_->next_load_error != ErrorCode::kNone) {
       const ErrorCode error = std::exchange(state_->next_load_error, ErrorCode::kNone);
-      return Result<std::vector<LinuxSecretServiceItem>>::Failure(error);
+      return Result<std::vector<PlatformProtectedItem>>::Failure(error);
     }
 
-    std::vector<LinuxSecretServiceItem> result;
+    std::vector<PlatformProtectedItem> result;
     for (const auto& [id, item] : state_->items) {
       if (item_id.has_value() && id != *item_id) {
         continue;
@@ -138,10 +182,10 @@ class FakeBackend final : public LinuxSecretServiceBackend {
                             SecretBuffer(std::span<const std::uint8_t>(item.payload)));
       }
     }
-    return Result<std::vector<LinuxSecretServiceItem>>::Success(std::move(result));
+    return Result<std::vector<PlatformProtectedItem>>::Success(std::move(result));
   }
 
-  Result<void> Put(const LinuxSecretServiceItem& item) override {
+  Result<void> Put(const PlatformProtectedItem& item) override {
     RecordCall();
     if (state_->next_put_error != ErrorCode::kNone) {
       const ErrorCode error = std::exchange(state_->next_put_error, ErrorCode::kNone);
@@ -177,13 +221,13 @@ class FakeBackend final : public LinuxSecretServiceBackend {
 
 struct Fixture {
   std::shared_ptr<FakeState> state{std::make_shared<FakeState>()};
-  std::unique_ptr<ProtectedStore> store{MakeLinuxSecretServiceStore(
+  std::unique_ptr<ProtectedStore> store{MakePlatformProtectedStore(
       std::make_unique<FakeBackend>(state), std::make_unique<FakeLock>(state))};
 };
 
 void TestCasLifecycleAndOrdering() {
   Fixture fixture;
-  Expect(fixture.store != nullptr, "fake Linux protected store is created");
+  Expect(fixture.store != nullptr, "fake platform protected store is created");
 
   auto empty = fixture.store->Enumerate();
   Expect(empty.ok() && empty.value().empty(), "empty backend enumerates as empty");
@@ -318,9 +362,10 @@ void TestConcurrentFirstWriteIsAtomic() {
          "concurrent operations remain serialized");
 }
 
-#if defined(__linux__)
-using xnn_transfer::core::security::identity::internal::MakeLinuxRuntimeDirectoryLock;
+#if defined(__linux__) || defined(__APPLE__)
+using xnn_transfer::core::security::identity::internal::MakePosixDirectoryLock;
 
+#if defined(__linux__)
 void TestUnqualifiedProductionBackendIsDisabled() {
   auto result =
       xnn_transfer::core::security::identity::CreateLinuxSecretServiceProtectedStore(
@@ -328,6 +373,7 @@ void TestUnqualifiedProductionBackendIsDisabled() {
   ExpectError(result, ErrorCode::kStorageUnavailable,
               "missing Linux backend qualification fails closed");
 }
+#endif
 
 void TestRuntimeDirectoryLockSecurity() {
   std::array<char, 40> template_path{};
@@ -340,7 +386,7 @@ void TestRuntimeDirectoryLockSecurity() {
   }
 
   Expect(chmod(directory, 0700) == 0, "runtime-lock test directory is private");
-  auto operation_lock = MakeLinuxRuntimeDirectoryLock(directory);
+  auto operation_lock = MakePosixDirectoryLock(directory);
   auto guard_result = operation_lock->Acquire();
   Expect(guard_result.ok(), "private runtime directory accepts a lock");
   if (guard_result.ok()) {
@@ -372,22 +418,123 @@ void TestRuntimeDirectoryLockSecurity() {
 }
 #endif
 
+#if defined(__APPLE__)
+void TestMacosKeychainLifecycle() {
+  auto store_result =
+      xnn_transfer::core::security::identity::CreateMacosKeychainProtectedStore();
+  Expect(store_result.ok(), "macOS Keychain protected store is available");
+  if (!store_result.ok()) {
+    return;
+  }
+  std::unique_ptr<ProtectedStore> store = std::move(store_result).value();
+  const std::string item_id =
+      "adapter-test-" + std::to_string(static_cast<long long>(getpid()));
+
+  auto stale = store->Get(item_id);
+  if (stale.ok() && stale.value().has_value()) {
+    [[maybe_unused]] auto stale_cleanup =
+        store->CompareExchangeDelete(item_id, stale.value()->revision);
+  }
+
+  Expect(store
+             ->CompareExchangePut(item_id, std::nullopt,
+                                  ProtectedItem(1, ByteBuffer(0x31)))
+             .ok(),
+         "macOS Keychain creates a device-only item");
+  auto created = store->Get(item_id);
+  Expect(created.ok() && created.value().has_value() &&
+             created.value()->revision == 1 &&
+             created.value()->payload.bytes()[0] == 0x31,
+         "macOS Keychain reads the created item");
+  Expect(store->CompareExchangePut(item_id, 1, ProtectedItem(2, ByteBuffer(0x32))).ok(),
+         "macOS Keychain replaces an item under CAS");
+  Expect(store->CompareExchangeDelete(item_id, 2).ok(),
+         "macOS Keychain deletes the matching revision");
+  auto deleted = store->Get(item_id);
+  Expect(deleted.ok() && !deleted.value().has_value(),
+         "macOS Keychain deletion is durable");
+
+  if (!deleted.ok() || deleted.value().has_value()) {
+    auto cleanup = store->Get(item_id);
+    if (cleanup.ok() && cleanup.value().has_value()) {
+      [[maybe_unused]] auto cleanup_result =
+          store->CompareExchangeDelete(item_id, cleanup.value()->revision);
+    }
+  }
+}
+#endif
+
+#if defined(_WIN32)
+void TestWindowsCredentialLifecycle() {
+  auto store_result =
+      xnn_transfer::core::security::identity::CreateWindowsCredentialProtectedStore();
+  Expect(store_result.ok(), "Windows Credential Manager protected store is available");
+  if (!store_result.ok()) {
+    return;
+  }
+  std::unique_ptr<ProtectedStore> store = std::move(store_result).value();
+  const std::string item_id =
+      "adapter-test-" + std::to_string(static_cast<long long>(_getpid()));
+
+  auto stale = store->Get(item_id);
+  if (stale.ok() && stale.value().has_value()) {
+    [[maybe_unused]] auto stale_cleanup =
+        store->CompareExchangeDelete(item_id, stale.value()->revision);
+  }
+
+  Expect(store
+             ->CompareExchangePut(item_id, std::nullopt,
+                                  ProtectedItem(1, ByteBuffer(0x41)))
+             .ok(),
+         "Windows Credential Manager creates a local item");
+  auto created = store->Get(item_id);
+  Expect(created.ok() && created.value().has_value() &&
+             created.value()->revision == 1 &&
+             created.value()->payload.bytes()[0] == 0x41,
+         "Windows Credential Manager reads the created item");
+  Expect(store->CompareExchangePut(item_id, 1, ProtectedItem(2, ByteBuffer(0x42))).ok(),
+         "Windows Credential Manager replaces an item under CAS");
+  Expect(store->CompareExchangeDelete(item_id, 2).ok(),
+         "Windows Credential Manager deletes the matching revision");
+  auto deleted = store->Get(item_id);
+  Expect(deleted.ok() && !deleted.value().has_value(),
+         "Windows Credential Manager deletion is durable");
+
+  if (!deleted.ok() || deleted.value().has_value()) {
+    auto cleanup = store->Get(item_id);
+    if (cleanup.ok() && cleanup.value().has_value()) {
+      [[maybe_unused]] auto cleanup_result =
+          store->CompareExchangeDelete(item_id, cleanup.value()->revision);
+    }
+  }
+}
+#endif
+
 }  // namespace
 
 int main() {
+  TestPlatformItemEnvelope();
   TestCasLifecycleAndOrdering();
   TestInputAndBackendFailures();
   TestCorruptAndDuplicateItemsFailClosed();
   TestConcurrentFirstWriteIsAtomic();
 #if defined(__linux__)
   TestUnqualifiedProductionBackendIsDisabled();
+#endif
+#if defined(__linux__) || defined(__APPLE__)
   TestRuntimeDirectoryLockSecurity();
+#endif
+#if defined(__APPLE__)
+  TestMacosKeychainLifecycle();
+#endif
+#if defined(_WIN32)
+  TestWindowsCredentialLifecycle();
 #endif
 
   if (failures != 0) {
-    std::cerr << failures << " Linux Secret Service assertion(s) failed\n";
+    std::cerr << failures << " platform protected-store assertion(s) failed\n";
     return 1;
   }
-  std::cout << "Linux Secret Service store tests passed.\n";
+  std::cout << "Platform protected-store tests passed.\n";
   return 0;
 }

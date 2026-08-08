@@ -18,9 +18,9 @@ Windows Credential Manager limits a generic credential blob to approximately
 item, even if the application permits a much larger logical repository.
 
 This decision separates the platform-independent record and transaction
-contract from unresolved platform adapters. Nothing in this ADR claims that
-Keychain, Credential Manager, or a qualified Secret Service is implemented or
-supported.
+contract from platform adapters and their support evidence. An implemented
+adapter is not by itself a support claim; the platform status below records
+remaining qualification and integration evidence.
 
 ## Decision
 
@@ -257,9 +257,32 @@ Platform adapter status is:
 
 | Platform | Required facility | Status |
 | --- | --- | --- |
-| macOS | non-synchronizing `ThisDeviceOnly` Keychain items | unresolved |
-| Windows | current-user Credential Manager with `CRED_PERSIST_LOCAL_MACHINE` | unresolved |
+| macOS | non-synchronizing `ThisDeviceOnly` Keychain items | adapter implemented; integration evidence in progress |
+| Windows | current-user Credential Manager with `CRED_PERSIST_LOCAL_MACHINE` | adapter implemented; integration evidence in progress |
 | Linux | qualified device-local, non-synchronizing Secret Service items | adapter implemented; concrete backend qualification unresolved |
+
+All adapters store the common private `XNSP` version-1 envelope: magic,
+envelope version, revision, payload length, and canonical record bytes. The
+platform-independent wrapper validates identifiers and bounds, rejects
+duplicates, and performs read-check-write CAS under an injected cross-process
+operation lock. Fake-backend tests exercise deterministic ordering, stale
+revisions, concurrent first writers, lock failures, backend failures, and
+corrupt envelopes on every platform.
+
+The macOS adapter uses generic-password Keychain items under the
+`com.xnntransfer.identity.v1` service. Item IDs are hex-encoded as account
+names, synchronization is explicitly false, and accessibility is
+`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`. Keychain calls forbid
+authentication UI; a locked Keychain therefore fails closed instead of
+displaying a prompt. A private file in the per-user Darwin temporary directory
+contains no payload and supplies the cross-process `flock` CAS boundary.
+
+The Windows adapter uses current-user generic credentials. Target names contain
+a hex-encoded item ID, persistence is exactly `CRED_PERSIST_LOCAL_MACHINE`,
+enterprise persistence is rejected, and the common envelope remains below the
+generic credential blob limit. A global named mutex is scoped and owned by the
+current user SID; an object owned by another principal is rejected. Blobs
+returned by `CredReadW` and `CredEnumerateW` are zeroed before `CredFree`.
 
 The Linux adapter uses pinned libsecret 0.21.7 and only the default persistent
 collection. It does not unlock collections or execute Secret Service prompts.
@@ -283,10 +306,9 @@ Linux service by default.
 
 The libsecret session must negotiate
 `dh-ietf1024-sha256-aes128-cbc-pkcs7`; a plaintext session is rejected. Binary
-values use libsecret `SecretValue` secure memory and a private `XNSL` version-1
-envelope containing the revision, payload length, and canonical record bytes.
-Only the schema, application identifier, and item identifier are non-secret
-lookup attributes.
+values use libsecret `SecretValue` secure memory and the common `XNSP`
+envelope. Only the schema, application identifier, and item identifier are
+non-secret lookup attributes.
 
 Secret Service does not expose compare-and-swap. Cooperating XnnTransfer
 processes serialize the read-check-write sequence with `flock` on a

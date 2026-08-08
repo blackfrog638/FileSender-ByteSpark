@@ -1,12 +1,8 @@
 // Pinned libsecret path helpers expose noninteractive raw D-Bus operations.
 #define SECRET_API_SUBJECT_TO_CHANGE
 
-#include <fcntl.h>
 #include <libsecret/secret.h>
 #include <limits.h>
-#include <sys/file.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -25,17 +21,17 @@
 #include <utility>
 #include <vector>
 
-#include "linux_secret_service_store_internal.hpp"
+#include "platform_protected_store_internal.hpp"
 #include "xnn_transfer/core/security/identity/linux_secret_service_store.hpp"
 
 namespace xnn_transfer::core::security::identity {
 namespace {
 
-using internal::LinuxSecretServiceBackend;
-using internal::LinuxSecretServiceItem;
-using internal::LinuxStoreLockGuard;
-using internal::LinuxStoreOperationLock;
-using internal::MakeLinuxSecretServiceStore;
+using internal::DecodePlatformProtectedItemEnvelope;
+using internal::EncodePlatformProtectedItemEnvelope;
+using internal::MakePlatformProtectedStore;
+using internal::PlatformProtectedItem;
+using internal::PlatformProtectedStoreBackend;
 
 constexpr char kServiceName[] = "org.freedesktop.secrets";
 constexpr char kServicePath[] = "/org/freedesktop/secrets";
@@ -54,12 +50,8 @@ constexpr char kSchemaAttribute[] = "xdg:schema";
 constexpr char kItemLabel[] = "XnnTransfer protected identity";
 constexpr char kItemLabelProperty[] = "org.freedesktop.Secret.Item.Label";
 constexpr char kItemAttributesProperty[] = "org.freedesktop.Secret.Item.Attributes";
-constexpr char kRuntimeLockName[] = ".xnn-transfer-identity.lock";
 constexpr char kBinaryContentType[] = "application/octet-stream";
 constexpr char kRequiredSessionAlgorithm[] = "dh-ietf1024-sha256-aes128-cbc-pkcs7";
-constexpr std::array<std::uint8_t, 4> kEnvelopeMagic{'X', 'N', 'S', 'L'};
-constexpr std::uint8_t kEnvelopeVersion = 1;
-constexpr std::size_t kEnvelopeHeaderSize = 17;
 
 struct GVariantDeleter {
   void operator()(GVariant* value) const noexcept {
@@ -128,39 +120,6 @@ using StringVectorPtr = std::unique_ptr<gchar*, StringVectorDeleter>;
   return ErrorCode::kStorageUnavailable;
 }
 
-[[nodiscard]] std::uint32_t ReadU32(
-    const std::span<const std::uint8_t> bytes) noexcept {
-  std::uint32_t value = 0;
-  for (const std::uint8_t byte : bytes.first(4)) {
-    value =
-        static_cast<std::uint32_t>((value << 8U) | static_cast<std::uint32_t>(byte));
-  }
-  return value;
-}
-
-[[nodiscard]] std::uint64_t ReadU64(
-    const std::span<const std::uint8_t> bytes) noexcept {
-  std::uint64_t value = 0;
-  for (const std::uint8_t byte : bytes.first(8)) {
-    value = (value << 8U) | static_cast<std::uint64_t>(byte);
-  }
-  return value;
-}
-
-void WriteU32(const std::span<std::uint8_t> bytes, const std::uint32_t value) noexcept {
-  bytes[0] = static_cast<std::uint8_t>(value >> 24U);
-  bytes[1] = static_cast<std::uint8_t>(value >> 16U);
-  bytes[2] = static_cast<std::uint8_t>(value >> 8U);
-  bytes[3] = static_cast<std::uint8_t>(value);
-}
-
-void WriteU64(const std::span<std::uint8_t> bytes, const std::uint64_t value) noexcept {
-  for (std::size_t index = 0; index < 8; ++index) {
-    const std::size_t shift = (7 - index) * 8;
-    bytes[index] = static_cast<std::uint8_t>(value >> static_cast<unsigned>(shift));
-  }
-}
-
 [[nodiscard]] bool ConstantTimeEqual(
     const std::span<const std::uint8_t> left,
     const std::span<const std::uint8_t> right) noexcept {
@@ -175,92 +134,7 @@ void WriteU64(const std::span<std::uint8_t> bytes, const std::uint64_t value) no
   return difference == 0;
 }
 
-class RuntimeLockGuard final : public LinuxStoreLockGuard {
- public:
-  explicit RuntimeLockGuard(const int descriptor) : descriptor_(descriptor) {}
-  ~RuntimeLockGuard() override {
-    if (descriptor_ >= 0) {
-      close(descriptor_);
-    }
-  }
-
-  RuntimeLockGuard(const RuntimeLockGuard&) = delete;
-  RuntimeLockGuard& operator=(const RuntimeLockGuard&) = delete;
-
- private:
-  int descriptor_;
-};
-
-class RuntimeDirectoryLock final : public LinuxStoreOperationLock {
- public:
-  explicit RuntimeDirectoryLock(std::string runtime_directory)
-      : runtime_directory_(std::move(runtime_directory)) {}
-
-  Result<std::unique_ptr<LinuxStoreLockGuard>> Acquire() override {
-    if (runtime_directory_.empty() || runtime_directory_.front() != '/' ||
-        runtime_directory_.find('\0') != std::string::npos) {
-      return Result<std::unique_ptr<LinuxStoreLockGuard>>::Failure(
-          ErrorCode::kStorageUnavailable);
-    }
-
-    const int directory = open(runtime_directory_.c_str(),
-                               O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
-    if (directory < 0) {
-      return Result<std::unique_ptr<LinuxStoreLockGuard>>::Failure(MapErrno(errno));
-    }
-
-    struct stat directory_status{};
-    if (fstat(directory, &directory_status) != 0 ||
-        !S_ISDIR(directory_status.st_mode) || directory_status.st_uid != geteuid() ||
-        (directory_status.st_mode & 0077) != 0) {
-      close(directory);
-      return Result<std::unique_ptr<LinuxStoreLockGuard>>::Failure(
-          ErrorCode::kPermissionDenied);
-    }
-
-    const int descriptor = openat(directory, kRuntimeLockName,
-                                  O_CREAT | O_RDWR | O_CLOEXEC | O_NOFOLLOW, 0600);
-    const int open_error = errno;
-    close(directory);
-    if (descriptor < 0) {
-      return Result<std::unique_ptr<LinuxStoreLockGuard>>::Failure(
-          MapErrno(open_error));
-    }
-
-    struct stat lock_status{};
-    if (fstat(descriptor, &lock_status) != 0 || !S_ISREG(lock_status.st_mode) ||
-        lock_status.st_uid != geteuid() || lock_status.st_nlink != 1 ||
-        (lock_status.st_mode & 0777) != 0600) {
-      close(descriptor);
-      return Result<std::unique_ptr<LinuxStoreLockGuard>>::Failure(
-          ErrorCode::kPermissionDenied);
-    }
-
-    int result = 0;
-    do {
-      result = flock(descriptor, LOCK_EX);
-    } while (result != 0 && errno == EINTR);
-    if (result != 0) {
-      const ErrorCode error = MapErrno(errno);
-      close(descriptor);
-      return Result<std::unique_ptr<LinuxStoreLockGuard>>::Failure(error);
-    }
-
-    try {
-      return Result<std::unique_ptr<LinuxStoreLockGuard>>::Success(
-          std::make_unique<RuntimeLockGuard>(descriptor));
-    } catch (const std::bad_alloc&) {
-      close(descriptor);
-      return Result<std::unique_ptr<LinuxStoreLockGuard>>::Failure(
-          ErrorCode::kCapacityExceeded);
-    }
-  }
-
- private:
-  std::string runtime_directory_;
-};
-
-class LibsecretBackend final : public LinuxSecretServiceBackend {
+class LibsecretBackend final : public PlatformProtectedStoreBackend {
  public:
   LibsecretBackend(SecretServicePtr service, std::string owner,
                    std::string collection_path)
@@ -269,49 +143,48 @@ class LibsecretBackend final : public LinuxSecretServiceBackend {
         collection_path_(std::move(collection_path)),
         connection_(g_dbus_proxy_get_connection(G_DBUS_PROXY(service_.get()))) {}
 
-  Result<std::vector<LinuxSecretServiceItem>> Load(
+  Result<std::vector<PlatformProtectedItem>> Load(
       const std::optional<std::string_view> item_id) override {
     try {
       Result<void> readiness = EnsureReady();
       if (!readiness.ok()) {
-        return Result<std::vector<LinuxSecretServiceItem>>::Failure(readiness.error());
+        return Result<std::vector<PlatformProtectedItem>>::Failure(readiness.error());
       }
 
       auto path_result = Search(item_id);
       if (!path_result.ok()) {
-        return Result<std::vector<LinuxSecretServiceItem>>::Failure(
-            path_result.error());
+        return Result<std::vector<PlatformProtectedItem>>::Failure(path_result.error());
       }
       std::vector<std::string> paths = std::move(path_result).value();
-      std::vector<LinuxSecretServiceItem> items;
+      std::vector<PlatformProtectedItem> items;
       items.reserve(paths.size());
       for (const std::string& path : paths) {
         auto item_result = LoadItem(path, item_id);
         if (!item_result.ok()) {
-          return Result<std::vector<LinuxSecretServiceItem>>::Failure(
+          return Result<std::vector<PlatformProtectedItem>>::Failure(
               item_result.error());
         }
         items.push_back(std::move(item_result).value());
       }
       Result<void> owner_result = CheckOwner();
       if (!owner_result.ok()) {
-        return Result<std::vector<LinuxSecretServiceItem>>::Failure(
+        return Result<std::vector<PlatformProtectedItem>>::Failure(
             owner_result.error());
       }
-      return Result<std::vector<LinuxSecretServiceItem>>::Success(std::move(items));
+      return Result<std::vector<PlatformProtectedItem>>::Success(std::move(items));
     } catch (const std::bad_alloc&) {
-      return Result<std::vector<LinuxSecretServiceItem>>::Failure(
+      return Result<std::vector<PlatformProtectedItem>>::Failure(
           ErrorCode::kCapacityExceeded);
     }
   }
 
-  Result<void> Put(const LinuxSecretServiceItem& item) override {
+  Result<void> Put(const PlatformProtectedItem& item) override {
     Result<void> readiness = EnsureReady();
     if (!readiness.ok()) {
       return readiness;
     }
 
-    auto envelope_result = EncodeEnvelope(item);
+    auto envelope_result = EncodePlatformProtectedItemEnvelope(item);
     if (!envelope_result.ok()) {
       return Result<void>::Failure(envelope_result.error());
     }
@@ -364,7 +237,7 @@ class LibsecretBackend final : public LinuxSecretServiceBackend {
     if (!verification_result.ok()) {
       return Result<void>::Failure(verification_result.error());
     }
-    std::vector<LinuxSecretServiceItem> verified =
+    std::vector<PlatformProtectedItem> verified =
         std::move(verification_result).value();
     if (verified.size() != 1 || verified.front().revision != item.revision ||
         !ConstantTimeEqual(verified.front().payload.bytes(), item.payload.bytes())) {
@@ -620,16 +493,16 @@ class LibsecretBackend final : public LinuxSecretServiceBackend {
     return Result<ProtectedItemId>::Success(std::move(item_id));
   }
 
-  [[nodiscard]] Result<LinuxSecretServiceItem> LoadItem(
+  [[nodiscard]] Result<PlatformProtectedItem> LoadItem(
       const std::string_view path,
       const std::optional<std::string_view> requested_id) const {
     auto id_result = ReadItemId(path);
     if (!id_result.ok()) {
-      return Result<LinuxSecretServiceItem>::Failure(id_result.error());
+      return Result<PlatformProtectedItem>::Failure(id_result.error());
     }
     ProtectedItemId item_id = std::move(id_result).value();
     if (requested_id.has_value() && item_id != *requested_id) {
-      return Result<LinuxSecretServiceItem>::Failure(ErrorCode::kCorruptRecord);
+      return Result<PlatformProtectedItem>::Failure(ErrorCode::kCorruptRecord);
     }
 
     GError* error = nullptr;
@@ -637,14 +510,14 @@ class LibsecretBackend final : public LinuxSecretServiceBackend {
         service_.get(), std::string(path).c_str(), nullptr, &error);
     if (raw_value == nullptr) {
       if (error == nullptr) {
-        return Result<LinuxSecretServiceItem>::Failure(ErrorCode::kStorageLocked);
+        return Result<PlatformProtectedItem>::Failure(ErrorCode::kStorageLocked);
       }
-      return Result<LinuxSecretServiceItem>::Failure(TakeGError(error));
+      return Result<PlatformProtectedItem>::Failure(TakeGError(error));
     }
     SecretValuePtr value(raw_value);
     Result<void> owner_result = CheckOwner();
     if (!owner_result.ok()) {
-      return Result<LinuxSecretServiceItem>::Failure(owner_result.error());
+      return Result<PlatformProtectedItem>::Failure(owner_result.error());
     }
 
     const gchar* content_type = secret_value_get_content_type(value.get());
@@ -652,52 +525,11 @@ class LibsecretBackend final : public LinuxSecretServiceBackend {
     const gchar* data = secret_value_get(value.get(), &length);
     if (content_type == nullptr || std::strcmp(content_type, kBinaryContentType) != 0 ||
         data == nullptr) {
-      return Result<LinuxSecretServiceItem>::Failure(ErrorCode::kCorruptRecord);
+      return Result<PlatformProtectedItem>::Failure(ErrorCode::kCorruptRecord);
     }
     const auto* bytes = reinterpret_cast<const std::uint8_t*>(data);
-    return DecodeEnvelope(item_id, std::span<const std::uint8_t>(bytes, length));
-  }
-
-  [[nodiscard]] static Result<LinuxSecretServiceItem> DecodeEnvelope(
-      ProtectedItemId item_id, const std::span<const std::uint8_t> envelope) {
-    if (envelope.size() < kEnvelopeHeaderSize ||
-        envelope.size() > kEnvelopeHeaderSize + kMaxProtectedItemPayloadSize ||
-        !std::equal(kEnvelopeMagic.begin(), kEnvelopeMagic.end(), envelope.begin()) ||
-        envelope[4] != kEnvelopeVersion) {
-      return Result<LinuxSecretServiceItem>::Failure(ErrorCode::kCorruptRecord);
-    }
-    const std::uint64_t revision = ReadU64(envelope.subspan(5, 8));
-    const std::uint32_t payload_size = ReadU32(envelope.subspan(13, 4));
-    if (revision == 0 || payload_size != envelope.size() - kEnvelopeHeaderSize) {
-      return Result<LinuxSecretServiceItem>::Failure(ErrorCode::kCorruptRecord);
-    }
-    try {
-      SecretBuffer payload(envelope.subspan(kEnvelopeHeaderSize, payload_size));
-      return Result<LinuxSecretServiceItem>::Success(
-          LinuxSecretServiceItem(std::move(item_id), revision, std::move(payload)));
-    } catch (const std::bad_alloc&) {
-      return Result<LinuxSecretServiceItem>::Failure(ErrorCode::kCapacityExceeded);
-    }
-  }
-
-  [[nodiscard]] static Result<SecretBuffer> EncodeEnvelope(
-      const LinuxSecretServiceItem& item) {
-    if (item.revision == 0 || item.payload.size() > kMaxProtectedItemPayloadSize) {
-      return Result<SecretBuffer>::Failure(ErrorCode::kInvalidArgument);
-    }
-    try {
-      SecretBuffer envelope(kEnvelopeHeaderSize + item.payload.size());
-      std::span<std::uint8_t> output = envelope.mutable_bytes();
-      std::copy(kEnvelopeMagic.begin(), kEnvelopeMagic.end(), output.begin());
-      output[4] = kEnvelopeVersion;
-      WriteU64(output.subspan(5, 8), item.revision);
-      WriteU32(output.subspan(13, 4), static_cast<std::uint32_t>(item.payload.size()));
-      std::copy(item.payload.bytes().begin(), item.payload.bytes().end(),
-                output.begin() + static_cast<std::ptrdiff_t>(kEnvelopeHeaderSize));
-      return Result<SecretBuffer>::Success(std::move(envelope));
-    } catch (const std::bad_alloc&) {
-      return Result<SecretBuffer>::Failure(ErrorCode::kCapacityExceeded);
-    }
+    return DecodePlatformProtectedItemEnvelope(
+        std::move(item_id), std::span<const std::uint8_t>(bytes, length));
   }
 
   SecretServicePtr service_;
@@ -745,10 +577,10 @@ class LibsecretBackend final : public LinuxSecretServiceBackend {
   }
 }
 
-[[nodiscard]] Result<std::unique_ptr<LinuxSecretServiceBackend>> CreateBackend(
+[[nodiscard]] Result<std::unique_ptr<PlatformProtectedStoreBackend>> CreateBackend(
     const LinuxSecretServiceBackendQualifier& qualifier) {
   if (!qualifier) {
-    return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+    return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
         ErrorCode::kStorageUnavailable);
   }
 
@@ -756,20 +588,20 @@ class LibsecretBackend final : public LinuxSecretServiceBackend {
   SecretService* raw_service = secret_service_open_sync(
       SECRET_TYPE_SERVICE, kServiceName, SECRET_SERVICE_OPEN_SESSION, nullptr, &error);
   if (raw_service == nullptr) {
-    return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+    return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
         TakeGError(error));
   }
   SecretServicePtr service(raw_service);
   const gchar* session_algorithm = secret_service_get_session_algorithms(service.get());
   if (session_algorithm == nullptr ||
       std::strcmp(session_algorithm, kRequiredSessionAlgorithm) != 0) {
-    return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+    return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
         ErrorCode::kStorageUnavailable);
   }
   GDBusProxy* proxy = G_DBUS_PROXY(service.get());
   const gchar* raw_owner = g_dbus_proxy_get_name_owner(proxy);
   if (raw_owner == nullptr || raw_owner[0] == '\0') {
-    return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+    return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
         ErrorCode::kStorageUnavailable);
   }
 
@@ -778,21 +610,21 @@ class LibsecretBackend final : public LinuxSecretServiceBackend {
     GDBusConnection* connection = g_dbus_proxy_get_connection(proxy);
     auto user_result = QueryBusUint(connection, "GetConnectionUnixUser", owner);
     if (!user_result.ok()) {
-      return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+      return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
           user_result.error());
     }
     auto process_result = QueryBusUint(connection, "GetConnectionUnixProcessID", owner);
     if (!process_result.ok()) {
-      return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+      return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
           process_result.error());
     }
     if (user_result.value() != static_cast<std::uint32_t>(geteuid())) {
-      return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+      return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
           ErrorCode::kPermissionDenied);
     }
     auto executable_result = ReadExecutablePath(process_result.value());
     if (!executable_result.ok()) {
-      return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+      return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
           executable_result.error());
     }
 
@@ -806,7 +638,7 @@ class LibsecretBackend final : public LinuxSecretServiceBackend {
       qualified = false;
     }
     if (!qualified) {
-      return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+      return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
           ErrorCode::kStorageUnavailable);
     }
 
@@ -816,14 +648,14 @@ class LibsecretBackend final : public LinuxSecretServiceBackend {
         g_variant_new("(s)", SECRET_COLLECTION_DEFAULT), G_VARIANT_TYPE("(o)"),
         G_DBUS_CALL_FLAGS_NO_AUTO_START, -1, nullptr, &alias_error);
     if (alias_response == nullptr) {
-      return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+      return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
           TakeGError(alias_error));
     }
     GVariantPtr owned_alias_response(alias_response);
     const gchar* raw_collection_path = nullptr;
     g_variant_get(alias_response, "(&o)", &raw_collection_path);
     if (raw_collection_path == nullptr || std::strcmp(raw_collection_path, "/") == 0) {
-      return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+      return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
           ErrorCode::kStorageUnavailable);
     }
 
@@ -831,28 +663,19 @@ class LibsecretBackend final : public LinuxSecretServiceBackend {
                                                       std::string(raw_collection_path));
     Result<void> initialization = backend->Initialize();
     if (!initialization.ok()) {
-      return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+      return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
           initialization.error());
     }
-    std::unique_ptr<LinuxSecretServiceBackend> result = std::move(backend);
-    return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Success(
+    std::unique_ptr<PlatformProtectedStoreBackend> result = std::move(backend);
+    return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Success(
         std::move(result));
   } catch (const std::bad_alloc&) {
-    return Result<std::unique_ptr<LinuxSecretServiceBackend>>::Failure(
+    return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
         ErrorCode::kCapacityExceeded);
   }
 }
 
 }  // namespace
-
-namespace internal {
-
-std::unique_ptr<LinuxStoreOperationLock> MakeLinuxRuntimeDirectoryLock(
-    std::string runtime_directory) {
-  return std::make_unique<RuntimeDirectoryLock>(std::move(runtime_directory));
-}
-
-}  // namespace internal
 
 Result<std::unique_ptr<ProtectedStore>> CreateLinuxSecretServiceProtectedStore(
     LinuxSecretServiceBackendQualifier qualifier) {
@@ -870,8 +693,8 @@ Result<std::unique_ptr<ProtectedStore>> CreateLinuxSecretServiceProtectedStore(
         ErrorCode::kStorageUnavailable);
   }
   try {
-    auto operation_lock = internal::MakeLinuxRuntimeDirectoryLock(runtime_directory);
-    std::unique_ptr<ProtectedStore> store = MakeLinuxSecretServiceStore(
+    auto operation_lock = internal::MakePosixDirectoryLock(runtime_directory);
+    std::unique_ptr<ProtectedStore> store = MakePlatformProtectedStore(
         std::move(backend_result).value(), std::move(operation_lock));
     if (store == nullptr) {
       return Result<std::unique_ptr<ProtectedStore>>::Failure(

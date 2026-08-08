@@ -1,18 +1,57 @@
 #include <algorithm>
+#include <array>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <new>
 #include <optional>
+#include <span>
 #include <string_view>
 #include <utility>
 #include <vector>
 
-#include "linux_secret_service_store_internal.hpp"
+#include "platform_protected_store_internal.hpp"
 
 namespace xnn_transfer::core::security::identity::internal {
 namespace {
 
 constexpr std::size_t kMaxEnumeratedItems = (kMaxPeerRecords + 1) * 2;
+constexpr std::array<std::uint8_t, 4> kEnvelopeMagic{'X', 'N', 'S', 'P'};
+constexpr std::uint8_t kEnvelopeVersion = 1;
+constexpr std::size_t kEnvelopeHeaderSize = 17;
+
+[[nodiscard]] std::uint32_t ReadU32(
+    const std::span<const std::uint8_t> bytes) noexcept {
+  std::uint32_t value = 0;
+  for (const std::uint8_t byte : bytes.first(4)) {
+    value =
+        static_cast<std::uint32_t>((value << 8U) | static_cast<std::uint32_t>(byte));
+  }
+  return value;
+}
+
+[[nodiscard]] std::uint64_t ReadU64(
+    const std::span<const std::uint8_t> bytes) noexcept {
+  std::uint64_t value = 0;
+  for (const std::uint8_t byte : bytes.first(8)) {
+    value = (value << 8U) | static_cast<std::uint64_t>(byte);
+  }
+  return value;
+}
+
+void WriteU32(const std::span<std::uint8_t> bytes, const std::uint32_t value) noexcept {
+  bytes[0] = static_cast<std::uint8_t>(value >> 24U);
+  bytes[1] = static_cast<std::uint8_t>(value >> 16U);
+  bytes[2] = static_cast<std::uint8_t>(value >> 8U);
+  bytes[3] = static_cast<std::uint8_t>(value);
+}
+
+void WriteU64(const std::span<std::uint8_t> bytes, const std::uint64_t value) noexcept {
+  for (std::size_t index = 0; index < 8; ++index) {
+    const std::size_t shift = (7 - index) * 8;
+    bytes[index] = static_cast<std::uint8_t>(value >> static_cast<unsigned>(shift));
+  }
+}
 
 [[nodiscard]] Result<void> ValidateItemId(const std::string_view item_id) {
   if (item_id.empty() || item_id.find('\0') != std::string_view::npos) {
@@ -24,7 +63,7 @@ constexpr std::size_t kMaxEnumeratedItems = (kMaxPeerRecords + 1) * 2;
   return Result<void>::Success();
 }
 
-[[nodiscard]] Result<void> ValidateLoadedItem(const LinuxSecretServiceItem& item) {
+[[nodiscard]] Result<void> ValidateLoadedItem(const PlatformProtectedItem& item) {
   Result<void> id_result = ValidateItemId(item.item_id);
   if (!id_result.ok()) {
     return Result<void>::Failure(ErrorCode::kCorruptRecord);
@@ -35,10 +74,10 @@ constexpr std::size_t kMaxEnumeratedItems = (kMaxPeerRecords + 1) * 2;
   return Result<void>::Success();
 }
 
-class LinuxSecretServiceStore final : public ProtectedStore {
+class PlatformProtectedStore final : public ProtectedStore {
  public:
-  LinuxSecretServiceStore(std::unique_ptr<LinuxSecretServiceBackend> backend,
-                          std::unique_ptr<LinuxStoreOperationLock> operation_lock)
+  PlatformProtectedStore(std::unique_ptr<PlatformProtectedStoreBackend> backend,
+                         std::unique_ptr<PlatformStoreOperationLock> operation_lock)
       : backend_(std::move(backend)), operation_lock_(std::move(operation_lock)) {}
 
   Result<std::vector<ProtectedItemMetadata>> Enumerate() override {
@@ -54,7 +93,7 @@ class LinuxSecretServiceStore final : public ProtectedStore {
       if (!load_result.ok()) {
         return Result<std::vector<ProtectedItemMetadata>>::Failure(load_result.error());
       }
-      std::vector<LinuxSecretServiceItem> items = std::move(load_result).value();
+      std::vector<PlatformProtectedItem> items = std::move(load_result).value();
       if (items.size() > kMaxEnumeratedItems) {
         return Result<std::vector<ProtectedItemMetadata>>::Failure(
             ErrorCode::kCapacityExceeded);
@@ -62,7 +101,7 @@ class LinuxSecretServiceStore final : public ProtectedStore {
 
       std::vector<ProtectedItemMetadata> metadata;
       metadata.reserve(items.size());
-      for (const LinuxSecretServiceItem& item : items) {
+      for (const PlatformProtectedItem& item : items) {
         Result<void> validation = ValidateLoadedItem(item);
         if (!validation.ok()) {
           return Result<std::vector<ProtectedItemMetadata>>::Failure(
@@ -105,7 +144,7 @@ class LinuxSecretServiceStore final : public ProtectedStore {
       if (!load_result.ok()) {
         return Result<std::optional<ProtectedItem>>::Failure(load_result.error());
       }
-      std::vector<LinuxSecretServiceItem> items = std::move(load_result).value();
+      std::vector<PlatformProtectedItem> items = std::move(load_result).value();
       if (items.empty()) {
         return Result<std::optional<ProtectedItem>>::Success(std::nullopt);
       }
@@ -116,7 +155,7 @@ class LinuxSecretServiceStore final : public ProtectedStore {
       if (!validation.ok()) {
         return Result<std::optional<ProtectedItem>>::Failure(validation.error());
       }
-      LinuxSecretServiceItem item = std::move(items.front());
+      PlatformProtectedItem item = std::move(items.front());
       return Result<std::optional<ProtectedItem>>::Success(
           ProtectedItem(item.revision, std::move(item.payload)));
     } catch (const std::bad_alloc&) {
@@ -145,14 +184,14 @@ class LinuxSecretServiceStore final : public ProtectedStore {
       if (!load_result.ok()) {
         return Result<void>::Failure(load_result.error());
       }
-      std::vector<LinuxSecretServiceItem> items = std::move(load_result).value();
+      std::vector<PlatformProtectedItem> items = std::move(load_result).value();
       Result<void> comparison = CompareRevision(items, item_id, expected_revision);
       if (!comparison.ok()) {
         return comparison;
       }
 
-      LinuxSecretServiceItem item(item_id, replacement.revision,
-                                  std::move(replacement.payload));
+      PlatformProtectedItem item(item_id, replacement.revision,
+                                 std::move(replacement.payload));
       return backend_->Put(item);
     } catch (const std::bad_alloc&) {
       return Result<void>::Failure(ErrorCode::kCapacityExceeded);
@@ -180,7 +219,7 @@ class LinuxSecretServiceStore final : public ProtectedStore {
       if (!load_result.ok()) {
         return Result<void>::Failure(load_result.error());
       }
-      std::vector<LinuxSecretServiceItem> items = std::move(load_result).value();
+      std::vector<PlatformProtectedItem> items = std::move(load_result).value();
       Result<void> comparison = CompareRevision(items, item_id, expected_revision);
       if (!comparison.ok()) {
         return comparison;
@@ -218,7 +257,7 @@ class LinuxSecretServiceStore final : public ProtectedStore {
   }
 
   [[nodiscard]] static Result<void> CompareRevision(
-      const std::vector<LinuxSecretServiceItem>& items, const std::string_view item_id,
+      const std::vector<PlatformProtectedItem>& items, const std::string_view item_id,
       const std::optional<std::uint64_t> expected_revision) {
     if (items.size() > 1) {
       return Result<void>::Failure(ErrorCode::kCorruptRecord);
@@ -229,7 +268,7 @@ class LinuxSecretServiceStore final : public ProtectedStore {
                  : Result<void>::Success();
     }
 
-    const LinuxSecretServiceItem& item = items.front();
+    const PlatformProtectedItem& item = items.front();
     Result<void> validation = ValidateLoadedItem(item);
     if (!validation.ok() || item.item_id != item_id) {
       return Result<void>::Failure(ErrorCode::kCorruptRecord);
@@ -240,20 +279,62 @@ class LinuxSecretServiceStore final : public ProtectedStore {
     return Result<void>::Success();
   }
 
-  std::unique_ptr<LinuxSecretServiceBackend> backend_;
-  std::unique_ptr<LinuxStoreOperationLock> operation_lock_;
+  std::unique_ptr<PlatformProtectedStoreBackend> backend_;
+  std::unique_ptr<PlatformStoreOperationLock> operation_lock_;
 };
 
 }  // namespace
 
-std::unique_ptr<ProtectedStore> MakeLinuxSecretServiceStore(
-    std::unique_ptr<LinuxSecretServiceBackend> backend,
-    std::unique_ptr<LinuxStoreOperationLock> operation_lock) {
+Result<SecretBuffer> EncodePlatformProtectedItemEnvelope(
+    const PlatformProtectedItem& item) {
+  if (item.revision == 0 || item.payload.size() > kMaxProtectedItemPayloadSize) {
+    return Result<SecretBuffer>::Failure(ErrorCode::kInvalidArgument);
+  }
+  try {
+    SecretBuffer envelope(kEnvelopeHeaderSize + item.payload.size());
+    std::span<std::uint8_t> output = envelope.mutable_bytes();
+    std::copy(kEnvelopeMagic.begin(), kEnvelopeMagic.end(), output.begin());
+    output[4] = kEnvelopeVersion;
+    WriteU64(output.subspan(5, 8), item.revision);
+    WriteU32(output.subspan(13, 4), static_cast<std::uint32_t>(item.payload.size()));
+    std::copy(item.payload.bytes().begin(), item.payload.bytes().end(),
+              output.begin() + static_cast<std::ptrdiff_t>(kEnvelopeHeaderSize));
+    return Result<SecretBuffer>::Success(std::move(envelope));
+  } catch (const std::bad_alloc&) {
+    return Result<SecretBuffer>::Failure(ErrorCode::kCapacityExceeded);
+  }
+}
+
+Result<PlatformProtectedItem> DecodePlatformProtectedItemEnvelope(
+    ProtectedItemId item_id, const std::span<const std::uint8_t> envelope) {
+  if (envelope.size() < kEnvelopeHeaderSize ||
+      envelope.size() > kEnvelopeHeaderSize + kMaxProtectedItemPayloadSize ||
+      !std::equal(kEnvelopeMagic.begin(), kEnvelopeMagic.end(), envelope.begin()) ||
+      envelope[4] != kEnvelopeVersion) {
+    return Result<PlatformProtectedItem>::Failure(ErrorCode::kCorruptRecord);
+  }
+  const std::uint64_t revision = ReadU64(envelope.subspan(5, 8));
+  const std::uint32_t payload_size = ReadU32(envelope.subspan(13, 4));
+  if (revision == 0 || payload_size != envelope.size() - kEnvelopeHeaderSize) {
+    return Result<PlatformProtectedItem>::Failure(ErrorCode::kCorruptRecord);
+  }
+  try {
+    SecretBuffer payload(envelope.subspan(kEnvelopeHeaderSize, payload_size));
+    return Result<PlatformProtectedItem>::Success(
+        PlatformProtectedItem(std::move(item_id), revision, std::move(payload)));
+  } catch (const std::bad_alloc&) {
+    return Result<PlatformProtectedItem>::Failure(ErrorCode::kCapacityExceeded);
+  }
+}
+
+std::unique_ptr<ProtectedStore> MakePlatformProtectedStore(
+    std::unique_ptr<PlatformProtectedStoreBackend> backend,
+    std::unique_ptr<PlatformStoreOperationLock> operation_lock) {
   if (backend == nullptr || operation_lock == nullptr) {
     return nullptr;
   }
-  return std::make_unique<LinuxSecretServiceStore>(std::move(backend),
-                                                   std::move(operation_lock));
+  return std::make_unique<PlatformProtectedStore>(std::move(backend),
+                                                  std::move(operation_lock));
 }
 
 }  // namespace xnn_transfer::core::security::identity::internal

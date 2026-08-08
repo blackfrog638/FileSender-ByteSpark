@@ -38,18 +38,18 @@ add_test(
 )
 
 add_executable(
-  xnn_transfer_linux_secret_service_store_tests
-  linux_secret_service_store_test.cpp
+  xnn_transfer_platform_protected_store_tests
+  platform_protected_store_test.cpp
 )
 
 target_include_directories(
-  xnn_transfer_linux_secret_service_store_tests
+  xnn_transfer_platform_protected_store_tests
   PRIVATE
-    "${PROJECT_SOURCE_DIR}/native/src/security/identity"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../../src/security/identity"
 )
 
 target_link_libraries(
-  xnn_transfer_linux_secret_service_store_tests
+  xnn_transfer_platform_protected_store_tests
   PRIVATE
     Threads::Threads
     xnn_transfer_identity
@@ -57,14 +57,14 @@ target_link_libraries(
 
 if(MSVC)
   target_compile_options(
-    xnn_transfer_linux_secret_service_store_tests
+    xnn_transfer_platform_protected_store_tests
     PRIVATE
       /W4
       /permissive-
   )
 else()
   target_compile_options(
-    xnn_transfer_linux_secret_service_store_tests
+    xnn_transfer_platform_protected_store_tests
     PRIVATE
       -Wall
       -Wextra
@@ -76,11 +76,11 @@ endif()
 
 if(XNN_TRANSFER_ENABLE_ASAN_UBSAN)
   xnn_transfer_enable_sanitizers(
-    xnn_transfer_linux_secret_service_store_tests
+    xnn_transfer_platform_protected_store_tests
   )
 endif()
 
 add_test(
-  NAME xnn_transfer_linux_secret_service_store_tests
-  COMMAND xnn_transfer_linux_secret_service_store_tests
+  NAME xnn_transfer_platform_protected_store_tests
+  COMMAND xnn_transfer_platform_protected_store_tests
 )
