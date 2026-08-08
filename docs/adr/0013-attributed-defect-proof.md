@@ -1,9 +1,9 @@
 # ADR 0013: Attributed deterministic defect proof
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-08-08
 - Proposed by task: XT-058
-- Accepted by task: pending
+- Accepted by task: XT-058
 
 ## Context
 
@@ -39,8 +39,9 @@ on every success and error path.
 ### Failure attribution
 
 An active deterministic bugfix declares one bounded, non-placeholder
-`failure_fingerprint`. The exact string must occur in the combined
-reproduction output. The trusted command still comes only from
+`failure_fingerprint`. The exact string must equal one complete line in the
+combined reproduction output, without surrounding whitespace. The trusted
+command still comes only from
 `.agents/manifest.yaml`; the fingerprint identifies expected gate output and
 cannot replace or extend that command.
 

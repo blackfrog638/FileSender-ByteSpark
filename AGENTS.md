@@ -97,9 +97,10 @@ blocked -> in_progress
 New records use schema version 3 task types: `feature`, `bugfix`, `refactor`,
 `investigation`, `test`, or `governance`. Bugfix records bind an existing
 contract, reproduction commit, trusted regression gate, proof mode, and
-`restore`, `preserve`, or `change` disposition. Investigation records define a
-bounded question and must resolve to `bugfix`, `feature`, or `no_change` before
-review; they do not claim a product fix.
+stable failure fingerprint, plus a `restore`, `preserve`, or `change`
+disposition. Investigation records define a bounded question and must resolve
+to `bugfix`, `feature`, or `no_change` before review; they do not claim a
+product fix.
 
 Claim, review, and integration resolve in-flight state from local task branches
 and reject explicit `owned_paths` that can intersect another active task. The
@@ -131,14 +132,17 @@ squash or cherry-pick is not sufficient evidence.
   while they exactly match a registered command. Every task includes the
   repository-level `verify` gate.
 - Bugfix regression evidence names a trusted gate ID that is also executed by
-  the task. A deterministic bugfix review runs the exact resolved gate at both
-  revisions: it must fail at the reproduction commit and pass at the reviewed
-  head. The reproduction must be within the task range, and generated proof
-  binds the command digest, revisions, and exit codes into the record.
+  the task. A deterministic bugfix review runs the exact resolved gate at task
+  base, reproduction commit, and reviewed head. Base and head must pass.
+  Reproduction must fail with the declared exact fingerprint as a complete
+  output line. The reproduction is strictly within the task range, and
+  generated proof binds the command, fingerprint, output, revisions, and exit
+  codes into the record. Detached gates use the task worktree's pinned tool
+  root.
   `mark-review` executes this proof at the state-mutation boundary; prefilled
-  evidence cannot bypass execution. Unsupported proof modes fail closed. A
-  `change` disposition requires an ADR; emergency severity changes scheduling
-  only.
+  evidence cannot bypass execution. Accepted legacy records retain their
+  original evidence shape. Unsupported proof modes fail closed. A `change`
+  disposition requires an ADR; emergency severity changes scheduling only.
 - Commit-governed task records declare the delivery `type`, `scope`, and
   imperative `summary`. Harness lifecycle commits derive meaningful subjects
   from that metadata instead of using the task number as the message.

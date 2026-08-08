@@ -514,6 +514,7 @@ if task_type == "bugfix":
         "reproduction_commit": "",
         "regression_gate": "TODO",
         "contract_disposition": "TODO",
+        "failure_fingerprint": "TODO: exact stable regression failure text.",
     }
 elif task_type == "investigation":
     record["investigation"] = {
