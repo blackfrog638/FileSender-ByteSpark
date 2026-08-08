@@ -2,9 +2,9 @@
   "schema_version": 2,
   "id": "XT-027",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
+  "state": "claimed",
+  "owner": "safe-storage-agent",
+  "base_sha": "b8ebe5dd2e4d60ce46bde4770cb781df4e80f3d5",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-027.md",
   "architecture_change": {
@@ -24,37 +24,57 @@
     "functionality": {
       "level": "high",
       "rationale": "Receive transactions must either commit one verified file or leave no visible partial result.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "security": {
       "level": "critical",
       "rationale": "Hostile paths, links, races, sizes, and filesystem errors must not escape the selected destination.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "performance": {
       "level": "medium",
       "rationale": "Temporary usage, hashing, free-space checks, and file writes must remain bounded by declared limits.",
-      "gates": ["make native-test"]
+      "gates": [
+        "make native-test"
+      ]
     },
     "compatibility": {
       "level": "high",
       "rationale": "Path and collision behavior differs by filesystem but must preserve the accepted manifest contract.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "concurrency": {
       "level": "high",
       "rationale": "Destination replacement, cancellation, cleanup, and commit can race with filesystem changes.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "platform": {
       "level": "critical",
       "rationale": "Symlink, reparse-point, Unicode, atomic rename, and permission semantics vary across supported systems.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "persistence": {
       "level": "critical",
       "rationale": "This task creates temporary filesystem state and commits durable destination files.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     }
   },
   "impacts": {
