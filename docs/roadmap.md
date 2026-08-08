@@ -38,6 +38,32 @@ do not overlap.
 - [ ] Collision policy and destination selection
 - [ ] Large-file, low-space, sleep/wake, and network-change tests
 
+## Current delivery status
+
+This is a reviewed snapshot of task records and active task branches on
+2026-08-08. `.agents/records/` and task branches remain authoritative when this
+summary and runtime state differ.
+
+- Accepted P1 prerequisites: XT-018 through XT-023 and XT-051. Native
+  discovery, its C ABI/Dart adapter, protected identity storage, and the TLS
+  provider are delivered independently; this does not yet implement pairing
+  or transfer.
+- Active: XT-027 is implementing the safe one-file storage transaction.
+- Claimable next: XT-024 independently reviews the identity and TLS runtimes.
+  Its acceptance unlocks XT-025.
+- Critical path: XT-024 -> XT-025 -> XT-026, joining XT-027 at XT-028 before
+  cancellation, transfer adapters, Flutter UI, and XT-032 vertical-slice
+  acceptance.
+- Engineering enabling work: XT-040 through XT-058 is accepted, covering
+  compiler tooling, pinned runtime dependencies, risk and architecture gates,
+  ABI and commit policy, subtractive architecture, trusted review, corrected
+  immutable identity, typed defect workflows, conflict detection, the fatal
+  parser repair, and attributed defect proof.
+
+`claimable` below means all declared dependencies are accepted.
+`dependency-blocked` is a roadmap scheduling view; the durable task record can
+remain `ready` until an agent attempts to claim it.
+
 ## P1 execution plan
 
 Task records are authoritative for runtime state. The roadmap checkboxes above
@@ -45,31 +71,31 @@ close only in the two acceptance tasks, after integrated cross-platform
 evidence. Tasks in the same wave may run in parallel only when their owned
 paths remain disjoint.
 
-| Wave | Task | Workstream | Outcome | Depends on |
-| --- | --- | --- | --- | --- |
-| 0 | XT-018 | integration | native runtime/dependency ADR and leaf build boundaries | XT-017 |
-| 1 | XT-019 | protocol | discovery v1 wire, lifecycle, limits, and vectors | XT-018 |
-| 1 | XT-051 | integration | pinned Linux Secret Service dependency | XT-046 |
-| 1 | XT-022 | native_core | protected identity and pairing-record storage | XT-018, XT-051 |
-| 1 | XT-023 | native_core | TLS 1.3 and security-profile provider | XT-018, XT-015 |
-| 1 | XT-027 | native_core | safe one-file storage transaction | XT-018, XT-011 |
-| 2 | XT-020 | native_core | multicast discovery, cache, expiry, and interface recovery | XT-019 |
-| 2 | XT-024 | protocol | independent identity/TLS runtime security review | XT-022, XT-023 |
-| 3 | XT-021 | native_bridge | discovery C ABI and Dart adapter | XT-020 |
-| 3 | XT-025 | native_core | authenticated pairing/session state machine | XT-020, XT-024 |
-| 4 | XT-026 | native_bridge | pairing C ABI and Dart adapter | XT-021, XT-025 |
-| 4 | XT-028 | native_core | authenticated one-file transfer engine | XT-006, XT-025, XT-027 |
-| 5 | XT-029 | native_core | cancellation and deterministic cleanup | XT-028 |
-| 6 | XT-030 | native_bridge | transfer C ABI and real Dart gateway | XT-026, XT-029 |
-| 7 | XT-031 | flutter_desktop | peer, pairing, send, receive, and progress UI | XT-021, XT-026, XT-030 |
-| 8 | XT-032 | integration | cross-platform P1 vertical-slice acceptance | XT-031 |
-| 9 | XT-033 | native_core | multi-file manifests and directories | XT-032 |
-| 10 | XT-034 | native_core | scheduling, backpressure, fairness, and rates | XT-033 |
-| 10 | XT-035 | native_core | destination selection and collision policy | XT-033 |
-| 11 | XT-036 | native_core | reconnect/process-restart resume state | XT-022, XT-034, XT-035 |
-| 12 | XT-037 | native_bridge | production transfer C ABI and Dart adapters | XT-036 |
-| 13 | XT-038 | flutter_desktop | production multi-file and resume flow | XT-037 |
-| 14 | XT-039 | integration | adverse-platform tests and final P1 acceptance | XT-038 |
+| Wave | Task | Status | Workstream | Outcome | Depends on |
+| --- | --- | --- | --- | --- | --- |
+| 0 | XT-018 | done | integration | native runtime/dependency ADR and leaf build boundaries | XT-017 |
+| 1 | XT-019 | done | protocol | discovery v1 wire, lifecycle, limits, and vectors | XT-018 |
+| 1 | XT-051 | done | integration | pinned Linux Secret Service dependency | XT-046 |
+| 1 | XT-022 | done | native_core | protected identity and pairing-record storage | XT-018, XT-051 |
+| 1 | XT-023 | done | native_core | TLS 1.3 and security-profile provider | XT-018, XT-015 |
+| 1 | XT-027 | in_progress | native_core | safe one-file storage transaction | XT-018, XT-011 |
+| 2 | XT-020 | done | native_core | multicast discovery, cache, expiry, and interface recovery | XT-019 |
+| 2 | XT-024 | claimable | protocol | independent identity/TLS runtime security review | XT-022, XT-023 |
+| 3 | XT-021 | done | native_bridge | discovery C ABI and Dart adapter | XT-020 |
+| 3 | XT-025 | dependency-blocked | native_core | authenticated pairing/session state machine | XT-020, XT-024 |
+| 4 | XT-026 | dependency-blocked | native_bridge | pairing C ABI and Dart adapter | XT-021, XT-025 |
+| 4 | XT-028 | dependency-blocked | native_core | authenticated one-file transfer engine | XT-006, XT-025, XT-027 |
+| 5 | XT-029 | dependency-blocked | native_core | cancellation and deterministic cleanup | XT-028 |
+| 6 | XT-030 | dependency-blocked | native_bridge | transfer C ABI and real Dart gateway | XT-026, XT-029 |
+| 7 | XT-031 | dependency-blocked | flutter_desktop | peer, pairing, send, receive, and progress UI | XT-021, XT-026, XT-030 |
+| 8 | XT-032 | dependency-blocked | integration | cross-platform P1 vertical-slice acceptance | XT-031 |
+| 9 | XT-033 | dependency-blocked | native_core | multi-file manifests and directories | XT-032 |
+| 10 | XT-034 | dependency-blocked | native_core | scheduling, backpressure, fairness, and rates | XT-033 |
+| 10 | XT-035 | dependency-blocked | native_core | destination selection and collision policy | XT-033 |
+| 11 | XT-036 | dependency-blocked | native_core | reconnect/process-restart resume state | XT-022, XT-034, XT-035 |
+| 12 | XT-037 | dependency-blocked | native_bridge | production transfer C ABI and Dart adapters | XT-036 |
+| 13 | XT-038 | dependency-blocked | flutter_desktop | production multi-file and resume flow | XT-037 |
+| 14 | XT-039 | dependency-blocked | integration | adverse-platform tests and final P1 acceptance | XT-038 |
 
 Security ordering is fail-closed: XT-022 cannot complete its Linux adapter
 before XT-051 proves the selected Secret Service dependency, and XT-025 cannot
