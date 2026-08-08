@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-023",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "tls-provider-agent",
   "base_sha": "b8ebe5dd2e4d60ce46bde4770cb781df4e80f3d5",
   "head_sha": "31c171b360c4cd2f6215c5d52fda553f5dc1ab1c",
@@ -117,9 +117,9 @@
     ],
     "source_commits_sha256": "38d477f5e0ec367352c5b1db0ace1ec63535ab8811afe19211d42955a3fbe5f8",
     "source_patch_id": "6d7f74931613eefd36fbb00db890585ee9b00d0b",
-    "result": "",
+    "result": "60151c1c49ebf6e11ee265c4bc4b6b109e667f64",
     "result_patch_id": "6d7f74931613eefd36fbb00db890585ee9b00d0b",
-    "verified_sha": ""
+    "verified_sha": "60151c1c49ebf6e11ee265c4bc4b6b109e667f64"
   },
   "verification": {
     "status": "passed",
@@ -128,11 +128,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:31c171b360c4cd2f6215c5d52fda553f5dc1ab1c:2026-08-08T03:50:38Z"
+    "reference": "local:60151c1c49ebf6e11ee265c4bc4b6b109e667f64:2026-08-08T04:06:18Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-08T12:06:18+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
