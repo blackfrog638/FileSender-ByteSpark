@@ -2,21 +2,27 @@
   "schema_version": 2,
   "id": "XT-024",
   "task_type": "review",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "security-runtime-review-agent",
+  "base_sha": "579e90c04d53292be391e0957df61273b1c1aafd",
+  "head_sha": "39ee8d669012326ad94b4f6fd07306c0a2269eb4",
   "handoff": ".agents/handoffs/XT-024.md",
   "risks": {
     "functionality": {
       "level": "medium",
       "rationale": "An incomplete review could unblock pairing while required runtime prerequisites remain unsatisfied.",
-      "gates": ["make security-test", "make verify"]
+      "gates": [
+        "make security-test",
+        "make verify"
+      ]
     },
     "security": {
       "level": "critical",
       "rationale": "This review is the independent acceptance boundary for protected identity and TLS runtime behavior.",
-      "gates": ["make security-test", "make verify"]
+      "gates": [
+        "make security-test",
+        "make verify"
+      ]
     },
     "performance": {
       "level": "none",
@@ -26,22 +32,32 @@
     "compatibility": {
       "level": "high",
       "rationale": "Review evidence must match the accepted ADR and byte-exact profile without silently changing them.",
-      "gates": ["make security-test", "make verify"]
+      "gates": [
+        "make security-test",
+        "make verify"
+      ]
     },
     "concurrency": {
       "level": "medium",
       "rationale": "The review must cover cancellation, secret lifetime, and shutdown behavior in asynchronous provider code.",
-      "gates": ["make security-test"]
+      "gates": [
+        "make security-test"
+      ]
     },
     "platform": {
       "level": "critical",
       "rationale": "No platform may be accepted with weaker identity protection or TLS configuration.",
-      "gates": ["make security-test", "make verify"]
+      "gates": [
+        "make security-test",
+        "make verify"
+      ]
     },
     "persistence": {
       "level": "high",
       "rationale": "The review covers durable identity, trust update, rollback, and corruption handling.",
-      "gates": ["make security-test"]
+      "gates": [
+        "make security-test"
+      ]
     }
   },
   "impacts": {
@@ -66,17 +82,28 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "579e90c04d53292be391e0957df61273b1c1aafd",
+    "source_head": "a863089cf8780e589e810d7aad67d5b4c223680b",
+    "source_commits": [
+      "ac919641ea35bfb05467ab209afab3b5e15a9b9d",
+      "5687777a21108ff567e41699e5d657878153067e",
+      "39ee8d669012326ad94b4f6fd07306c0a2269eb4",
+      "a863089cf8780e589e810d7aad67d5b4c223680b"
+    ],
+    "source_commits_sha256": "6e3c9520cc67fab62e2c05d8aab01ba542b97426e47f9c8f6519ba5b82a0d018",
+    "source_patch_id": "e42811bfa7877f0c76ec6552ec917091d0de69f4",
+    "result": "",
+    "result_patch_id": "e42811bfa7877f0c76ec6552ec917091d0de69f4",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:39ee8d669012326ad94b4f6fd07306c0a2269eb4:2026-08-08T21:31:15Z"
   },
   "acceptance": {
     "accepted_by": "",

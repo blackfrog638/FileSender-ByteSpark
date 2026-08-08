@@ -5,6 +5,7 @@
 - Accepted: 2026-08-07
 - Security requirements: `protocol/security/threat-model.md`
 - Required negative coverage: `protocol/security/negative-test-matrix.md`
+- Runtime provider review: `protocol/security/XT-024-runtime-review.md`
 
 ## Context
 
@@ -13,12 +14,14 @@ discovery packets, addresses, names, and all pre-authentication protocol input
 are hostile. Discovery can establish reachability, but it cannot establish
 identity or user intent.
 
-The repository does not currently implement discovery, pairing, transport
-security, or the transfer protocol. This ADR selects the security design that
-those implementations must satisfy; it is not an implementation claim.
-Acceptance records the design decision only. Every implementation,
-cross-platform conformance, secure-storage, and negative-test prerequisite
-below remains mandatory before production use or a security claim.
+The repository implements LAN discovery, protected identity storage, the
+byte-exact security-profile primitives, and a TLS 1.3 provider. It does not
+implement the pairing/session state machine or authenticated file transfer.
+This ADR selects the security design that all of those implementations must
+satisfy; design acceptance and lower-level provider review are not an
+end-to-end implementation claim. Every cross-platform conformance,
+secure-storage, session, and negative-test prerequisite below remains
+mandatory before production use or a security claim.
 
 The design must:
 
@@ -489,6 +492,30 @@ following exist:
    explicitly tracked platform test plan.
 7. Independent security and integration-owner review accepts the ADR,
    interoperability vectors, and any C ABI or wire-contract change.
+
+### Runtime implementation status
+
+XT-024 independently reviewed the XT-022 protected-identity and XT-023 TLS
+provider deliveries. The platform-independent identity repository, macOS and
+Windows protected-store adapters, fail-closed Linux adapter boundary,
+byte-exact profile primitives, and TLS provider are accepted as lower-level
+inputs to session implementation.
+
+This does not close the complete prerequisite list:
+
+- XT-060 owns production pairing ALPN/profile registration, pairing states,
+  errors, timeouts, duplicate behavior, and hostile golden vectors;
+- XT-061 owns pre-handshake enforcement of the registered certificate limits;
+- XT-062 owns device-local, non-synchronizing GNOME Keyring qualification and
+  positive Linux lifecycle tests;
+- XT-025 and XT-026 own pairing/session APIs and presentation-safe attempt
+  handling, while later acceptance tasks retain adversarial integration,
+  stateful fuzzing, and the remaining negative matrix.
+
+The authoritative prerequisite and test-row disposition is
+`protocol/security/XT-024-runtime-review.md`. Pairing and transfer conformance
+remain blocked while any listed runtime-review blocker or negative-matrix
+owner lacks executable evidence.
 
 ## Consequences
 

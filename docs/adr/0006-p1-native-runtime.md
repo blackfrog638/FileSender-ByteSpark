@@ -5,6 +5,7 @@
 - Accepted by task: XT-018
 - Amended by tasks: XT-046 (utf8proc and initial dependency provenance),
   XT-051 (pinned Linux libsecret dependency)
+- Runtime provider review: XT-024
 - Security profile: `docs/adr/0002-pairing-and-transport-security.md`
 
 ## Context
@@ -116,6 +117,26 @@ No selected desktop backend supplies a universally trusted monotonic counter.
 The implementation detects malformed, partial, and internally inconsistent
 rollback, but must not claim detection of a complete valid old system snapshot.
 ADR 0002 already records this residual limitation.
+
+### Runtime provider review boundary
+
+XT-024 accepts the implemented identity repository, macOS and Windows
+protected-store adapters, fail-closed Linux adapter boundary, canonical
+security-profile primitives, and TLS provider as lower-level inputs to the
+session workstream. The review found no reachable exploitable weakness in the
+XT-022 or XT-023 delivery diff.
+
+This is not a production pairing or three-platform conformance claim. Linux
+pairing remains disabled until one concrete Secret Service is qualified and
+passes positive lifecycle evidence under XT-062. The session workstream must
+not select production ALPN/profile bytes until XT-060 registers those values
+and limits, and XT-061 must enforce the certificate ceiling before XT-025 can
+start. A TLS capability created without an expected pin is valid only inside a
+bounded first-pairing attempt; established transport requires the active
+repository pin.
+
+The complete prerequisite, blocker, and negative-test disposition is recorded
+in `protocol/security/XT-024-runtime-review.md`.
 
 ### Dependency provenance
 
