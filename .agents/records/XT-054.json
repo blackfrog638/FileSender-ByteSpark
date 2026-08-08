@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-054",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "defect-schema-agent",
   "base_sha": "faf1baccbf74aba9fbaca16e1f3905e4cad02251",
   "head_sha": "8d0c0ec894ee28c15fdb1d2533d9a0ace73379b5",
@@ -105,9 +105,9 @@
     ],
     "source_commits_sha256": "f0004d06ea19861e24e4b9547546ddb4ba6ee0682c66d102128349ac0de0f62a",
     "source_patch_id": "7069428c04e58ff91f914beefdc50b7a4495e4d3",
-    "result": "",
+    "result": "5c6dea8e08d270de413ddb57bbc6e334cb643b49",
     "result_patch_id": "7069428c04e58ff91f914beefdc50b7a4495e4d3",
-    "verified_sha": ""
+    "verified_sha": "5c6dea8e08d270de413ddb57bbc6e334cb643b49"
   },
   "verification": {
     "status": "passed",
@@ -119,11 +119,11 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": "local:8d0c0ec894ee28c15fdb1d2533d9a0ace73379b5:2026-08-08T01:18:52Z"
+    "reference": "github-actions:31232386251"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-08T09:40:44+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
