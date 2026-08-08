@@ -185,18 +185,25 @@ Xnn-Lifecycle: $lifecycle" >/dev/null
 run_verification() {
   local worktree="$1"
   local task_id="$2"
-  local command
+  local command commands_file
+  commands_file="$(mktemp)"
+  if ! "$worktree/tool/harness/governance.py" \
+    verification-commands "$task_id" >"$commands_file"; then
+    rm -f "$commands_file"
+    return 1
+  fi
   while IFS= read -r command; do
     [[ -n "$command" ]] || continue
     printf '[verify:%s] %s\n' "$task_id" "$command"
-    (
+    if ! (
       cd "$worktree"
       bash -lc "$command"
-    )
-  done < <(
-    "$worktree/tool/harness/governance.py" \
-      verification-commands "$task_id"
-  )
+    ); then
+      rm -f "$commands_file"
+      return 1
+    fi
+  done <"$commands_file"
+  rm -f "$commands_file"
 }
 
 commit_patch_id() {

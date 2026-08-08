@@ -121,8 +121,14 @@ squash or cherry-pick is not sufficient evidence.
   while they exactly match a registered command. Every task includes the
   repository-level `verify` gate.
 - Bugfix regression evidence names a trusted gate ID that is also executed by
-  the task. The reproduction commit is mandatory before review. A `change`
-  disposition requires an ADR; emergency severity changes scheduling only.
+  the task. A deterministic bugfix review runs the exact resolved gate at both
+  revisions: it must fail at the reproduction commit and pass at the reviewed
+  head. The reproduction must be within the task range, and generated proof
+  binds the command digest, revisions, and exit codes into the record.
+  `mark-review` executes this proof at the state-mutation boundary; prefilled
+  evidence cannot bypass execution. Unsupported proof modes fail closed. A
+  `change` disposition requires an ADR; emergency severity changes scheduling
+  only.
 - Commit-governed task records declare the delivery `type`, `scope`, and
   imperative `summary`. Harness lifecycle commits derive meaningful subjects
   from that metadata instead of using the task number as the message.
