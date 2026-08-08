@@ -17,6 +17,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -847,6 +848,15 @@ class WindowsFilesystemBackend final : public PlatformBackend {
     }
 
     const DWORD win32_error = ::GetLastError();
+    // #region debug-point A:win32-rename
+    std::fprintf(stderr,
+                 "[DEBUG] FileRenameInfoEx failed: error=%lu filename_bytes=%llu "
+                 "buffer_bytes=%llu struct_bytes=%llu\n",
+                 static_cast<unsigned long>(win32_error),
+                 static_cast<unsigned long long>(filename_bytes),
+                 static_cast<unsigned long long>(buffer_bytes),
+                 static_cast<unsigned long long>(sizeof(FILE_RENAME_INFO)));
+    // #endregion
     if (!IsUnsupportedInformationError(win32_error)) {
       return win32_error;
     }
@@ -854,7 +864,19 @@ class WindowsFilesystemBackend final : public PlatformBackend {
     const NTSTATUS status = api_->set_information()(file, &status_block, information,
                                                     static_cast<ULONG>(buffer.size()),
                                                     kNativeFileRenameInformationEx);
-    return NtSucceeded(status) ? ERROR_SUCCESS : api_->DosError(status);
+    const DWORD native_error = NtSucceeded(status) ? ERROR_SUCCESS
+                                                    : api_->DosError(status);
+    // #region debug-point B:native-rename
+    if (!NtSucceeded(status)) {
+      std::fprintf(stderr,
+                   "[DEBUG] NtSetInformationFile failed: status=%ld dos_error=%lu "
+                   "io_status=%lld\n",
+                   static_cast<long>(status),
+                   static_cast<unsigned long>(native_error),
+                   static_cast<long long>(status_block.Status));
+    }
+    // #endregion
+    return native_error;
   }
 
   mutable std::mutex mutex_{};
