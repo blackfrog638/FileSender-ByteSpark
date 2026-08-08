@@ -5,6 +5,13 @@ add_library(
   path_validator.cpp
   receive_transaction.cpp
 )
+if(WIN32)
+  target_sources(
+    xnn_transfer_storage
+    PRIVATE
+      filesystem_backend_windows.cpp
+  )
+endif()
 
 target_include_directories(
   xnn_transfer_storage
@@ -18,6 +25,14 @@ target_link_libraries(
   PRIVATE
     utf8proc::utf8proc
 )
+if(WIN32)
+  target_link_libraries(
+    xnn_transfer_storage
+    PRIVATE
+      Advapi32
+      Bcrypt
+  )
+endif()
 
 if(MSVC)
   target_compile_options(
