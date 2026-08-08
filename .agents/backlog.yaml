@@ -939,6 +939,23 @@
         "tool/harness/task_conflicts.py",
         "tool/harness/task_conflicts_test.py"
       ]
+    },
+    {
+      "id": "XT-057",
+      "title": "Fatal transcript state",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-056"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/protocol/v1_parser.hpp",
+        "native/src/protocol/v1_parser.cpp",
+        "native/tests/protocol/v1_parser_test.cpp"
+      ]
     }
   ]
 }
