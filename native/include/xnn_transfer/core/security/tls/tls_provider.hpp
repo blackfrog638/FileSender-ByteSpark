@@ -22,10 +22,28 @@ enum class TlsEndpointRole {
   kServer,
 };
 
+// Non-owning proof that one live SSL connection completed peer verification.
+// The capability must not outlive the SSL stream/ssl_st or its creating
+// OpenSslTlsContext. SSL_clear or any other connection reuse requires a fresh
+// VerifyPeer result. Moving the capability invalidates the source.
 class VerifiedTlsConnection final {
  public:
-  VerifiedTlsConnection(const VerifiedTlsConnection&) = default;
-  VerifiedTlsConnection& operator=(const VerifiedTlsConnection&) = default;
+  VerifiedTlsConnection(const VerifiedTlsConnection&) = delete;
+  VerifiedTlsConnection& operator=(const VerifiedTlsConnection&) = delete;
+
+  VerifiedTlsConnection(VerifiedTlsConnection&& other) noexcept
+      : connection_(std::exchange(other.connection_, nullptr)),
+        owner_(std::exchange(other.owner_, nullptr)),
+        peer_public_key_(std::move(other.peer_public_key_)) {}
+
+  VerifiedTlsConnection& operator=(VerifiedTlsConnection&& other) noexcept {
+    if (this != &other) {
+      connection_ = std::exchange(other.connection_, nullptr);
+      owner_ = std::exchange(other.owner_, nullptr);
+      peer_public_key_ = std::move(other.peer_public_key_);
+    }
+    return *this;
+  }
 
   [[nodiscard]] const ValidatedEd25519PublicKey& peer_public_key() const noexcept {
     return peer_public_key_;

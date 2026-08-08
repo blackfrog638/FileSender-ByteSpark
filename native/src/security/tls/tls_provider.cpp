@@ -416,6 +416,14 @@ Result<identity::SecretBuffer> OpenSslTlsContext::ExportKeyingMaterial(
     return {.error = SecurityError::kExporterFailure};
   }
 
+  const auto current_peer_public_key =
+      ExtractValidatedPeerPublicKey(connection.connection_);
+  if (!current_peer_public_key.ok() ||
+      !EqualPublicKeys(current_peer_public_key.value->bytes(),
+                       connection.peer_public_key_.bytes())) {
+    return {.error = SecurityError::kExporterFailure};
+  }
+
   identity::SecretBuffer output(kSha256Size);
   if (SSL_export_keying_material(connection.connection_, output.mutable_bytes().data(),
                                  output.size(), label.data(), label.size(),

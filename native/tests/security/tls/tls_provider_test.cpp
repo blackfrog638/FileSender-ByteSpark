@@ -14,6 +14,7 @@
 #include <optional>
 #include <span>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -29,6 +30,11 @@ namespace tls = xnn_transfer::core::security::tls;
 using SslPointer = std::unique_ptr<SSL, decltype(&SSL_free)>;
 using SessionPointer = std::unique_ptr<SSL_SESSION, decltype(&SSL_SESSION_free)>;
 using ContextPointer = std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>;
+
+static_assert(!std::is_copy_constructible_v<tls::VerifiedTlsConnection>);
+static_assert(!std::is_copy_assignable_v<tls::VerifiedTlsConnection>);
+static_assert(std::is_nothrow_move_constructible_v<tls::VerifiedTlsConnection>);
+static_assert(std::is_nothrow_move_assignable_v<tls::VerifiedTlsConnection>);
 
 int failures = 0;
 
@@ -128,6 +134,29 @@ bool AdvanceHandshake(SSL* const connection, bool& complete) {
   return error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE;
 }
 
+bool CompleteHandshake(SSL* const client, SSL* const server) {
+  BIO* client_bio = nullptr;
+  BIO* server_bio = nullptr;
+  if (BIO_new_bio_pair(&client_bio, 0, &server_bio, 0) != 1) {
+    return false;
+  }
+  SSL_set_bio(client, client_bio, client_bio);
+  SSL_set_bio(server, server_bio, server_bio);
+  SSL_set_connect_state(client);
+  SSL_set_accept_state(server);
+
+  bool client_complete = false;
+  bool server_complete = false;
+  for (std::size_t iteration = 0;
+       iteration < 1024 && (!client_complete || !server_complete); ++iteration) {
+    if (!AdvanceHandshake(client, client_complete) ||
+        !AdvanceHandshake(server, server_complete)) {
+      return false;
+    }
+  }
+  return client_complete && server_complete;
+}
+
 std::optional<Handshake> Connect(SSL_CTX* const client_context,
                                  SSL_CTX* const server_context,
                                  SSL_SESSION* const requested_session = nullptr) {
@@ -142,30 +171,19 @@ std::optional<Handshake> Connect(SSL_CTX* const client_context,
       SSL_set_session(handshake.client.get(), requested_session) != 1) {
     return std::nullopt;
   }
-
-  BIO* client_bio = nullptr;
-  BIO* server_bio = nullptr;
-  if (BIO_new_bio_pair(&client_bio, 0, &server_bio, 0) != 1) {
-    return std::nullopt;
-  }
-  SSL_set_bio(handshake.client.get(), client_bio, client_bio);
-  SSL_set_bio(handshake.server.get(), server_bio, server_bio);
-  SSL_set_connect_state(handshake.client.get());
-  SSL_set_accept_state(handshake.server.get());
-
-  bool client_complete = false;
-  bool server_complete = false;
-  for (std::size_t iteration = 0;
-       iteration < 1024 && (!client_complete || !server_complete); ++iteration) {
-    if (!AdvanceHandshake(handshake.client.get(), client_complete) ||
-        !AdvanceHandshake(handshake.server.get(), server_complete)) {
-      return std::nullopt;
-    }
-  }
-  if (!client_complete || !server_complete) {
+  if (!CompleteHandshake(handshake.client.get(), handshake.server.get())) {
     return std::nullopt;
   }
   return handshake;
+}
+
+bool ReconnectClient(Handshake& handshake, SSL_CTX* const server_context) {
+  if (SSL_clear(handshake.client.get()) != 1) {
+    return false;
+  }
+  handshake.server.reset(SSL_new(server_context));
+  return handshake.server != nullptr &&
+         CompleteHandshake(handshake.client.get(), handshake.server.get());
 }
 
 void TestConfiguration(const tls::OpenSslTlsContext& client,
@@ -234,12 +252,19 @@ void TestHandshakeAndExporters(const tls::OpenSslTlsContext& client,
     transport_input.context[index] = static_cast<std::uint8_t>(index);
   }
 
-  auto client_pairing = client.ExportKeyingMaterial(*client_peer.value, pairing_input);
+  tls::VerifiedTlsConnection moved_client_peer = std::move(*client_peer.value);
+  const auto moved_from_export =
+      client.ExportKeyingMaterial(*client_peer.value, pairing_input);
+  Expect(!moved_from_export.ok() &&
+             moved_from_export.error == tls::SecurityError::kExporterFailure,
+         "moving verified capability invalidates its source");
+
+  auto client_pairing = client.ExportKeyingMaterial(moved_client_peer, pairing_input);
   auto server_pairing = server.ExportKeyingMaterial(*server_peer.value, pairing_input);
   auto client_confirmation =
-      client.ExportKeyingMaterial(*client_peer.value, confirmation_input);
+      client.ExportKeyingMaterial(moved_client_peer, confirmation_input);
   auto client_transport =
-      client.ExportKeyingMaterial(*client_peer.value, transport_input);
+      client.ExportKeyingMaterial(moved_client_peer, transport_input);
   Expect(client_pairing.ok() && server_pairing.ok() && client_confirmation.ok() &&
              client_transport.ok(),
          "verified connection derives all typed exporters");
@@ -277,6 +302,59 @@ void TestHandshakeAndExporters(const tls::OpenSslTlsContext& client,
              "fresh replacement handshake verifies");
     }
   }
+}
+
+void TestStaleCapabilityRejectedAfterConnectionReuse(
+    const tls::OpenSslTlsContext& client, const tls::OpenSslTlsContext& server,
+    const identity::PublicKey& original_server_key) {
+  IdentityFixture replacement_server_identity;
+  Expect(replacement_server_identity.repository.Open().ok(),
+         "replacement server protected identity opens");
+  if (!replacement_server_identity.repository.ready()) {
+    return;
+  }
+
+  auto replacement_server = tls::OpenSslTlsContext::Create(
+      tls::TlsEndpointRole::kServer, replacement_server_identity.repository,
+      client.alpn_protocol());
+  Expect(replacement_server.ok(), "replacement server TLS context configures");
+  if (!replacement_server.ok()) {
+    return;
+  }
+  const identity::PublicKey& replacement_server_key =
+      *replacement_server_identity.repository.root_public_key();
+  Expect(replacement_server_key != original_server_key,
+         "replacement server has a distinct identity");
+
+  auto handshake = Connect(client.native_handle(), server.native_handle());
+  Expect(handshake.has_value(), "initial stale-capability handshake completes");
+  if (!handshake.has_value()) {
+    return;
+  }
+  auto stale_capability =
+      client.VerifyPeer(handshake->client.get(), original_server_key);
+  Expect(stale_capability.ok(), "initial peer capability verifies");
+  if (!stale_capability.ok()) {
+    return;
+  }
+
+  Expect(ReconnectClient(*handshake, replacement_server.value->native_handle()),
+         "same SSL object reconnects to replacement peer");
+  auto fresh_capability =
+      client.VerifyPeer(handshake->client.get(), replacement_server_key);
+  Expect(fresh_capability.ok(), "reused SSL object verifies replacement peer");
+  if (!fresh_capability.ok()) {
+    return;
+  }
+
+  tls::PairingExporterInput input{};
+  const auto fresh_export = client.ExportKeyingMaterial(*fresh_capability.value, input);
+  Expect(fresh_export.ok(), "fresh capability exports after SSL object reuse");
+
+  const auto stale_export = client.ExportKeyingMaterial(*stale_capability.value, input);
+  Expect(
+      !stale_export.ok() && stale_export.error == tls::SecurityError::kExporterFailure,
+      "stale capability rejects a different current peer key");
 }
 
 void TestAlpnAndCertificateFailures(identity::IdentityRepository& client_identity,
@@ -352,6 +430,8 @@ int main() {
     TestHandshakeAndExporters(*client.value, *server.value,
                               *client_identity.repository.root_public_key(),
                               *server_identity.repository.root_public_key());
+    TestStaleCapabilityRejectedAfterConnectionReuse(
+        *client.value, *server.value, *server_identity.repository.root_public_key());
     TestAlpnAndCertificateFailures(client_identity.repository, *server.value);
   }
 
