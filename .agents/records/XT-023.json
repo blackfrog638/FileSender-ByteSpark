@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-023",
   "task_type": "implementation",
-  "state": "claimed",
+  "state": "in_progress",
   "owner": "tls-provider-agent",
   "base_sha": "b8ebe5dd2e4d60ce46bde4770cb781df4e80f3d5",
   "head_sha": "",
