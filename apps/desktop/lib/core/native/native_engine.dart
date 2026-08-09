@@ -10,12 +10,18 @@ import 'package:xnn_transfer/core/native/native_event_decoder.dart';
 const int _eventPayloadMaxSize = 256;
 const int _eventTypeEngineStateChanged = 1;
 const int _eventTypeDiscoveryPeerChanged = 2;
+const int _eventTypePairingAttemptChanged = 3;
+const int _eventTypeTrustChanged = 4;
 const int _engineStatePayloadVersion = 1;
 const int _eventFlagEventsDroppedBefore = 1;
 const int _discoveryDisplayLabelMaxSize = 96;
 const int _discoveryAddressMaxSize = 16;
 const int _discoverySnapshotPageCapacity = 8;
 const int _discoveryMaxPeers = 256;
+const int _pairingAttemptIdSize = 16;
+const int _pairingSasWordCount = 5;
+const int _trustSnapshotPageCapacity = 8;
+const int _trustMaxRecords = 256;
 
 final class _NativeEngineHandle extends Opaque {}
 
@@ -171,6 +177,168 @@ final class _NativeDiscoverySnapshotPage extends Struct {
   external Array<_NativeDiscoveryPeer> peers;
 }
 
+final class _NativePairingWindowConfig extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int reserved;
+
+  @Uint64()
+  external int durationMs;
+}
+
+final class _NativePairingStartRequest extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int reserved;
+
+  @Uint64()
+  external int peerId;
+}
+
+final class _NativePairingAttemptRef extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int reserved;
+
+  @Array(_pairingAttemptIdSize)
+  external Array<Uint8> attemptId;
+}
+
+final class _NativeTrustRef extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int reserved;
+
+  @Uint64()
+  external int trustId;
+}
+
+final class _NativePairingAttemptEventPayload extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int state;
+
+  @Uint64()
+  external int peerId;
+
+  @Uint64()
+  external int deadlineMs;
+
+  @Array(_pairingAttemptIdSize)
+  external Array<Uint8> attemptId;
+
+  @Array(_pairingSasWordCount)
+  external Array<Uint16> sasWordIndices;
+
+  @Uint16()
+  external int sasWordCount;
+
+  @Uint16()
+  external int error;
+
+  @Uint16()
+  external int reserved;
+}
+
+final class _NativeTrustEventPayload extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int state;
+
+  @Uint64()
+  external int trustId;
+
+  @Uint64()
+  external int peerId;
+
+  @Uint32()
+  external int reserved;
+
+  @Uint32()
+  external int reserved2;
+}
+
+final class _NativePairingSnapshot extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int reserved;
+
+  @Uint64()
+  external int snapshotRevision;
+
+  @Uint32()
+  external int hasAttempt;
+
+  @Uint32()
+  external int reserved2;
+
+  external _NativePairingAttemptEventPayload attempt;
+}
+
+final class _NativeTrustSnapshotPage extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int reserved;
+
+  @Uint64()
+  external int snapshotRevision;
+
+  @Uint32()
+  external int offset;
+
+  @Uint32()
+  external int count;
+
+  @Uint32()
+  external int totalCount;
+
+  @Uint32()
+  external int reserved2;
+
+  @Array(_trustSnapshotPageCapacity)
+  external Array<_NativeTrustEventPayload> records;
+}
+
 typedef _AbiVersionNative = Uint32 Function();
 typedef _AbiVersionDart = int Function();
 typedef _CreateNative = Int32 Function(
@@ -194,21 +362,15 @@ typedef _SetEventCallbackDart = int Function(
   Pointer<_NativeEventCallbackConfig>,
 );
 typedef _PollEventNative = Int32 Function(
-  Pointer<_NativeEngineHandle>,
-  Pointer<_NativeEvent>,
-);
+    Pointer<_NativeEngineHandle>, Pointer<_NativeEvent>);
 typedef _PollEventDart = int Function(
-  Pointer<_NativeEngineHandle>,
-  Pointer<_NativeEvent>,
-);
+    Pointer<_NativeEngineHandle>, Pointer<_NativeEvent>);
 typedef _DiscoveryStartNative = Int32 Function(
   Pointer<_NativeEngineHandle>,
   Pointer<_NativeDiscoveryConfig>,
 );
 typedef _DiscoveryStartDart = int Function(
-  Pointer<_NativeEngineHandle>,
-  Pointer<_NativeDiscoveryConfig>,
-);
+    Pointer<_NativeEngineHandle>, Pointer<_NativeDiscoveryConfig>);
 typedef _DiscoverySnapshotNative = Int32 Function(
   Pointer<_NativeEngineHandle>,
   Uint64,
@@ -221,13 +383,54 @@ typedef _DiscoverySnapshotDart = int Function(
   int,
   Pointer<_NativeDiscoverySnapshotPage>,
 );
+typedef _PairingOpenWindowNative = Int32 Function(
+  Pointer<_NativeEngineHandle>,
+  Pointer<_NativePairingWindowConfig>,
+);
+typedef _PairingOpenWindowDart = int Function(
+  Pointer<_NativeEngineHandle>,
+  Pointer<_NativePairingWindowConfig>,
+);
+typedef _PairingStartNative = Int32 Function(
+  Pointer<_NativeEngineHandle>,
+  Pointer<_NativePairingStartRequest>,
+);
+typedef _PairingStartDart = int Function(
+  Pointer<_NativeEngineHandle>,
+  Pointer<_NativePairingStartRequest>,
+);
+typedef _PairingAttemptCommandNative = Int32 Function(
+  Pointer<_NativeEngineHandle>,
+  Pointer<_NativePairingAttemptRef>,
+);
+typedef _PairingAttemptCommandDart = int Function(
+  Pointer<_NativeEngineHandle>,
+  Pointer<_NativePairingAttemptRef>,
+);
+typedef _PairingRevokeNative = Int32 Function(
+    Pointer<_NativeEngineHandle>, Pointer<_NativeTrustRef>);
+typedef _PairingRevokeDart = int Function(
+    Pointer<_NativeEngineHandle>, Pointer<_NativeTrustRef>);
+typedef _PairingSnapshotNative = Int32 Function(
+  Pointer<_NativeEngineHandle>,
+  Pointer<_NativePairingSnapshot>,
+);
+typedef _PairingSnapshotDart = int Function(
+    Pointer<_NativeEngineHandle>, Pointer<_NativePairingSnapshot>);
+typedef _TrustSnapshotNative = Int32 Function(
+  Pointer<_NativeEngineHandle>,
+  Uint64,
+  Uint32,
+  Pointer<_NativeTrustSnapshotPage>,
+);
+typedef _TrustSnapshotDart = int Function(
+  Pointer<_NativeEngineHandle>,
+  int,
+  int,
+  Pointer<_NativeTrustSnapshotPage>,
+);
 
-enum NativeEngineState {
-  created,
-  running,
-  stopped,
-  stopping,
-}
+enum NativeEngineState { created, running, stopped, stopping }
 
 final class NativeEngineEvent {
   const NativeEngineEvent({
@@ -262,9 +465,17 @@ class NativeEngine {
         !library.providesSymbol('xnn_transfer_engine_poll_event') ||
         !library.providesSymbol('xnn_transfer_discovery_start') ||
         !library.providesSymbol('xnn_transfer_discovery_stop') ||
-        !library.providesSymbol('xnn_transfer_discovery_get_snapshot')) {
+        !library.providesSymbol('xnn_transfer_discovery_get_snapshot') ||
+        !library.providesSymbol('xnn_transfer_pairing_open_window') ||
+        !library.providesSymbol('xnn_transfer_pairing_close_window') ||
+        !library.providesSymbol('xnn_transfer_pairing_start') ||
+        !library.providesSymbol('xnn_transfer_pairing_confirm') ||
+        !library.providesSymbol('xnn_transfer_pairing_reject') ||
+        !library.providesSymbol('xnn_transfer_pairing_revoke') ||
+        !library.providesSymbol('xnn_transfer_pairing_get_snapshot') ||
+        !library.providesSymbol('xnn_transfer_trust_get_snapshot')) {
       throw StateError(
-        'The native library does not provide the discovery event ABI',
+        'The native library does not provide the operation event ABI',
       );
     }
     _setEventCallback =
@@ -285,6 +496,34 @@ class NativeEngine {
         .lookupFunction<_DiscoverySnapshotNative, _DiscoverySnapshotDart>(
       'xnn_transfer_discovery_get_snapshot',
     );
+    _pairingOpenWindow = library
+        .lookupFunction<_PairingOpenWindowNative, _PairingOpenWindowDart>(
+      'xnn_transfer_pairing_open_window',
+    );
+    _pairingCloseWindow =
+        library.lookupFunction<_LifecycleNative, _LifecycleDart>(
+      'xnn_transfer_pairing_close_window',
+    );
+    _pairingStart =
+        library.lookupFunction<_PairingStartNative, _PairingStartDart>(
+      'xnn_transfer_pairing_start',
+    );
+    _pairingConfirm = library.lookupFunction<_PairingAttemptCommandNative,
+        _PairingAttemptCommandDart>('xnn_transfer_pairing_confirm');
+    _pairingReject = library.lookupFunction<_PairingAttemptCommandNative,
+        _PairingAttemptCommandDart>('xnn_transfer_pairing_reject');
+    _pairingRevoke =
+        library.lookupFunction<_PairingRevokeNative, _PairingRevokeDart>(
+      'xnn_transfer_pairing_revoke',
+    );
+    _pairingSnapshot =
+        library.lookupFunction<_PairingSnapshotNative, _PairingSnapshotDart>(
+      'xnn_transfer_pairing_get_snapshot',
+    );
+    _trustSnapshot =
+        library.lookupFunction<_TrustSnapshotNative, _TrustSnapshotDart>(
+      'xnn_transfer_trust_get_snapshot',
+    );
   }
 
   static const int expectedAbiVersion = 1;
@@ -302,6 +541,14 @@ class NativeEngine {
   late final _DiscoveryStartDart _discoveryStart;
   late final _LifecycleDart _discoveryStop;
   late final _DiscoverySnapshotDart _discoverySnapshot;
+  late final _PairingOpenWindowDart _pairingOpenWindow;
+  late final _LifecycleDart _pairingCloseWindow;
+  late final _PairingStartDart _pairingStart;
+  late final _PairingAttemptCommandDart _pairingConfirm;
+  late final _PairingAttemptCommandDart _pairingReject;
+  late final _PairingRevokeDart _pairingRevoke;
+  late final _PairingSnapshotDart _pairingSnapshot;
+  late final _TrustSnapshotDart _trustSnapshot;
 
   final StreamController<NativeEngineEvent> _events =
       StreamController<NativeEngineEvent>.broadcast();
@@ -309,6 +556,14 @@ class NativeEngine {
       StreamController<NativeDiscoveryPeerEvent>.broadcast();
   final StreamController<NativeDiscoverySnapshot> _discoverySnapshots =
       StreamController<NativeDiscoverySnapshot>.broadcast();
+  final StreamController<NativePairingAttemptEvent> _pairingEvents =
+      StreamController<NativePairingAttemptEvent>.broadcast();
+  final StreamController<NativeTrustEvent> _trustEvents =
+      StreamController<NativeTrustEvent>.broadcast();
+  final StreamController<NativePairingSnapshot> _pairingSnapshots =
+      StreamController<NativePairingSnapshot>.broadcast();
+  final StreamController<NativeTrustSnapshot> _trustSnapshots =
+      StreamController<NativeTrustSnapshot>.broadcast();
 
   Pointer<_NativeEngineHandle>? _handle;
   NativeCallable<_EventWakeupNative>? _eventWakeup;
@@ -319,6 +574,11 @@ class NativeEngine {
       _discoveryEvents.stream;
   Stream<NativeDiscoverySnapshot> get discoverySnapshots =>
       _discoverySnapshots.stream;
+  Stream<NativePairingAttemptEvent> get pairingEvents => _pairingEvents.stream;
+  Stream<NativeTrustEvent> get trustEvents => _trustEvents.stream;
+  Stream<NativePairingSnapshot> get pairingSnapshots =>
+      _pairingSnapshots.stream;
+  Stream<NativeTrustSnapshot> get trustSnapshots => _trustSnapshots.stream;
 
   static NativeEngine open() {
     final String? configuredPath =
@@ -382,10 +642,7 @@ class NativeEngine {
     _requireSuccess(_start(_requireHandle()), 'start');
   }
 
-  void startDiscovery({
-    required int servicePort,
-    String displayLabel = '',
-  }) {
+  void startDiscovery({required int servicePort, String displayLabel = ''}) {
     final List<int> label = utf8.encode(displayLabel);
     if (servicePort <= 0 ||
         servicePort > 0xffff ||
@@ -426,6 +683,93 @@ class NativeEngine {
     return _readDiscoverySnapshot();
   }
 
+  void openPairingWindow(Duration duration) {
+    final int durationMs = duration.inMilliseconds;
+    if (durationMs <= 0 || durationMs > 120000) {
+      throw ArgumentError('Pairing window duration is out of range');
+    }
+
+    final Pointer<_NativePairingWindowConfig> config =
+        calloc<_NativePairingWindowConfig>();
+    try {
+      config.ref
+        ..structSize = sizeOf<_NativePairingWindowConfig>()
+        ..abiVersion = expectedAbiVersion
+        ..reserved = 0
+        ..durationMs = durationMs;
+      _requireSuccess(
+        _pairingOpenWindow(_requireHandle(), config),
+        'pairing window open',
+      );
+    } finally {
+      calloc.free(config);
+    }
+  }
+
+  void closePairingWindow() {
+    _requireSuccess(
+      _pairingCloseWindow(_requireHandle()),
+      'pairing window close',
+    );
+  }
+
+  void startPairing(int peerId) {
+    if (peerId <= 0) {
+      throw ArgumentError('Pairing requires a native peer observation');
+    }
+    final Pointer<_NativePairingStartRequest> request =
+        calloc<_NativePairingStartRequest>();
+    try {
+      request.ref
+        ..structSize = sizeOf<_NativePairingStartRequest>()
+        ..abiVersion = expectedAbiVersion
+        ..reserved = 0
+        ..peerId = peerId;
+      _requireSuccess(
+        _pairingStart(_requireHandle(), request),
+        'pairing start',
+      );
+    } finally {
+      calloc.free(request);
+    }
+  }
+
+  void confirmPairing(List<int> attemptId) {
+    _decidePairing(attemptId, _pairingConfirm, 'pairing confirmation');
+  }
+
+  void rejectPairing(List<int> attemptId) {
+    _decidePairing(attemptId, _pairingReject, 'pairing rejection');
+  }
+
+  void revokeTrust(int trustId) {
+    if (trustId <= 0) {
+      throw ArgumentError('Trust ID must be native-issued and nonzero');
+    }
+    final Pointer<_NativeTrustRef> trust = calloc<_NativeTrustRef>();
+    try {
+      trust.ref
+        ..structSize = sizeOf<_NativeTrustRef>()
+        ..abiVersion = expectedAbiVersion
+        ..reserved = 0
+        ..trustId = trustId;
+      _requireSuccess(
+        _pairingRevoke(_requireHandle(), trust),
+        'pairing revocation',
+      );
+    } finally {
+      calloc.free(trust);
+    }
+  }
+
+  NativePairingSnapshot pairingSnapshot() {
+    return _readPairingSnapshot();
+  }
+
+  NativeTrustSnapshot trustSnapshot() {
+    return _readTrustSnapshot();
+  }
+
   void stop() {
     final Pointer<_NativeEngineHandle>? handle = _handle;
     if (handle == null) {
@@ -455,6 +799,10 @@ class NativeEngine {
     unawaited(_events.close());
     unawaited(_discoveryEvents.close());
     unawaited(_discoverySnapshots.close());
+    unawaited(_pairingEvents.close());
+    unawaited(_trustEvents.close());
+    unawaited(_pairingSnapshots.close());
+    unawaited(_trustSnapshots.close());
   }
 
   Pointer<_NativeEngineHandle> _requireHandle() {
@@ -468,6 +816,32 @@ class NativeEngine {
   void _requireSuccess(int status, String operation) {
     if (status != statusOk) {
       throw StateError('Native engine $operation failed with status $status');
+    }
+  }
+
+  void _decidePairing(
+    List<int> attemptId,
+    _PairingAttemptCommandDart command,
+    String operation,
+  ) {
+    if (attemptId.length != _pairingAttemptIdSize ||
+        attemptId.every((int value) => value == 0) ||
+        attemptId.any((int value) => value < 0 || value > 0xff)) {
+      throw ArgumentError('Pairing attempt ID is invalid');
+    }
+    final Pointer<_NativePairingAttemptRef> attempt =
+        calloc<_NativePairingAttemptRef>();
+    try {
+      attempt.ref
+        ..structSize = sizeOf<_NativePairingAttemptRef>()
+        ..abiVersion = expectedAbiVersion
+        ..reserved = 0;
+      for (int index = 0; index < attemptId.length; index += 1) {
+        attempt.ref.attemptId[index] = attemptId[index];
+      }
+      _requireSuccess(command(_requireHandle(), attempt), operation);
+    } finally {
+      calloc.free(attempt);
     }
   }
 
@@ -528,42 +902,80 @@ class NativeEngine {
             event.ref.abiVersion != expectedAbiVersion) {
           throw StateError('Native event uses an incompatible struct');
         }
+        final bool eventsDroppedBefore =
+            event.ref.flags & _eventFlagEventsDroppedBefore != 0;
         switch (event.ref.type) {
           case _eventTypeEngineStateChanged:
             _events.add(_decodeEvent(event.ref));
             break;
           case _eventTypeDiscoveryPeerChanged:
-            if (event.ref.payloadSize > _eventPayloadMaxSize) {
-              throw StateError('Native discovery payload size is invalid');
-            }
-            final Uint8List payload = Uint8List(event.ref.payloadSize);
-            for (int index = 0; index < payload.length; index += 1) {
-              payload[index] = event.ref.payload[index];
-            }
             final NativeDiscoveryPeerEvent discoveryEvent =
                 decodeNativeDiscoveryPeerEventPayload(
               sequence: event.ref.sequence,
               payloadVersion: event.ref.payloadVersion,
               flags: event.ref.flags,
-              payload: payload,
+              payload: _copyEventPayload(event.ref),
               pointerSize: sizeOf<UintPtr>(),
             );
             _discoveryEvents.add(discoveryEvent);
-            if (discoveryEvent.eventsDroppedBefore) {
-              _discoverySnapshots.add(_readDiscoverySnapshot());
-            }
+            break;
+          case _eventTypePairingAttemptChanged:
+            _pairingEvents.add(
+              decodeNativePairingAttemptEventPayload(
+                sequence: event.ref.sequence,
+                payloadVersion: event.ref.payloadVersion,
+                flags: event.ref.flags,
+                payload: _copyEventPayload(event.ref),
+                pointerSize: sizeOf<UintPtr>(),
+              ),
+            );
+            break;
+          case _eventTypeTrustChanged:
+            _trustEvents.add(
+              decodeNativeTrustEventPayload(
+                sequence: event.ref.sequence,
+                payloadVersion: event.ref.payloadVersion,
+                flags: event.ref.flags,
+                payload: _copyEventPayload(event.ref),
+                pointerSize: sizeOf<UintPtr>(),
+              ),
+            );
             break;
           default:
             throw StateError('Native event type is unsupported');
+        }
+        if (eventsDroppedBefore) {
+          _publishRecoverySnapshots();
         }
       }
     } on Object catch (error, stackTrace) {
       _events.addError(error, stackTrace);
       _discoveryEvents.addError(error, stackTrace);
       _discoverySnapshots.addError(error, stackTrace);
+      _pairingEvents.addError(error, stackTrace);
+      _trustEvents.addError(error, stackTrace);
+      _pairingSnapshots.addError(error, stackTrace);
+      _trustSnapshots.addError(error, stackTrace);
     } finally {
       calloc.free(event);
     }
+  }
+
+  Uint8List _copyEventPayload(_NativeEvent event) {
+    if (event.payloadSize > _eventPayloadMaxSize) {
+      throw StateError('Native event payload size is invalid');
+    }
+    final Uint8List payload = Uint8List(event.payloadSize);
+    for (int index = 0; index < payload.length; index += 1) {
+      payload[index] = event.payload[index];
+    }
+    return payload;
+  }
+
+  void _publishRecoverySnapshots() {
+    _discoverySnapshots.add(_readDiscoverySnapshot());
+    _pairingSnapshots.add(_readPairingSnapshot());
+    _trustSnapshots.add(_readTrustSnapshot());
   }
 
   NativeDiscoverySnapshot _readDiscoverySnapshot() {
@@ -605,10 +1017,7 @@ class NativeEngine {
           }
           offset += page.ref.count;
           if (offset == page.ref.totalCount) {
-            return NativeDiscoverySnapshot(
-              revision: revision,
-              peers: peers,
-            );
+            return NativeDiscoverySnapshot(revision: revision, peers: peers);
           }
           if (page.ref.count == 0) {
             throw StateError('Native discovery snapshot made no progress');
@@ -645,6 +1054,129 @@ class NativeEngine {
     );
   }
 
+  NativePairingSnapshot _readPairingSnapshot() {
+    final Pointer<_NativePairingSnapshot> snapshot =
+        calloc<_NativePairingSnapshot>();
+    try {
+      snapshot.ref
+        ..structSize = sizeOf<_NativePairingSnapshot>()
+        ..abiVersion = expectedAbiVersion;
+      _requireSuccess(
+        _pairingSnapshot(_requireHandle(), snapshot),
+        'pairing snapshot',
+      );
+      if (snapshot.ref.structSize < sizeOf<_NativePairingSnapshot>() ||
+          snapshot.ref.abiVersion != expectedAbiVersion ||
+          snapshot.ref.reserved != 0 ||
+          snapshot.ref.reserved2 != 0 ||
+          snapshot.ref.snapshotRevision == 0 ||
+          snapshot.ref.hasAttempt > 1) {
+        throw StateError('Native pairing snapshot is invalid');
+      }
+      return NativePairingSnapshot(
+        revision: snapshot.ref.snapshotRevision,
+        attempt: snapshot.ref.hasAttempt == 0
+            ? null
+            : _decodePairingAttempt(snapshot.ref.attempt),
+      );
+    } finally {
+      calloc.free(snapshot);
+    }
+  }
+
+  NativeTrustSnapshot _readTrustSnapshot() {
+    final Pointer<_NativeTrustSnapshotPage> page =
+        calloc<_NativeTrustSnapshotPage>();
+    try {
+      for (int attempt = 0; attempt < 3; attempt += 1) {
+        final List<NativeTrustRecord> records = <NativeTrustRecord>[];
+        int revision = 0;
+        int offset = 0;
+        for (;;) {
+          page.ref
+            ..structSize = sizeOf<_NativeTrustSnapshotPage>()
+            ..abiVersion = expectedAbiVersion;
+          final int status = _trustSnapshot(
+            _requireHandle(),
+            revision,
+            offset,
+            page,
+          );
+          if (status == statusStaleSnapshot) {
+            break;
+          }
+          _requireSuccess(status, 'trust snapshot');
+          if (page.ref.structSize < sizeOf<_NativeTrustSnapshotPage>() ||
+              page.ref.abiVersion != expectedAbiVersion ||
+              page.ref.reserved != 0 ||
+              page.ref.reserved2 != 0 ||
+              page.ref.snapshotRevision == 0 ||
+              page.ref.offset != offset ||
+              page.ref.count > _trustSnapshotPageCapacity ||
+              page.ref.totalCount > _trustMaxRecords ||
+              offset + page.ref.count > page.ref.totalCount) {
+            throw StateError('Native trust snapshot page is invalid');
+          }
+          if (revision == 0) {
+            revision = page.ref.snapshotRevision;
+          } else if (revision != page.ref.snapshotRevision) {
+            throw StateError('Native trust snapshot revision changed');
+          }
+          for (int index = 0; index < page.ref.count; index += 1) {
+            records.add(_decodeTrustRecord(page.ref.records[index]));
+          }
+          offset += page.ref.count;
+          if (offset == page.ref.totalCount) {
+            return NativeTrustSnapshot(revision: revision, records: records);
+          }
+          if (page.ref.count == 0) {
+            throw StateError('Native trust snapshot made no progress');
+          }
+        }
+      }
+      throw StateError('Native trust snapshot remained stale');
+    } finally {
+      calloc.free(page);
+    }
+  }
+
+  NativePairingAttempt _decodePairingAttempt(
+    _NativePairingAttemptEventPayload attempt,
+  ) {
+    return decodeNativePairingAttemptFields(
+      structSize: attempt.structSize,
+      abiVersion: attempt.abiVersion,
+      rawState: attempt.state,
+      peerId: attempt.peerId,
+      deadlineMs: attempt.deadlineMs,
+      attemptId: <int>[
+        for (int index = 0; index < _pairingAttemptIdSize; index += 1)
+          attempt.attemptId[index],
+      ],
+      sasWordIndices: <int>[
+        for (int index = 0; index < _pairingSasWordCount; index += 1)
+          attempt.sasWordIndices[index],
+      ],
+      sasWordCount: attempt.sasWordCount,
+      rawError: attempt.error,
+      reserved: attempt.reserved,
+      expectedStructSize: sizeOf<_NativePairingAttemptEventPayload>(),
+    );
+  }
+
+  NativeTrustRecord _decodeTrustRecord(_NativeTrustEventPayload record) {
+    return decodeNativeTrustFields(
+      structSize: record.structSize,
+      abiVersion: record.abiVersion,
+      rawState: record.state,
+      trustId: record.trustId,
+      peerId: record.peerId,
+      reserved: record.reserved,
+      reserved2: record.reserved2,
+      expectedStructSize: sizeOf<_NativeTrustEventPayload>(),
+    );
+  }
+
   NativeEngineEvent _decodeEvent(_NativeEvent event) {
     if (event.structSize < sizeOf<_NativeEvent>() ||
         event.abiVersion != expectedAbiVersion) {
@@ -668,8 +1200,10 @@ class NativeEngine {
     final int payloadStructSize = sizeFieldWidth == 8
         ? payload.getUint64(0, Endian.host)
         : payload.getUint32(0, Endian.host);
-    final int payloadAbiVersion =
-        payload.getUint32(sizeFieldWidth, Endian.host);
+    final int payloadAbiVersion = payload.getUint32(
+      sizeFieldWidth,
+      Endian.host,
+    );
     final int rawState = payload.getUint32(sizeFieldWidth + 4, Endian.host);
     if (payloadStructSize != sizeOf<_NativeEngineStateEventPayload>() ||
         payloadAbiVersion != expectedAbiVersion) {

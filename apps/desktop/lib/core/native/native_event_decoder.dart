@@ -5,16 +5,9 @@ const int nativeDiscoveryPeerEventPayloadVersion = 1;
 const int nativeDiscoveryDisplayLabelMaxSize = 96;
 const int nativeDiscoveryAddressMaxSize = 16;
 
-enum NativeDiscoveryAddressFamily {
-  ipv4,
-  ipv6,
-}
+enum NativeDiscoveryAddressFamily { ipv4, ipv6 }
 
-enum NativeDiscoveryPeerChange {
-  appeared,
-  updated,
-  expired,
-}
+enum NativeDiscoveryPeerChange { appeared, updated, expired }
 
 enum NativeDiscoveryExpiryReason {
   none,
@@ -112,10 +105,12 @@ NativeDiscoveryPeer decodeNativeDiscoveryPeerFields({
     throw StateError('Native discovery display label size is invalid');
   }
 
-  final Uint8List address =
-      Uint8List.fromList(addressBytes.sublist(0, addressSize));
-  final String displayLabel = const Utf8Decoder(allowMalformed: false)
-      .convert(displayLabelBytes.sublist(0, displayLabelSize));
+  final Uint8List address = Uint8List.fromList(
+    addressBytes.sublist(0, addressSize),
+  );
+  final String displayLabel = const Utf8Decoder(
+    allowMalformed: false,
+  ).convert(displayLabelBytes.sublist(0, displayLabelSize));
   return NativeDiscoveryPeer(
     peerId: peerId,
     servicePort: servicePort,
@@ -196,6 +191,270 @@ NativeDiscoveryPeerEvent decodeNativeDiscoveryPeerEventPayload({
     change: change,
     expiryReason: expiryReason,
     peer: peer,
+    eventsDroppedBefore: flags & 1 != 0,
+  );
+}
+
+const int nativePairingAttemptEventPayloadVersion = 1;
+const int nativeTrustEventPayloadVersion = 1;
+const int nativePairingAttemptIdSize = 16;
+const int nativePairingSasWordCount = 5;
+
+enum NativePairingAttemptState {
+  starting,
+  awaitingConfirmation,
+  paired,
+  closed,
+}
+
+enum NativePairingError {
+  none,
+  rejected,
+  cancelled,
+  timedOut,
+  busy,
+  unavailable,
+  failed,
+}
+
+enum NativeTrustState { active, revoked }
+
+final class NativePairingAttempt {
+  NativePairingAttempt({
+    required this.state,
+    required this.peerId,
+    required this.deadlineMs,
+    required List<int> attemptId,
+    required List<int> sasWordIndices,
+    required this.error,
+  })  : attemptId = List<int>.unmodifiable(attemptId),
+        sasWordIndices = List<int>.unmodifiable(sasWordIndices);
+
+  final NativePairingAttemptState state;
+  final int peerId;
+  final int deadlineMs;
+  final List<int> attemptId;
+  final List<int> sasWordIndices;
+  final NativePairingError error;
+}
+
+final class NativePairingAttemptEvent {
+  const NativePairingAttemptEvent({
+    required this.sequence,
+    required this.attempt,
+    required this.eventsDroppedBefore,
+  });
+
+  final int sequence;
+  final NativePairingAttempt attempt;
+  final bool eventsDroppedBefore;
+}
+
+final class NativePairingSnapshot {
+  const NativePairingSnapshot({required this.revision, required this.attempt});
+
+  final int revision;
+  final NativePairingAttempt? attempt;
+}
+
+final class NativeTrustRecord {
+  const NativeTrustRecord({
+    required this.trustId,
+    required this.peerId,
+    required this.state,
+  });
+
+  final int trustId;
+  final int peerId;
+  final NativeTrustState state;
+}
+
+final class NativeTrustEvent {
+  const NativeTrustEvent({
+    required this.sequence,
+    required this.record,
+    required this.eventsDroppedBefore,
+  });
+
+  final int sequence;
+  final NativeTrustRecord record;
+  final bool eventsDroppedBefore;
+}
+
+final class NativeTrustSnapshot {
+  NativeTrustSnapshot({
+    required this.revision,
+    required List<NativeTrustRecord> records,
+  }) : records = List<NativeTrustRecord>.unmodifiable(records);
+
+  final int revision;
+  final List<NativeTrustRecord> records;
+}
+
+NativePairingAttempt decodeNativePairingAttemptFields({
+  required int structSize,
+  required int abiVersion,
+  required int rawState,
+  required int peerId,
+  required int deadlineMs,
+  required List<int> attemptId,
+  required List<int> sasWordIndices,
+  required int sasWordCount,
+  required int rawError,
+  required int reserved,
+  required int expectedStructSize,
+}) {
+  if (structSize < expectedStructSize ||
+      abiVersion != 1 ||
+      reserved != 0 ||
+      peerId < 0 ||
+      attemptId.length != nativePairingAttemptIdSize ||
+      attemptId.every((int value) => value == 0) ||
+      sasWordIndices.length != nativePairingSasWordCount) {
+    throw StateError('Native pairing attempt uses an incompatible struct');
+  }
+
+  final NativePairingAttemptState state = switch (rawState) {
+    1 => NativePairingAttemptState.starting,
+    2 => NativePairingAttemptState.awaitingConfirmation,
+    3 => NativePairingAttemptState.paired,
+    4 => NativePairingAttemptState.closed,
+    _ => throw StateError('Native pairing attempt state is unsupported'),
+  };
+  final NativePairingError error = switch (rawError) {
+    0 => NativePairingError.none,
+    1 => NativePairingError.rejected,
+    2 => NativePairingError.cancelled,
+    3 => NativePairingError.timedOut,
+    4 => NativePairingError.busy,
+    5 => NativePairingError.unavailable,
+    6 => NativePairingError.failed,
+    _ => throw StateError('Native pairing error is unsupported'),
+  };
+
+  final bool awaiting = state == NativePairingAttemptState.awaitingConfirmation;
+  if (awaiting) {
+    if (deadlineMs <= 0 ||
+        sasWordCount != nativePairingSasWordCount ||
+        error != NativePairingError.none ||
+        sasWordIndices.any((int value) => value < 0 || value >= 2048)) {
+      throw StateError('Native pairing SAS payload is invalid');
+    }
+  } else if (deadlineMs != 0 ||
+      sasWordCount != 0 ||
+      sasWordIndices.any((int value) => value != 0) ||
+      (state == NativePairingAttemptState.closed) ==
+          (error == NativePairingError.none)) {
+    throw StateError('Native pairing terminal payload is invalid');
+  }
+
+  return NativePairingAttempt(
+    state: state,
+    peerId: peerId,
+    deadlineMs: deadlineMs,
+    attemptId: attemptId,
+    sasWordIndices: awaiting ? sasWordIndices : const <int>[],
+    error: error,
+  );
+}
+
+NativePairingAttemptEvent decodeNativePairingAttemptEventPayload({
+  required int sequence,
+  required int payloadVersion,
+  required int flags,
+  required Uint8List payload,
+  required int pointerSize,
+}) {
+  if (payloadVersion != nativePairingAttemptEventPayloadVersion ||
+      pointerSize != 8 ||
+      payload.length < 64) {
+    throw StateError('Native pairing event payload is incompatible');
+  }
+
+  final ByteData fields = ByteData.sublistView(payload);
+  final int structSize = fields.getUint64(0, Endian.host);
+  if (structSize < 64 || structSize > payload.length) {
+    throw StateError('Native pairing event payload is truncated');
+  }
+  final List<int> words = <int>[
+    for (int index = 0; index < nativePairingSasWordCount; index += 1)
+      fields.getUint16(48 + index * 2, Endian.host),
+  ];
+  return NativePairingAttemptEvent(
+    sequence: sequence,
+    attempt: decodeNativePairingAttemptFields(
+      structSize: structSize,
+      abiVersion: fields.getUint32(8, Endian.host),
+      rawState: fields.getUint32(12, Endian.host),
+      peerId: fields.getUint64(16, Endian.host),
+      deadlineMs: fields.getUint64(24, Endian.host),
+      attemptId: List<int>.from(payload.sublist(32, 48)),
+      sasWordIndices: words,
+      sasWordCount: fields.getUint16(58, Endian.host),
+      rawError: fields.getUint16(60, Endian.host),
+      reserved: fields.getUint16(62, Endian.host),
+      expectedStructSize: 64,
+    ),
+    eventsDroppedBefore: flags & 1 != 0,
+  );
+}
+
+NativeTrustRecord decodeNativeTrustFields({
+  required int structSize,
+  required int abiVersion,
+  required int rawState,
+  required int trustId,
+  required int peerId,
+  required int reserved,
+  required int reserved2,
+  required int expectedStructSize,
+}) {
+  if (structSize < expectedStructSize ||
+      abiVersion != 1 ||
+      trustId <= 0 ||
+      peerId < 0 ||
+      reserved != 0 ||
+      reserved2 != 0) {
+    throw StateError('Native trust record uses an incompatible struct');
+  }
+  final NativeTrustState state = switch (rawState) {
+    1 => NativeTrustState.active,
+    2 => NativeTrustState.revoked,
+    _ => throw StateError('Native trust state is unsupported'),
+  };
+  return NativeTrustRecord(trustId: trustId, peerId: peerId, state: state);
+}
+
+NativeTrustEvent decodeNativeTrustEventPayload({
+  required int sequence,
+  required int payloadVersion,
+  required int flags,
+  required Uint8List payload,
+  required int pointerSize,
+}) {
+  if (payloadVersion != nativeTrustEventPayloadVersion ||
+      pointerSize != 8 ||
+      payload.length < 40) {
+    throw StateError('Native trust event payload is incompatible');
+  }
+
+  final ByteData fields = ByteData.sublistView(payload);
+  final int structSize = fields.getUint64(0, Endian.host);
+  if (structSize < 40 || structSize > payload.length) {
+    throw StateError('Native trust event payload is truncated');
+  }
+  return NativeTrustEvent(
+    sequence: sequence,
+    record: decodeNativeTrustFields(
+      structSize: structSize,
+      abiVersion: fields.getUint32(8, Endian.host),
+      rawState: fields.getUint32(12, Endian.host),
+      trustId: fields.getUint64(16, Endian.host),
+      peerId: fields.getUint64(24, Endian.host),
+      reserved: fields.getUint32(32, Endian.host),
+      reserved2: fields.getUint32(36, Endian.host),
+      expectedStructSize: 40,
+    ),
     eventsDroppedBefore: flags & 1 != 0,
   );
 }

@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -7,6 +9,7 @@
 #include <iostream>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <string>
 #include <thread>
 #include <utility>
@@ -14,12 +17,17 @@
 
 #include "../../src/bridge/discovery_bridge.hpp"
 #include "../../src/bridge/event_channel.hpp"
+#include "../../src/bridge/pairing_bridge.hpp"
 #include "xnn_transfer/c_api.h"
 #include "xnn_transfer/core/discovery/discovery.hpp"
+#include "xnn_transfer/core/session/session.hpp"
 
 namespace {
 
 using namespace std::chrono_literals;
+namespace identity = xnn_transfer::core::security::identity;
+namespace session = xnn_transfer::core::session;
+namespace tls = xnn_transfer::core::security::tls;
 
 static_assert(sizeof(std::size_t) == 8);
 static_assert(sizeof(xnn_transfer_discovery_config) == 120);
@@ -27,6 +35,18 @@ static_assert(sizeof(xnn_transfer_discovery_peer) == 144);
 static_assert(sizeof(xnn_transfer_discovery_peer_event_payload) == 176);
 static_assert(sizeof(xnn_transfer_discovery_snapshot_page) == 1'192);
 static_assert(sizeof(xnn_transfer_discovery_peer_event_payload) <=
+              XNN_TRANSFER_EVENT_PAYLOAD_MAX_SIZE);
+static_assert(sizeof(xnn_transfer_pairing_window_config) == 24);
+static_assert(sizeof(xnn_transfer_pairing_start_request) == 24);
+static_assert(sizeof(xnn_transfer_pairing_attempt_ref) == 32);
+static_assert(sizeof(xnn_transfer_trust_ref) == 24);
+static_assert(sizeof(xnn_transfer_pairing_attempt_event_payload) == 64);
+static_assert(sizeof(xnn_transfer_trust_event_payload) == 40);
+static_assert(sizeof(xnn_transfer_pairing_snapshot) == 96);
+static_assert(sizeof(xnn_transfer_trust_snapshot_page) == 360);
+static_assert(sizeof(xnn_transfer_pairing_attempt_event_payload) <=
+              XNN_TRANSFER_EVENT_PAYLOAD_MAX_SIZE);
+static_assert(sizeof(xnn_transfer_trust_event_payload) <=
               XNN_TRANSFER_EVENT_PAYLOAD_MAX_SIZE);
 
 int failures = 0;
@@ -90,6 +110,45 @@ xnn_transfer_discovery_config DiscoveryConfig() {
 xnn_transfer_discovery_snapshot_page EmptySnapshotPage() {
   return xnn_transfer_discovery_snapshot_page{
       .struct_size = sizeof(xnn_transfer_discovery_snapshot_page),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+  };
+}
+
+xnn_transfer_pairing_window_config PairingWindowConfig() {
+  return xnn_transfer_pairing_window_config{
+      .struct_size = sizeof(xnn_transfer_pairing_window_config),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+      .duration_ms = 60'000,
+  };
+}
+
+xnn_transfer_pairing_start_request PairingStartRequest(const std::uint64_t peer_id) {
+  return xnn_transfer_pairing_start_request{
+      .struct_size = sizeof(xnn_transfer_pairing_start_request),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+      .peer_id = peer_id,
+  };
+}
+
+xnn_transfer_pairing_attempt_ref PairingAttemptRef(const std::uint8_t value) {
+  xnn_transfer_pairing_attempt_ref attempt{
+      .struct_size = sizeof(xnn_transfer_pairing_attempt_ref),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+  };
+  std::fill(std::begin(attempt.attempt_id), std::end(attempt.attempt_id), value);
+  return attempt;
+}
+
+xnn_transfer_pairing_snapshot EmptyPairingSnapshot() {
+  return xnn_transfer_pairing_snapshot{
+      .struct_size = sizeof(xnn_transfer_pairing_snapshot),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+  };
+}
+
+xnn_transfer_trust_snapshot_page EmptyTrustSnapshotPage() {
+  return xnn_transfer_trust_snapshot_page{
+      .struct_size = sizeof(xnn_transfer_trust_snapshot_page),
       .abi_version = XNN_TRANSFER_ABI_VERSION,
   };
 }
@@ -528,6 +587,14 @@ struct ReentrantUnregisterContext {
   xnn_transfer_status discovery_start_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   xnn_transfer_status discovery_stop_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   xnn_transfer_status snapshot_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status pairing_open_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status pairing_close_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status pairing_start_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status pairing_confirm_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status pairing_reject_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status pairing_revoke_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status pairing_snapshot_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status trust_snapshot_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   xnn_transfer_status unregister_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   int calls = 0;
 };
@@ -546,6 +613,29 @@ void PollAndUnregister(void* const user_data) {
   xnn_transfer_discovery_snapshot_page page = EmptySnapshotPage();
   context->snapshot_status =
       xnn_transfer_discovery_get_snapshot(context->engine, 0, 0, &page);
+  xnn_transfer_pairing_window_config window = PairingWindowConfig();
+  context->pairing_open_status =
+      xnn_transfer_pairing_open_window(context->engine, &window);
+  context->pairing_close_status = xnn_transfer_pairing_close_window(context->engine);
+  xnn_transfer_pairing_start_request start = PairingStartRequest(1);
+  context->pairing_start_status = xnn_transfer_pairing_start(context->engine, &start);
+  xnn_transfer_pairing_attempt_ref attempt = PairingAttemptRef(1);
+  context->pairing_confirm_status =
+      xnn_transfer_pairing_confirm(context->engine, &attempt);
+  context->pairing_reject_status =
+      xnn_transfer_pairing_reject(context->engine, &attempt);
+  xnn_transfer_trust_ref trust{
+      .struct_size = sizeof(xnn_transfer_trust_ref),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+      .trust_id = 1,
+  };
+  context->pairing_revoke_status = xnn_transfer_pairing_revoke(context->engine, &trust);
+  xnn_transfer_pairing_snapshot pairing = EmptyPairingSnapshot();
+  context->pairing_snapshot_status =
+      xnn_transfer_pairing_get_snapshot(context->engine, &pairing);
+  xnn_transfer_trust_snapshot_page trust_page = EmptyTrustSnapshotPage();
+  context->trust_snapshot_status =
+      xnn_transfer_trust_get_snapshot(context->engine, 0, 0, &trust_page);
   context->unregister_status =
       xnn_transfer_engine_set_event_callback(context->engine, nullptr);
 }
@@ -580,6 +670,22 @@ void TestDocumentedCallbackReentrancy() {
          "callback may not reenter discovery stop");
   Expect(context.snapshot_status == XNN_TRANSFER_STATUS_INVALID_STATE,
          "callback may not reenter discovery snapshot");
+  Expect(context.pairing_open_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter pairing window open");
+  Expect(context.pairing_close_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter pairing window close");
+  Expect(context.pairing_start_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter pairing start");
+  Expect(context.pairing_confirm_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter pairing confirmation");
+  Expect(context.pairing_reject_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter pairing rejection");
+  Expect(context.pairing_revoke_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter pairing revocation");
+  Expect(context.pairing_snapshot_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter pairing snapshot");
+  Expect(context.trust_snapshot_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter trust snapshot");
   Expect(context.unregister_status == XNN_TRANSFER_STATUS_OK,
          "reentrant unregister does not deadlock");
 
@@ -676,6 +782,508 @@ void TestDiscoveryStructsAndLifecycleStates() {
   Expect(page.count == 0 && page.total_count == 0,
          "stopped discovery snapshot is empty");
   xnn_transfer_engine_destroy(engine);
+}
+
+void TestPairingAbiValidationAndLifecycle() {
+  xnn_transfer_engine* const engine = CreateEngine();
+  if (engine == nullptr) {
+    return;
+  }
+
+  xnn_transfer_pairing_window_config window = PairingWindowConfig();
+  Expect(xnn_transfer_pairing_open_window(engine, &window) ==
+             XNN_TRANSFER_STATUS_INVALID_STATE,
+         "pairing window cannot open before the engine");
+  Expect(xnn_transfer_pairing_close_window(engine) == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "pairing window cannot close before the engine");
+
+  window.struct_size = offsetof(xnn_transfer_pairing_window_config, duration_ms);
+  Expect(xnn_transfer_pairing_open_window(engine, &window) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "pairing window rejects a short config");
+  window = PairingWindowConfig();
+  window.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_pairing_open_window(engine, &window) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "pairing window rejects an unsupported ABI");
+  window = PairingWindowConfig();
+  window.reserved = 1;
+  Expect(xnn_transfer_pairing_open_window(engine, &window) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "pairing window rejects reserved input");
+  window = PairingWindowConfig();
+  window.duration_ms = 120'001;
+  Expect(xnn_transfer_pairing_open_window(engine, &window) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "pairing window enforces the 120 second bound");
+
+  Expect(xnn_transfer_engine_start(engine) == XNN_TRANSFER_STATUS_OK,
+         "engine starts before pairing commands");
+  window = PairingWindowConfig();
+  Expect(xnn_transfer_pairing_open_window(engine, &window) == XNN_TRANSFER_STATUS_OK,
+         "pairing window opens through native admission");
+
+  xnn_transfer_pairing_start_request start = PairingStartRequest(1);
+  start.struct_size = offsetof(xnn_transfer_pairing_start_request, peer_id);
+  Expect(xnn_transfer_pairing_start(engine, &start) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "pairing start rejects a short request");
+  start = PairingStartRequest(1);
+  start.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_pairing_start(engine, &start) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "pairing start rejects an unsupported ABI");
+  start = PairingStartRequest(0);
+  Expect(xnn_transfer_pairing_start(engine, &start) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "pairing start rejects a zero peer observation");
+  start = PairingStartRequest(1);
+  Expect(xnn_transfer_pairing_start(engine, &start) == XNN_TRANSFER_STATUS_STALE_HANDLE,
+         "pairing start rejects a stale discovery observation");
+
+  xnn_transfer_pairing_attempt_ref attempt = PairingAttemptRef(1);
+  attempt.struct_size = offsetof(xnn_transfer_pairing_attempt_ref, attempt_id);
+  Expect(xnn_transfer_pairing_confirm(engine, &attempt) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "pairing confirmation rejects a short attempt ref");
+  attempt = PairingAttemptRef(1);
+  attempt.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_pairing_confirm(engine, &attempt) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "pairing confirmation rejects an unsupported ABI");
+  attempt = PairingAttemptRef(0);
+  Expect(xnn_transfer_pairing_confirm(engine, &attempt) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "pairing confirmation rejects a zero attempt ID");
+  attempt = PairingAttemptRef(1);
+  Expect(xnn_transfer_pairing_confirm(engine, &attempt) ==
+             XNN_TRANSFER_STATUS_STALE_HANDLE,
+         "pairing confirmation rejects a stale attempt ID");
+  Expect(
+      xnn_transfer_pairing_reject(engine, &attempt) == XNN_TRANSFER_STATUS_STALE_HANDLE,
+      "pairing rejection rejects the same stale attempt ID");
+
+  xnn_transfer_trust_ref trust{
+      .struct_size = sizeof(xnn_transfer_trust_ref),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+      .trust_id = 1,
+  };
+  trust.struct_size = offsetof(xnn_transfer_trust_ref, trust_id);
+  Expect(xnn_transfer_pairing_revoke(engine, &trust) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "pairing revocation rejects a short trust ref");
+  trust.struct_size = sizeof(xnn_transfer_trust_ref);
+  trust.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_pairing_revoke(engine, &trust) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "pairing revocation rejects an unsupported ABI");
+  trust.abi_version = XNN_TRANSFER_ABI_VERSION;
+  trust.trust_id = 0;
+  Expect(xnn_transfer_pairing_revoke(engine, &trust) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "pairing revocation rejects a zero trust ID");
+  trust.trust_id = 1;
+  Expect(xnn_transfer_pairing_revoke(engine, &trust) == XNN_TRANSFER_STATUS_OK,
+         "unknown trust IDs share the idempotent revoke result");
+
+  xnn_transfer_pairing_snapshot pairing = EmptyPairingSnapshot();
+  pairing.struct_size = offsetof(xnn_transfer_pairing_snapshot, attempt);
+  Expect(xnn_transfer_pairing_get_snapshot(engine, &pairing) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "pairing snapshot rejects a short output");
+  pairing = EmptyPairingSnapshot();
+  pairing.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_pairing_get_snapshot(engine, &pairing) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "pairing snapshot rejects an unsupported ABI");
+  pairing = EmptyPairingSnapshot();
+  Expect(xnn_transfer_pairing_get_snapshot(engine, &pairing) == XNN_TRANSFER_STATUS_OK,
+         "pairing snapshot returns bounded empty state");
+  Expect(pairing.snapshot_revision != 0 && pairing.has_attempt == 0,
+         "pairing snapshot starts without a visible attempt");
+
+  xnn_transfer_trust_snapshot_page trust_page = EmptyTrustSnapshotPage();
+  trust_page.struct_size = offsetof(xnn_transfer_trust_snapshot_page, records);
+  Expect(xnn_transfer_trust_get_snapshot(engine, 0, 0, &trust_page) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "trust snapshot rejects a short output");
+  trust_page = EmptyTrustSnapshotPage();
+  trust_page.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_trust_get_snapshot(engine, 0, 0, &trust_page) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "trust snapshot rejects an unsupported ABI");
+  trust_page = EmptyTrustSnapshotPage();
+  Expect(xnn_transfer_trust_get_snapshot(engine, 0, 0, &trust_page) ==
+             XNN_TRANSFER_STATUS_OK,
+         "trust snapshot returns a bounded empty page");
+  Expect(trust_page.snapshot_revision != 0 && trust_page.count == 0 &&
+             trust_page.total_count == 0,
+         "trust snapshot starts without records");
+
+  Expect(xnn_transfer_pairing_close_window(engine) == XNN_TRANSFER_STATUS_OK,
+         "pairing window closes");
+  Expect(xnn_transfer_pairing_close_window(engine) == XNN_TRANSFER_STATUS_OK,
+         "pairing window close is idempotent");
+  Expect(xnn_transfer_engine_stop(engine) == XNN_TRANSFER_STATUS_OK,
+         "engine shutdown closes pairing admission");
+  window = PairingWindowConfig();
+  Expect(xnn_transfer_pairing_open_window(engine, &window) ==
+             XNN_TRANSFER_STATUS_INVALID_STATE,
+         "pairing window cannot reopen after shutdown");
+  pairing = EmptyPairingSnapshot();
+  Expect(xnn_transfer_pairing_get_snapshot(engine, &pairing) == XNN_TRANSFER_STATUS_OK,
+         "stopped engine retains pairing snapshot recovery");
+  trust_page = EmptyTrustSnapshotPage();
+  Expect(xnn_transfer_trust_get_snapshot(engine, 0, 0, &trust_page) ==
+             XNN_TRANSFER_STATUS_OK,
+         "stopped engine retains trust snapshot recovery");
+  Expect(xnn_transfer_pairing_confirm(engine, &attempt) ==
+             XNN_TRANSFER_STATUS_INVALID_STATE,
+         "pairing decisions are closed after shutdown");
+  xnn_transfer_engine_destroy(engine);
+}
+
+class FakePairingBackend final : public xnn_transfer::bridge::PairingBackend {
+ public:
+  xnn_transfer_status OpenWindow(const std::uint64_t now_ms,
+                                 const std::uint64_t duration_ms) override {
+    window_open = duration_ms != 0;
+    opened_at_ms = now_ms;
+    return window_open ? XNN_TRANSFER_STATUS_OK : XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+
+  void CloseWindow() override {
+    window_open = false;
+    ++close_calls;
+  }
+
+  xnn_transfer_status Start(const std::uint64_t peer_id,
+                            const std::uint64_t now_ms) override {
+    if (!window_open || now_ms < opened_at_ms) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    started_peer_id = peer_id;
+    return XNN_TRANSFER_STATUS_OK;
+  }
+
+  session::PairingUpdate Decide(const session::AttemptHandle& attempt,
+                                const tls::ConfirmationDecision decision,
+                                const std::uint64_t now_ms) override {
+    static_cast<void>(now_ms);
+    decided_attempt = attempt;
+    decided = decision;
+    if (decision == tls::ConfirmationDecision::kReject) {
+      return session::PairingUpdate{
+          .state = session::PairingState::kClosed,
+          .error = session::PairingError::kLocalReject,
+          .terminal = true,
+      };
+    }
+    identity::DeviceId device_id{};
+    device_id.fill(0x5a);
+    return session::PairingUpdate{
+        .state = session::PairingState::kPairedLocal,
+        .paired_peer = device_id,
+        .terminal = true,
+    };
+  }
+
+  xnn_transfer_status Revoke(const identity::DeviceId& device_id) override {
+    revoked_device = device_id;
+    ++revoke_calls;
+    return XNN_TRANSFER_STATUS_OK;
+  }
+
+  void Shutdown() override {
+    window_open = false;
+    ++shutdown_calls;
+  }
+
+  bool window_open{};
+  std::uint64_t opened_at_ms{};
+  std::uint64_t started_peer_id{};
+  session::AttemptHandle decided_attempt{};
+  tls::ConfirmationDecision decided{tls::ConfirmationDecision::kReject};
+  identity::DeviceId revoked_device{};
+  int close_calls{};
+  int revoke_calls{};
+  int shutdown_calls{};
+};
+
+session::AttemptHandle AttemptHandle(const std::uint8_t value) {
+  session::AttemptHandle attempt{};
+  attempt.fill(value);
+  return attempt;
+}
+
+std::vector<xnn_transfer_event> DrainEvents(
+    xnn_transfer::bridge::EventChannel& channel) {
+  std::vector<xnn_transfer_event> events;
+  for (;;) {
+    xnn_transfer_event event = EmptyEvent();
+    const xnn_transfer_status status = channel.Poll(&event);
+    if (status == XNN_TRANSFER_STATUS_EVENT_QUEUE_EMPTY) {
+      return events;
+    }
+    Expect(status == XNN_TRANSFER_STATUS_OK, "pairing event queue remains pollable");
+    if (status != XNN_TRANSFER_STATUS_OK) {
+      return events;
+    }
+    events.push_back(event);
+  }
+}
+
+void TestPairingBridgeDecisionsTrustAndShutdown() {
+  using xnn_transfer::bridge::EventChannel;
+  using xnn_transfer::bridge::PairingBridge;
+
+  FakePairingBackend backend;
+  PairingBridge pairing(backend);
+  EventChannel events;
+  Expect(pairing.OpenWindow(1'000, 60'000) == XNN_TRANSFER_STATUS_OK,
+         "pairing bridge opens the native window");
+  Expect(pairing.Start(42, 1'001) == XNN_TRANSFER_STATUS_OK &&
+             backend.started_peer_id == 42,
+         "pairing bridge starts only through the native backend");
+
+  const session::AttemptHandle attempt = AttemptHandle(0x11);
+  Expect(pairing.Apply(42, attempt,
+                       session::PairingUpdate{
+                           .state = session::PairingState::kExchangingHellos,
+                       },
+                       events),
+         "pairing bridge accepts a native starting update");
+  const std::array<std::uint16_t, XNN_TRANSFER_PAIRING_SAS_WORD_COUNT> sas_words{
+      1, 17, 255, 1'024, 2'047};
+  Expect(pairing.Apply(42, attempt,
+                       session::PairingUpdate{
+                           .state = session::PairingState::kAwaitingDecisions,
+                           .prompt =
+                               session::PairingPrompt{
+                                   .handle = attempt,
+                                   .sas_word_indices = sas_words,
+                                   .deadline_ms = 91'000,
+                               },
+                       },
+                       events),
+         "pairing bridge accepts a bounded native SAS prompt");
+
+  xnn_transfer_pairing_snapshot prompt = EmptyPairingSnapshot();
+  Expect(
+      pairing.Snapshot(&prompt) == XNN_TRANSFER_STATUS_OK && prompt.has_attempt == 1 &&
+          prompt.attempt.state == XNN_TRANSFER_PAIRING_ATTEMPT_AWAITING_CONFIRMATION &&
+          prompt.attempt.peer_id == 42 && prompt.attempt.deadline_ms == 91'000 &&
+          prompt.attempt.sas_word_count == XNN_TRANSFER_PAIRING_SAS_WORD_COUNT &&
+          std::equal(std::begin(prompt.attempt.sas_word_indices),
+                     std::end(prompt.attempt.sas_word_indices), sas_words.begin()),
+      "pairing snapshot copies only the visible SAS ceremony");
+
+  const session::AttemptHandle stale = AttemptHandle(0x22);
+  Expect(pairing.Decide(
+             std::span<const std::uint8_t, XNN_TRANSFER_PAIRING_ATTEMPT_ID_SIZE>(stale),
+             tls::ConfirmationDecision::kConfirm, 1'002,
+             events) == XNN_TRANSFER_STATUS_STALE_HANDLE,
+         "pairing bridge rejects a stale opaque attempt");
+  Expect(
+      pairing.Decide(
+          std::span<const std::uint8_t, XNN_TRANSFER_PAIRING_ATTEMPT_ID_SIZE>(attempt),
+          tls::ConfirmationDecision::kConfirm, 1'003, events) == XNN_TRANSFER_STATUS_OK,
+      "pairing bridge confirms the current native attempt");
+  Expect(backend.decided_attempt == attempt &&
+             backend.decided == tls::ConfirmationDecision::kConfirm,
+         "confirmation forwards only the opaque attempt and decision");
+  Expect(
+      pairing.Decide(
+          std::span<const std::uint8_t, XNN_TRANSFER_PAIRING_ATTEMPT_ID_SIZE>(attempt),
+          tls::ConfirmationDecision::kConfirm, 1'004,
+          events) == XNN_TRANSFER_STATUS_STALE_HANDLE,
+      "terminal pairing invalidates the attempt immediately");
+
+  const std::vector<xnn_transfer_event> paired_events = DrainEvents(events);
+  Expect(paired_events.size() == 4,
+         "start, prompt, paired, and trust events are published");
+  if (paired_events.size() == 4) {
+    Expect(
+        paired_events[0].type == XNN_TRANSFER_EVENT_TYPE_PAIRING_ATTEMPT_CHANGED &&
+            paired_events[1].type == XNN_TRANSFER_EVENT_TYPE_PAIRING_ATTEMPT_CHANGED &&
+            paired_events[2].type == XNN_TRANSFER_EVENT_TYPE_PAIRING_ATTEMPT_CHANGED &&
+            paired_events[3].type == XNN_TRANSFER_EVENT_TYPE_TRUST_CHANGED,
+        "pairing success publishes trust after the terminal attempt");
+    xnn_transfer_pairing_attempt_event_payload closed{};
+    std::memcpy(&closed, paired_events[2].payload, sizeof(closed));
+    Expect(closed.state == XNN_TRANSFER_PAIRING_ATTEMPT_PAIRED &&
+               closed.sas_word_count == 0 &&
+               closed.error == XNN_TRANSFER_PAIRING_ERROR_NONE,
+           "terminal success erases SAS data before publication");
+  }
+
+  xnn_transfer_pairing_snapshot completed = EmptyPairingSnapshot();
+  Expect(pairing.Snapshot(&completed) == XNN_TRANSFER_STATUS_OK &&
+             completed.has_attempt == 0,
+         "terminal pairing disappears from prompt recovery");
+  xnn_transfer_trust_snapshot_page trust = EmptyTrustSnapshotPage();
+  Expect(pairing.TrustSnapshot(0, 0, &trust) == XNN_TRANSFER_STATUS_OK &&
+             trust.count == 1 && trust.total_count == 1 &&
+             trust.records[0].trust_id == 1 && trust.records[0].peer_id == 42 &&
+             trust.records[0].state == XNN_TRANSFER_TRUST_STATE_ACTIVE,
+         "trust snapshot exposes only an opaque active record");
+
+  Expect(pairing.Revoke(1, events) == XNN_TRANSFER_STATUS_OK &&
+             pairing.Revoke(1, events) == XNN_TRANSFER_STATUS_OK &&
+             pairing.Revoke(999, events) == XNN_TRANSFER_STATUS_OK &&
+             backend.revoke_calls == 1,
+         "known, duplicate, and unknown revocation share idempotent results");
+  const std::vector<xnn_transfer_event> revoke_events = DrainEvents(events);
+  Expect(revoke_events.size() == 1 &&
+             revoke_events[0].type == XNN_TRANSFER_EVENT_TYPE_TRUST_CHANGED,
+         "only the durable trust transition publishes a revoke event");
+  trust = EmptyTrustSnapshotPage();
+  Expect(pairing.TrustSnapshot(0, 0, &trust) == XNN_TRANSFER_STATUS_OK &&
+             trust.records[0].state == XNN_TRANSFER_TRUST_STATE_REVOKED,
+         "trust snapshot retains the revoked tombstone state");
+
+  const session::AttemptHandle rejected = AttemptHandle(0x33);
+  Expect(pairing.Apply(43, rejected,
+                       session::PairingUpdate{
+                           .state = session::PairingState::kAwaitingDecisions,
+                           .prompt =
+                               session::PairingPrompt{
+                                   .handle = rejected,
+                                   .sas_word_indices = sas_words,
+                                   .deadline_ms = 92'000,
+                               },
+                       },
+                       events),
+         "second attempt reaches a visible prompt");
+  Expect(
+      pairing.Decide(
+          std::span<const std::uint8_t, XNN_TRANSFER_PAIRING_ATTEMPT_ID_SIZE>(rejected),
+          tls::ConfirmationDecision::kReject, 1'005, events) == XNN_TRANSFER_STATUS_OK,
+      "pairing bridge rejects the current native attempt");
+  const std::vector<xnn_transfer_event> rejected_events = DrainEvents(events);
+  Expect(rejected_events.size() == 2,
+         "local rejection publishes prompt and terminal events");
+  if (rejected_events.size() == 2) {
+    xnn_transfer_pairing_attempt_event_payload rejected_payload{};
+    std::memcpy(&rejected_payload, rejected_events[1].payload,
+                sizeof(rejected_payload));
+    Expect(rejected_payload.state == XNN_TRANSFER_PAIRING_ATTEMPT_CLOSED &&
+               rejected_payload.error == XNN_TRANSFER_PAIRING_ERROR_REJECTED &&
+               rejected_payload.sas_word_count == 0,
+           "local rejection is collapsed and erases SAS data");
+  }
+
+  const session::AttemptHandle shutdown = AttemptHandle(0x44);
+  Expect(pairing.Apply(44, shutdown,
+                       session::PairingUpdate{
+                           .state = session::PairingState::kAwaitingDecisions,
+                           .prompt =
+                               session::PairingPrompt{
+                                   .handle = shutdown,
+                                   .sas_word_indices = sas_words,
+                                   .deadline_ms = 93'000,
+                               },
+                       },
+                       events),
+         "shutdown fixture reaches a visible prompt");
+  pairing.Shutdown(events);
+  Expect(backend.shutdown_calls == 1, "pairing shutdown reaches the native backend");
+  const std::vector<xnn_transfer_event> shutdown_events = DrainEvents(events);
+  Expect(shutdown_events.size() == 2,
+         "shutdown publishes prompt and terminal cancellation");
+  if (shutdown_events.size() == 2) {
+    xnn_transfer_pairing_attempt_event_payload cancelled{};
+    std::memcpy(&cancelled, shutdown_events[1].payload, sizeof(cancelled));
+    Expect(cancelled.state == XNN_TRANSFER_PAIRING_ATTEMPT_CLOSED &&
+               cancelled.error == XNN_TRANSFER_PAIRING_ERROR_CANCELLED &&
+               cancelled.sas_word_count == 0,
+           "shutdown invalidates and clears the visible attempt");
+  }
+  identity::DeviceId late_device{};
+  late_device.fill(0x77);
+  Expect(!pairing.Apply(45, AttemptHandle(0x55),
+                        session::PairingUpdate{
+                            .state = session::PairingState::kPairedLocal,
+                            .paired_peer = late_device,
+                            .terminal = true,
+                        },
+                        events) &&
+             DrainEvents(events).empty(),
+         "pairing shutdown rejects late native updates");
+}
+
+void TestPairingTrustPaginationAndOverflow() {
+  using xnn_transfer::bridge::EventChannel;
+  using xnn_transfer::bridge::PairingBridge;
+
+  FakePairingBackend backend;
+  PairingBridge pairing(backend);
+  EventChannel events;
+  for (std::uint8_t value = 1; value <= 10; ++value) {
+    identity::DeviceId device_id{};
+    device_id.fill(value);
+    Expect(pairing.Apply(value, AttemptHandle(value),
+                         session::PairingUpdate{
+                             .state = session::PairingState::kPairedLocal,
+                             .paired_peer = device_id,
+                             .terminal = true,
+                         },
+                         events),
+           "trust pagination fixture accepts a terminal native update");
+  }
+
+  xnn_transfer_trust_snapshot_page first = EmptyTrustSnapshotPage();
+  Expect(pairing.TrustSnapshot(0, 0, &first) == XNN_TRANSFER_STATUS_OK &&
+             first.count == XNN_TRANSFER_TRUST_SNAPSHOT_PAGE_CAPACITY &&
+             first.total_count == 10,
+         "trust snapshot first page is fixed and bounded");
+  const std::uint64_t first_revision = first.snapshot_revision;
+
+  identity::DeviceId added_device{};
+  added_device.fill(11);
+  Expect(pairing.Apply(11, AttemptHandle(11),
+                       session::PairingUpdate{
+                           .state = session::PairingState::kPairedLocal,
+                           .paired_peer = added_device,
+                           .terminal = true,
+                       },
+                       events),
+         "trust snapshot fixture mutates after its first page");
+  xnn_transfer_trust_snapshot_page stale_page = EmptyTrustSnapshotPage();
+  Expect(
+      pairing.TrustSnapshot(first_revision, XNN_TRANSFER_TRUST_SNAPSHOT_PAGE_CAPACITY,
+                            &stale_page) == XNN_TRANSFER_STATUS_STALE_SNAPSHOT,
+      "trust pagination rejects a revision changed between pages");
+
+  xnn_transfer_trust_snapshot_page refreshed = EmptyTrustSnapshotPage();
+  Expect(pairing.TrustSnapshot(0, 0, &refreshed) == XNN_TRANSFER_STATUS_OK,
+         "trust pagination restarts at the current revision");
+  xnn_transfer_trust_snapshot_page tail = EmptyTrustSnapshotPage();
+  Expect(pairing.TrustSnapshot(refreshed.snapshot_revision,
+                               XNN_TRANSFER_TRUST_SNAPSHOT_PAGE_CAPACITY,
+                               &tail) == XNN_TRANSFER_STATUS_OK &&
+             tail.count == 3,
+         "trust pagination returns the bounded final page");
+
+  EventChannel overflow;
+  xnn_transfer_pairing_attempt_event_payload payload{
+      .struct_size = sizeof(xnn_transfer_pairing_attempt_event_payload),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+      .state = XNN_TRANSFER_PAIRING_ATTEMPT_STARTING,
+      .peer_id = 1,
+  };
+  payload.attempt_id[0] = 1;
+  for (std::size_t index = 0; index < XNN_TRANSFER_EVENT_QUEUE_CAPACITY + 1; ++index) {
+    overflow.EnqueuePairing(payload);
+  }
+  const std::vector<xnn_transfer_event> retained = DrainEvents(overflow);
+  const bool observed_drop = std::any_of(
+      retained.begin(), retained.end(), [](const xnn_transfer_event& event) {
+        return (event.flags & XNN_TRANSFER_EVENT_FLAG_EVENTS_DROPPED_BEFORE) != 0;
+      });
+  Expect(retained.size() == XNN_TRANSFER_EVENT_QUEUE_CAPACITY &&
+             retained.front().sequence == 2 && observed_drop,
+         "pairing overflow drops oldest and requires snapshot recovery");
 }
 
 void TestDiscoveryRegistryPaginationAndStaleRevision() {
@@ -829,6 +1437,9 @@ int main() {
   TestStopDispatchesPendingWakeupBeforeBarrier();
   TestDocumentedCallbackReentrancy();
   TestDiscoveryStructsAndLifecycleStates();
+  TestPairingAbiValidationAndLifecycle();
+  TestPairingBridgeDecisionsTrustAndShutdown();
+  TestPairingTrustPaginationAndOverflow();
   TestDiscoveryRegistryPaginationAndStaleRevision();
   TestDiscoveryQueueOverflowIsObservable();
   TestDiscoveryShutdownRaceIsBounded();

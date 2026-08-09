@@ -53,10 +53,48 @@ The Dart adapter copies every inline payload before decoding it. Event loss
 triggers a bounded snapshot retry; no native pointer or array view survives a
 call boundary.
 
-XT-026, XT-030, and XT-037 may extend this accepted pattern only with
-integration-owner review and ABI regression tests. They must preserve
-lifecycle symbols, copied payloads, opaque native-selected identifiers,
-bounded pagination, explicit overflow, and shutdown barriers.
+The pairing extension follows the same boundary:
+
+- A caller may open one pairing window for at most 120 seconds, close it
+  idempotently, and start an outgoing attempt only from a live native
+  `peer_id`. It cannot provide an address, identity key, certificate, role,
+  protocol frame, transcript value, nonce, or security profile.
+- A native-selected random 128-bit attempt ID authorizes exactly one visible
+  SAS ceremony. Confirmation and rejection accept only that copied ID. A
+  stale, unknown, terminal, or replaced ID returns `STALE_HANDLE` and cannot
+  affect another attempt.
+- Attempt events expose only a public state, the selected discovery
+  observation, a monotonic decision deadline, five display-only SAS word
+  indices, and a collapsed local error. Parser, certificate, pin, identity,
+  storage, transcript, and confirmation details never cross the ABI.
+- Successful local trust creates a process-local nonzero `trust_id`. Trust
+  events and snapshots expose only that ID, its active or revoked state, and
+  the originating discovery observation when one exists. They never expose a
+  device ID, public key, fingerprint, profile floor, record revision, or
+  persisted metadata.
+- Revocation accepts only a native-issued `trust_id`. Unknown and already
+  revoked IDs have the same idempotent success result, preventing a
+  trust-record oracle. A known active ID is reported revoked only after the
+  native repository operation succeeds.
+- At most one visible attempt is retained for snapshot recovery. Trust
+  snapshots are revisioned and paged in fixed groups of eight across the
+  native repository's 256-record ceiling. Any queue drop requires Dart to
+  reconcile discovery, pairing, and trust snapshots.
+- Engine stop closes admission, cancels the active attempt through the native
+  session owner, publishes its terminal state while the queue is still open,
+  and then applies the existing callback barrier.
+
+The bridge deliberately has no presentation-controlled fallback when the
+production TLS connection dispatcher or protected identity repository is
+unavailable. Pairing start returns `UNAVAILABLE`; it does not manufacture a
+session, SAS, identity, transcript, or trust result. The C ABI remains usable
+by the native session/network owner once that owner supplies the completed
+XT-025 attempt updates.
+
+XT-030 and XT-037 may extend this accepted pattern only with integration-owner
+review and ABI regression tests. They must preserve lifecycle symbols, copied
+payloads, opaque native-selected identifiers, bounded pagination, explicit
+overflow, and shutdown barriers.
 
 ## Consequences
 
@@ -67,3 +105,6 @@ bounded pagination, explicit overflow, and shutdown barriers.
 - Discovery remains an untrusted reachability hint. The ABI deliberately does
   not expose identity keys, trust state, or a command that accepts an arbitrary
   Dart-provided address.
+- Pairing presentation can compare and decide one native ceremony but cannot
+  construct one. End-to-end pairing still depends on a production connection
+  dispatcher that consumes the XT-025 session API.

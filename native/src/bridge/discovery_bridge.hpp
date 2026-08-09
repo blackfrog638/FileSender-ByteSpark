@@ -117,6 +117,14 @@ class DiscoveryPeerRegistry final {
     return XNN_TRANSFER_STATUS_OK;
   }
 
+  [[nodiscard]] bool Contains(const std::uint64_t peer_id) const {
+    const std::scoped_lock lock(mutex_);
+    return peer_id != 0 &&
+           std::any_of(peers_.cbegin(), peers_.cend(), [peer_id](const auto& entry) {
+             return entry.second.peer_id == peer_id;
+           });
+  }
+
  private:
   struct Entry {
     std::uint64_t peer_id{};

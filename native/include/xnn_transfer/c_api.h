@@ -26,6 +26,11 @@ extern "C" {
 #define XNN_TRANSFER_DISCOVERY_DISPLAY_LABEL_MAX_SIZE 96u
 #define XNN_TRANSFER_DISCOVERY_ADDRESS_MAX_SIZE 16u
 #define XNN_TRANSFER_DISCOVERY_SNAPSHOT_PAGE_CAPACITY 8u
+#define XNN_TRANSFER_PAIRING_ATTEMPT_EVENT_PAYLOAD_VERSION 1u
+#define XNN_TRANSFER_TRUST_EVENT_PAYLOAD_VERSION 1u
+#define XNN_TRANSFER_PAIRING_ATTEMPT_ID_SIZE 16u
+#define XNN_TRANSFER_PAIRING_SAS_WORD_COUNT 5u
+#define XNN_TRANSFER_TRUST_SNAPSHOT_PAGE_CAPACITY 8u
 
 typedef struct xnn_transfer_engine xnn_transfer_engine;
 
@@ -36,7 +41,9 @@ typedef enum xnn_transfer_status {
   XNN_TRANSFER_STATUS_INVALID_STATE = 3,
   XNN_TRANSFER_STATUS_INTERNAL_ERROR = 4,
   XNN_TRANSFER_STATUS_EVENT_QUEUE_EMPTY = 5,
-  XNN_TRANSFER_STATUS_STALE_SNAPSHOT = 6
+  XNN_TRANSFER_STATUS_STALE_SNAPSHOT = 6,
+  XNN_TRANSFER_STATUS_UNAVAILABLE = 7,
+  XNN_TRANSFER_STATUS_STALE_HANDLE = 8
 } xnn_transfer_status;
 
 typedef enum xnn_transfer_engine_state {
@@ -48,7 +55,9 @@ typedef enum xnn_transfer_engine_state {
 
 typedef enum xnn_transfer_event_type {
   XNN_TRANSFER_EVENT_TYPE_ENGINE_STATE_CHANGED = 1,
-  XNN_TRANSFER_EVENT_TYPE_DISCOVERY_PEER_CHANGED = 2
+  XNN_TRANSFER_EVENT_TYPE_DISCOVERY_PEER_CHANGED = 2,
+  XNN_TRANSFER_EVENT_TYPE_PAIRING_ATTEMPT_CHANGED = 3,
+  XNN_TRANSFER_EVENT_TYPE_TRUST_CHANGED = 4
 } xnn_transfer_event_type;
 
 typedef enum xnn_transfer_event_flags {
@@ -189,6 +198,119 @@ typedef struct xnn_transfer_discovery_snapshot_page {
   xnn_transfer_discovery_peer peers[XNN_TRANSFER_DISCOVERY_SNAPSHOT_PAGE_CAPACITY];
 } xnn_transfer_discovery_snapshot_page;
 
+typedef enum xnn_transfer_pairing_attempt_state {
+  XNN_TRANSFER_PAIRING_ATTEMPT_STARTING = 1,
+  XNN_TRANSFER_PAIRING_ATTEMPT_AWAITING_CONFIRMATION = 2,
+  XNN_TRANSFER_PAIRING_ATTEMPT_PAIRED = 3,
+  XNN_TRANSFER_PAIRING_ATTEMPT_CLOSED = 4
+} xnn_transfer_pairing_attempt_state;
+
+/*
+ * Detailed parser, certificate, pin, storage, and transcript failures are
+ * intentionally collapsed before crossing the ABI. These values are local UI
+ * outcomes and are never serialized to a peer.
+ */
+typedef enum xnn_transfer_pairing_error {
+  XNN_TRANSFER_PAIRING_ERROR_NONE = 0,
+  XNN_TRANSFER_PAIRING_ERROR_REJECTED = 1,
+  XNN_TRANSFER_PAIRING_ERROR_CANCELLED = 2,
+  XNN_TRANSFER_PAIRING_ERROR_TIMED_OUT = 3,
+  XNN_TRANSFER_PAIRING_ERROR_BUSY = 4,
+  XNN_TRANSFER_PAIRING_ERROR_UNAVAILABLE = 5,
+  XNN_TRANSFER_PAIRING_ERROR_FAILED = 6
+} xnn_transfer_pairing_error;
+
+typedef enum xnn_transfer_trust_state {
+  XNN_TRANSFER_TRUST_STATE_ACTIVE = 1,
+  XNN_TRANSFER_TRUST_STATE_REVOKED = 2
+} xnn_transfer_trust_state;
+
+typedef struct xnn_transfer_pairing_window_config {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t reserved;
+  uint64_t duration_ms;
+} xnn_transfer_pairing_window_config;
+
+/*
+ * peer_id must be a live native discovery observation. The caller cannot
+ * provide an address, identity key, certificate, role, or transcript value.
+ */
+typedef struct xnn_transfer_pairing_start_request {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t reserved;
+  uint64_t peer_id;
+} xnn_transfer_pairing_start_request;
+
+typedef struct xnn_transfer_pairing_attempt_ref {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t reserved;
+  uint8_t attempt_id[XNN_TRANSFER_PAIRING_ATTEMPT_ID_SIZE];
+} xnn_transfer_pairing_attempt_ref;
+
+typedef struct xnn_transfer_trust_ref {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t reserved;
+  uint64_t trust_id;
+} xnn_transfer_trust_ref;
+
+/*
+ * SAS indices are display-only and present only while state is
+ * AWAITING_CONFIRMATION. attempt_id is a random native-selected capability;
+ * it is invalid for commands after a terminal event.
+ */
+typedef struct xnn_transfer_pairing_attempt_event_payload {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t state;
+  uint64_t peer_id;
+  uint64_t deadline_ms;
+  uint8_t attempt_id[XNN_TRANSFER_PAIRING_ATTEMPT_ID_SIZE];
+  uint16_t sas_word_indices[XNN_TRANSFER_PAIRING_SAS_WORD_COUNT];
+  uint16_t sas_word_count;
+  uint16_t error;
+  uint16_t reserved;
+} xnn_transfer_pairing_attempt_event_payload;
+
+/*
+ * trust_id is process-local and opaque. No device identifier, public key,
+ * fingerprint, profile floor, or persisted-record metadata crosses this ABI.
+ */
+typedef struct xnn_transfer_trust_event_payload {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t state;
+  uint64_t trust_id;
+  uint64_t peer_id;
+  uint32_t reserved;
+  uint32_t reserved2;
+} xnn_transfer_trust_event_payload;
+
+typedef struct xnn_transfer_pairing_snapshot {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t reserved;
+  uint64_t snapshot_revision;
+  uint32_t has_attempt;
+  uint32_t reserved2;
+  xnn_transfer_pairing_attempt_event_payload attempt;
+} xnn_transfer_pairing_snapshot;
+
+typedef struct xnn_transfer_trust_snapshot_page {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t reserved;
+  uint64_t snapshot_revision;
+  uint32_t offset;
+  uint32_t count;
+  uint32_t total_count;
+  uint32_t reserved2;
+  xnn_transfer_trust_event_payload records[XNN_TRANSFER_TRUST_SNAPSHOT_PAGE_CAPACITY];
+} xnn_transfer_trust_snapshot_page;
+
 XNN_TRANSFER_API uint32_t xnn_transfer_abi_version(void);
 
 XNN_TRANSFER_API xnn_transfer_status xnn_transfer_engine_create(
@@ -235,6 +357,31 @@ xnn_transfer_discovery_stop(xnn_transfer_engine* engine);
 XNN_TRANSFER_API xnn_transfer_status xnn_transfer_discovery_get_snapshot(
     xnn_transfer_engine* engine, uint64_t expected_revision, uint32_t offset,
     xnn_transfer_discovery_snapshot_page* out_page);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_pairing_open_window(
+    xnn_transfer_engine* engine, const xnn_transfer_pairing_window_config* config);
+
+XNN_TRANSFER_API xnn_transfer_status
+xnn_transfer_pairing_close_window(xnn_transfer_engine* engine);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_pairing_start(
+    xnn_transfer_engine* engine, const xnn_transfer_pairing_start_request* request);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_pairing_confirm(
+    xnn_transfer_engine* engine, const xnn_transfer_pairing_attempt_ref* attempt);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_pairing_reject(
+    xnn_transfer_engine* engine, const xnn_transfer_pairing_attempt_ref* attempt);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_pairing_revoke(
+    xnn_transfer_engine* engine, const xnn_transfer_trust_ref* trust);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_pairing_get_snapshot(
+    xnn_transfer_engine* engine, xnn_transfer_pairing_snapshot* out_snapshot);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_trust_get_snapshot(
+    xnn_transfer_engine* engine, uint64_t expected_revision, uint32_t offset,
+    xnn_transfer_trust_snapshot_page* out_page);
 
 #ifdef __cplusplus
 }  // extern "C"

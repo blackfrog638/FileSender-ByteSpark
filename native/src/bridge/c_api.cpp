@@ -1,8 +1,11 @@
 #include "xnn_transfer/c_api.h"
 
+#include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <new>
@@ -13,18 +16,25 @@
 
 #include "discovery_bridge.hpp"
 #include "event_channel.hpp"
+#include "pairing_bridge.hpp"
 #include "xnn_transfer/core/discovery/discovery.hpp"
 #include "xnn_transfer/core/engine.hpp"
+#include "xnn_transfer/core/security/tls/security_profile.hpp"
+#include "xnn_transfer/core/session/session.hpp"
 
 namespace {
 
 using xnn_transfer::bridge::DiscoveryPeerRegistry;
 using xnn_transfer::bridge::EventChannel;
+using xnn_transfer::bridge::PairingBackend;
+using xnn_transfer::bridge::PairingBridge;
 using xnn_transfer::core::discovery::CandidateEvent;
 using xnn_transfer::core::discovery::DiscoveryConfig;
 using xnn_transfer::core::discovery::DisplayLabelValidator;
 using xnn_transfer::core::discovery::MakeUtf8procDisplayLabelValidator;
 using xnn_transfer::core::discovery::SystemDiscoveryRuntime;
+namespace session = xnn_transfer::core::session;
+namespace tls = xnn_transfer::core::security::tls;
 
 class DiscoveryController final {
  public:
@@ -73,10 +83,73 @@ class DiscoveryController final {
     return registry_.Snapshot(expected_revision, offset, out_page);
   }
 
+  [[nodiscard]] bool Contains(const std::uint64_t peer_id) const {
+    return registry_.Contains(peer_id);
+  }
+
  private:
   DiscoveryPeerRegistry registry_;
   std::unique_ptr<SystemDiscoveryRuntime> runtime_;
 };
+
+class SessionPairingBackend final : public PairingBackend {
+ public:
+  [[nodiscard]] xnn_transfer_status OpenWindow(
+      const std::uint64_t now_ms, const std::uint64_t duration_ms) override {
+    return admission_.OpenWindow(now_ms, duration_ms)
+               ? XNN_TRANSFER_STATUS_OK
+               : XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+
+  void CloseWindow() override { admission_.CloseWindow(); }
+
+  [[nodiscard]] xnn_transfer_status Start(const std::uint64_t peer_id,
+                                          const std::uint64_t now_ms) override {
+    static_cast<void>(peer_id);
+    if (!admission_.window_open(now_ms)) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    // The production TLS connection dispatcher is a governed follow-up.
+    return XNN_TRANSFER_STATUS_UNAVAILABLE;
+  }
+
+  [[nodiscard]] session::PairingUpdate Decide(const session::AttemptHandle& attempt,
+                                              const tls::ConfirmationDecision decision,
+                                              const std::uint64_t now_ms) override {
+    static_cast<void>(attempt);
+    static_cast<void>(decision);
+    static_cast<void>(now_ms);
+    return session::PairingUpdate{
+        .state = session::PairingState::kClosed,
+        .error = session::PairingError::kStateViolation,
+        .terminal = true,
+    };
+  }
+
+  [[nodiscard]] xnn_transfer_status Revoke(
+      const xnn_transfer::core::security::identity::DeviceId& device_id) override {
+    static_cast<void>(device_id);
+    return XNN_TRANSFER_STATUS_UNAVAILABLE;
+  }
+
+  void Shutdown() override { admission_.CloseWindow(); }
+
+ private:
+  session::PairingAdmissionController admission_;
+};
+
+[[nodiscard]] std::uint64_t MonotonicMilliseconds() {
+  return static_cast<std::uint64_t>(
+      std::chrono::duration_cast<std::chrono::milliseconds>(
+          std::chrono::steady_clock::now().time_since_epoch())
+          .count());
+}
+
+[[nodiscard]] bool IsZeroAttempt(
+    const std::uint8_t (&attempt)[XNN_TRANSFER_PAIRING_ATTEMPT_ID_SIZE]) {
+  return std::all_of(std::begin(attempt), std::end(attempt),
+                     [](const std::uint8_t value) { return value == 0; });
+}
 
 [[nodiscard]] bool IsDiscoveryConfigValid(const xnn_transfer_discovery_config& config) {
   if (config.service_port == 0 || config.reserved != 0 ||
@@ -110,6 +183,8 @@ struct xnn_transfer_engine {
   xnn_transfer::core::Engine implementation;
   EventChannel events;
   DiscoveryController discovery;
+  SessionPairingBackend pairing_backend;
+  PairingBridge pairing{pairing_backend};
   std::mutex lifecycle_mutex;
   std::atomic<xnn_transfer_engine_state> state{XNN_TRANSFER_ENGINE_STATE_CREATED};
 };
@@ -210,6 +285,11 @@ xnn_transfer_status xnn_transfer_engine_stop(xnn_transfer_engine* const engine) 
     engine->state.store(XNN_TRANSFER_ENGINE_STATE_STOPPING);
     engine->events.EnqueueState(XNN_TRANSFER_ENGINE_STATE_STOPPING);
     xnn_transfer_status result = XNN_TRANSFER_STATUS_OK;
+    try {
+      engine->pairing.Shutdown(engine->events);
+    } catch (...) {
+      result = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+    }
     try {
       engine->discovery.Stop(engine->events);
     } catch (...) {
@@ -355,6 +435,215 @@ xnn_transfer_status xnn_transfer_discovery_get_snapshot(
       return XNN_TRANSFER_STATUS_INVALID_STATE;
     }
     return engine->discovery.Snapshot(expected_revision, offset, out_page);
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+xnn_transfer_status xnn_transfer_pairing_open_window(
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_pairing_window_config* const config) {
+  if (engine == nullptr || config == nullptr ||
+      config->struct_size < sizeof(xnn_transfer_pairing_window_config)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (config->abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI;
+  }
+  if (config->reserved != 0 || config->duration_ms == 0 ||
+      config->duration_ms > session::kMaximumPairingWindowMs) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    if (engine->state.load() != XNN_TRANSFER_ENGINE_STATE_RUNNING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    return engine->pairing.OpenWindow(MonotonicMilliseconds(), config->duration_ms);
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+xnn_transfer_status xnn_transfer_pairing_close_window(
+    xnn_transfer_engine* const engine) {
+  if (engine == nullptr) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    if (engine->state.load() != XNN_TRANSFER_ENGINE_STATE_RUNNING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    return engine->pairing.CloseWindow(engine->events);
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+xnn_transfer_status xnn_transfer_pairing_start(
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_pairing_start_request* const request) {
+  if (engine == nullptr || request == nullptr ||
+      request->struct_size < sizeof(xnn_transfer_pairing_start_request)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (request->abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI;
+  }
+  if (request->reserved != 0 || request->peer_id == 0) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    if (engine->state.load() != XNN_TRANSFER_ENGINE_STATE_RUNNING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    if (!engine->discovery.Contains(request->peer_id)) {
+      return XNN_TRANSFER_STATUS_STALE_HANDLE;
+    }
+    return engine->pairing.Start(request->peer_id, MonotonicMilliseconds());
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+namespace {
+
+[[nodiscard]] xnn_transfer_status PairingDecide(
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_pairing_attempt_ref* const attempt,
+    const tls::ConfirmationDecision decision) {
+  if (engine == nullptr || attempt == nullptr ||
+      attempt->struct_size < sizeof(xnn_transfer_pairing_attempt_ref)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (attempt->abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI;
+  }
+  if (attempt->reserved != 0 || IsZeroAttempt(attempt->attempt_id)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    if (engine->state.load() != XNN_TRANSFER_ENGINE_STATE_RUNNING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    return engine->pairing.Decide(
+        std::span<const std::uint8_t, XNN_TRANSFER_PAIRING_ATTEMPT_ID_SIZE>(
+            attempt->attempt_id),
+        decision, MonotonicMilliseconds(), engine->events);
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+}  // namespace
+
+xnn_transfer_status xnn_transfer_pairing_confirm(
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_pairing_attempt_ref* const attempt) {
+  return PairingDecide(engine, attempt, tls::ConfirmationDecision::kConfirm);
+}
+
+xnn_transfer_status xnn_transfer_pairing_reject(
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_pairing_attempt_ref* const attempt) {
+  return PairingDecide(engine, attempt, tls::ConfirmationDecision::kReject);
+}
+
+xnn_transfer_status xnn_transfer_pairing_revoke(
+    xnn_transfer_engine* const engine, const xnn_transfer_trust_ref* const trust) {
+  if (engine == nullptr || trust == nullptr ||
+      trust->struct_size < sizeof(xnn_transfer_trust_ref)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (trust->abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI;
+  }
+  if (trust->reserved != 0 || trust->trust_id == 0) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    if (engine->state.load() != XNN_TRANSFER_ENGINE_STATE_RUNNING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    return engine->pairing.Revoke(trust->trust_id, engine->events);
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+xnn_transfer_status xnn_transfer_pairing_get_snapshot(
+    xnn_transfer_engine* const engine,
+    xnn_transfer_pairing_snapshot* const out_snapshot) {
+  if (engine == nullptr || out_snapshot == nullptr ||
+      out_snapshot->struct_size < sizeof(xnn_transfer_pairing_snapshot)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (out_snapshot->abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    const xnn_transfer_engine_state state = engine->state.load();
+    if (state == XNN_TRANSFER_ENGINE_STATE_CREATED ||
+        state == XNN_TRANSFER_ENGINE_STATE_STOPPING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    return engine->pairing.Snapshot(out_snapshot);
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+xnn_transfer_status xnn_transfer_trust_get_snapshot(
+    xnn_transfer_engine* const engine, const std::uint64_t expected_revision,
+    const std::uint32_t offset, xnn_transfer_trust_snapshot_page* const out_page) {
+  if (engine == nullptr || out_page == nullptr ||
+      out_page->struct_size < sizeof(xnn_transfer_trust_snapshot_page)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (out_page->abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    const xnn_transfer_engine_state state = engine->state.load();
+    if (state == XNN_TRANSFER_ENGINE_STATE_CREATED ||
+        state == XNN_TRANSFER_ENGINE_STATE_STOPPING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    return engine->pairing.TrustSnapshot(expected_revision, offset, out_page);
   } catch (...) {
     return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   }
