@@ -2,9 +2,9 @@
   "schema_version": 3,
   "id": "XT-062",
   "task_type": "feature",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
+  "state": "claimed",
+  "owner": "linux-secret-qualification-agent",
+  "base_sha": "4116b9f69ea0959a0e830738e2da596bb70f29e7",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-062.md",
   "commit": {
