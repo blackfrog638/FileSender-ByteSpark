@@ -7,7 +7,7 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "refactor",
-  "state": "integrated",
+  "state": "done",
   "owner": "storage-format-agent",
   "base_sha": "c7b2a567d8f5b2d2103ddb786ddf0ccf8298d695",
   "head_sha": "62fde90510b37e328e647ff4b96e1404b0cdaaf9",
@@ -105,9 +105,9 @@
     ],
     "source_commits_sha256": "04ec18c72ba1012249613ca9a42dcf1a38ae783c8fdccd662e271ed895c119e2",
     "source_patch_id": "c271baaf6c153e21a5b1e177bee068f234d7ad61",
-    "result": "",
+    "result": "02d34454d8eb89f123a2ae71f3b08706829f05aa",
     "result_patch_id": "c271baaf6c153e21a5b1e177bee068f234d7ad61",
-    "verified_sha": ""
+    "verified_sha": "02d34454d8eb89f123a2ae71f3b08706829f05aa"
   },
   "verification": {
     "status": "passed",
@@ -117,11 +117,11 @@
     "commands": [
       "make verify"
     ],
-    "reference": "local:62fde90510b37e328e647ff4b96e1404b0cdaaf9:2026-08-09T09:13:07Z"
+    "reference": "local:02d34454d8eb89f123a2ae71f3b08706829f05aa:2026-08-09T09:24:15Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-09T17:24:15+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
