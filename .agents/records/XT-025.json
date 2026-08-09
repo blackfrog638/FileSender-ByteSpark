@@ -2,10 +2,10 @@
   "schema_version": 2,
   "id": "XT-025",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "pairing-session-agent",
+  "base_sha": "fafcc4f828bce5062c48d181d5a4ed62283864bb",
+  "head_sha": "3c6963596491a76302151d207378b71965434e41",
   "handoff": ".agents/handoffs/XT-025.md",
   "architecture_change": {
     "mode": "replace",
@@ -24,37 +24,58 @@
     "functionality": {
       "level": "high",
       "rationale": "Pairing state errors can strand attempts, accept the wrong peer, or prevent trusted reconnects.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "security": {
       "level": "critical",
       "rationale": "SAS confirmation, role binding, pin enforcement, revocation, replay, and timeout are authentication controls.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "performance": {
       "level": "medium",
       "rationale": "Pre-auth attempts, bytes, timers, and concurrent sessions must remain strictly bounded.",
-      "gates": ["make native-test"]
+      "gates": [
+        "make native-test"
+      ]
     },
     "compatibility": {
       "level": "high",
       "rationale": "The state machine must preserve the accepted pairing transcript and transport-binding semantics.",
-      "gates": ["make native-test", "make security-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make security-test",
+        "make verify"
+      ]
     },
     "concurrency": {
       "level": "critical",
       "rationale": "Local decisions, remote messages, timeouts, revocation, and shutdown can race on each pairing attempt.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "platform": {
       "level": "high",
       "rationale": "Authenticated session behavior must remain consistent above platform-specific networking and storage.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "persistence": {
       "level": "high",
       "rationale": "Successful pairing and revocation update durable trust records through the identity store.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     }
   },
   "impacts": {
@@ -76,18 +97,32 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "fafcc4f828bce5062c48d181d5a4ed62283864bb",
+    "source_head": "3f0ff6b7bd62a8b1a8ef4adb62a8575221dc252f",
+    "source_commits": [
+      "a9057d7c2a639277b0286254aff651bfde397d2d",
+      "d6860f832992c1c58db7c6ad1ab5c217e0e25fcb",
+      "edc3762a8da54a8b8b8af307ca8eb7f62f2e3449",
+      "cfe2b0b70566c07a2021326f9fba89fed0295e61",
+      "8bd79c7228b1402d162858b7ecc934f1fe8c16dd",
+      "3c6963596491a76302151d207378b71965434e41",
+      "3f0ff6b7bd62a8b1a8ef4adb62a8575221dc252f"
+    ],
+    "source_commits_sha256": "fc0fb91b73cbcd6103b74dd0e7be94caa674eb16cc9f9b4bea9f83c6842e51f4",
+    "source_patch_id": "097fe4a2ffa0b6fe39abddd845e0b6065ada67dc",
+    "result": "",
+    "result_patch_id": "097fe4a2ffa0b6fe39abddd845e0b6065ada67dc",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make native-test",
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:3c6963596491a76302151d207378b71965434e41:2026-08-09T18:18:54Z"
   },
   "acceptance": {
     "accepted_by": "",
