@@ -7,10 +7,10 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "refactor",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "storage-format-agent",
+  "base_sha": "c7b2a567d8f5b2d2103ddb786ddf0ccf8298d695",
+  "head_sha": "62fde90510b37e328e647ff4b96e1404b0cdaaf9",
   "handoff": ".agents/handoffs/XT-065.md",
   "commit": {
     "type": "style",
@@ -18,8 +18,10 @@
     "summary": "restore project storage formatting"
   },
   "architecture_change": {
-    "mode": "none",
-    "modules": [],
+    "mode": "refactor",
+    "modules": [
+      "storage"
+    ],
     "supersedes": {
       "paths": [],
       "symbols": [],
@@ -90,19 +92,32 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "c7b2a567d8f5b2d2103ddb786ddf0ccf8298d695",
+    "source_head": "536e077bc2a1734af561ac05681b4484dac3af73",
+    "source_commits": [
+      "5fababd60497e1d83dce4e571caf631a3226cb9c",
+      "46ff7c93386a6b9042d2c78f66856d8e66c3aef7",
+      "3931552f64165470d956575534e079ef8622960b",
+      "f76f6b05383eca4db62c65ef6f64beb2ae21c314",
+      "62fde90510b37e328e647ff4b96e1404b0cdaaf9",
+      "536e077bc2a1734af561ac05681b4484dac3af73"
+    ],
+    "source_commits_sha256": "04ec18c72ba1012249613ca9a42dcf1a38ae783c8fdccd662e271ed895c119e2",
+    "source_patch_id": "c271baaf6c153e21a5b1e177bee068f234d7ad61",
+    "result": "",
+    "result_patch_id": "c271baaf6c153e21a5b1e177bee068f234d7ad61",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "verify"
     ],
     "commands": [
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:62fde90510b37e328e647ff4b96e1404b0cdaaf9:2026-08-09T09:13:07Z"
   },
   "acceptance": {
     "accepted_by": "",

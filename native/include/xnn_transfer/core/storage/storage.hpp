@@ -72,9 +72,7 @@ class ValidatedReceivePath final {
 
 class PathValidationResult final {
  public:
-  [[nodiscard]] bool ok() const noexcept {
-    return error_ == ValidationError::kNone;
-  }
+  [[nodiscard]] bool ok() const noexcept { return error_ == ValidationError::kNone; }
   [[nodiscard]] ValidationError error() const noexcept { return error_; }
   [[nodiscard]] const ValidatedReceivePath* path() const noexcept {
     return path_ ? &*path_ : nullptr;
@@ -85,10 +83,8 @@ class PathValidationResult final {
       std::span<const std::uint8_t> encoded);
 
   explicit PathValidationResult(ValidationError error) : error_(error) {}
-  PathValidationResult(std::string utf8,
-                       std::vector<std::string> components)
-      : path_(
-            ValidatedReceivePath(std::move(utf8), std::move(components))) {}
+  PathValidationResult(std::string utf8, std::vector<std::string> components)
+      : path_(ValidatedReceivePath(std::move(utf8), std::move(components))) {}
 
   ValidationError error_{ValidationError::kNone};
   std::optional<ValidatedReceivePath> path_;
@@ -101,18 +97,13 @@ class ValidatedReceiveRequest final {
   ValidatedReceiveRequest& operator=(const ValidatedReceiveRequest&) = delete;
   ValidatedReceiveRequest& operator=(ValidatedReceiveRequest&&) = delete;
 
-  [[nodiscard]] const ValidatedReceivePath& path() const noexcept {
-    return path_;
-  }
-  [[nodiscard]] std::uint64_t declared_size() const noexcept {
-    return declared_size_;
-  }
+  [[nodiscard]] const ValidatedReceivePath& path() const noexcept { return path_; }
+  [[nodiscard]] std::uint64_t declared_size() const noexcept { return declared_size_; }
 
  private:
   friend class RequestValidationResult;
 
-  ValidatedReceiveRequest(ValidatedReceivePath path,
-                          std::uint64_t declared_size)
+  ValidatedReceiveRequest(ValidatedReceivePath path, std::uint64_t declared_size)
       : path_(std::move(path)), declared_size_(declared_size) {}
 
   const ValidatedReceivePath path_;
@@ -121,9 +112,7 @@ class ValidatedReceiveRequest final {
 
 class RequestValidationResult final {
  public:
-  [[nodiscard]] bool ok() const noexcept {
-    return error_ == ValidationError::kNone;
-  }
+  [[nodiscard]] bool ok() const noexcept { return error_ == ValidationError::kNone; }
   [[nodiscard]] ValidationError error() const noexcept { return error_; }
   [[nodiscard]] const ValidatedReceiveRequest* request() const noexcept {
     return request_ ? &*request_ : nullptr;
@@ -131,14 +120,12 @@ class RequestValidationResult final {
 
  private:
   friend RequestValidationResult ValidateReceiveRequest(
-      std::span<const std::uint8_t> encoded_path,
-      std::uint64_t declared_size, std::uint64_t local_max_file_bytes);
+      std::span<const std::uint8_t> encoded_path, std::uint64_t declared_size,
+      std::uint64_t local_max_file_bytes);
 
   explicit RequestValidationResult(ValidationError error) : error_(error) {}
-  RequestValidationResult(ValidatedReceivePath path,
-                          std::uint64_t declared_size)
-      : request_(
-            ValidatedReceiveRequest(std::move(path), declared_size)) {}
+  RequestValidationResult(ValidatedReceivePath path, std::uint64_t declared_size)
+      : request_(ValidatedReceiveRequest(std::move(path), declared_size)) {}
 
   ValidationError error_{ValidationError::kNone};
   std::optional<ValidatedReceiveRequest> request_;
@@ -195,18 +182,14 @@ enum class PlatformError : std::uint8_t {
 struct PlatformResult {
   PlatformError error{PlatformError::kNone};
 
-  [[nodiscard]] bool ok() const noexcept {
-    return error == PlatformError::kNone;
-  }
+  [[nodiscard]] bool ok() const noexcept { return error == PlatformError::kNone; }
 };
 
 struct PlatformWriteResult {
   PlatformError error{PlatformError::kNone};
   std::size_t bytes_written{};
 
-  [[nodiscard]] bool ok() const noexcept {
-    return error == PlatformError::kNone;
-  }
+  [[nodiscard]] bool ok() const noexcept { return error == PlatformError::kNone; }
 };
 
 enum class PlatformCommitDisposition : std::uint8_t {
@@ -216,8 +199,7 @@ enum class PlatformCommitDisposition : std::uint8_t {
 };
 
 struct PlatformCommitResult {
-  PlatformCommitDisposition disposition{
-      PlatformCommitDisposition::kNotCommitted};
+  PlatformCommitDisposition disposition{PlatformCommitDisposition::kNotCommitted};
   PlatformError error{PlatformError::kNone};
 };
 
@@ -226,25 +208,22 @@ class PlatformBackend {
   virtual ~PlatformBackend() = default;
 
   // Failure must leave output invalid or transfer a valid cleanup handle.
-  [[nodiscard]] virtual PlatformResult CreateTemporary(
-      const ValidatedReceivePath& path, std::uint64_t declared_size,
-      TemporaryFileHandle& output) = 0;
+  [[nodiscard]] virtual PlatformResult CreateTemporary(const ValidatedReceivePath& path,
+                                                       std::uint64_t declared_size,
+                                                       TemporaryFileHandle& output) = 0;
   [[nodiscard]] virtual PlatformWriteResult WriteTemporary(
       TemporaryFileHandle handle, std::span<const std::uint8_t> data) = 0;
-  [[nodiscard]] virtual PlatformResult FlushTemporary(
-      TemporaryFileHandle handle) = 0;
+  [[nodiscard]] virtual PlatformResult FlushTemporary(TemporaryFileHandle handle) = 0;
 
   // Committed and outcome-uncertain results consume the handle. A
   // not-committed result leaves it available for CleanupTemporary.
   [[nodiscard]] virtual PlatformCommitResult CommitTemporary(
-      TemporaryFileHandle handle,
-      const ValidatedReceivePath& destination) = 0;
+      TemporaryFileHandle handle, const ValidatedReceivePath& destination) = 0;
 
   // This call always consumes the handle. Success means the temporary object
   // was removed. On failure, the backend owns an inaccessible orphan and must
   // durably track it for startup cleanup.
-  [[nodiscard]] virtual PlatformResult CleanupTemporary(
-      TemporaryFileHandle handle) = 0;
+  [[nodiscard]] virtual PlatformResult CleanupTemporary(TemporaryFileHandle handle) = 0;
 };
 
 struct FilesystemBackendOpenResult {
@@ -266,8 +245,7 @@ class StreamingIntegrityVerifier {
  public:
   virtual ~StreamingIntegrityVerifier() = default;
 
-  [[nodiscard]] virtual bool Update(
-      std::span<const std::uint8_t> data) = 0;
+  [[nodiscard]] virtual bool Update(std::span<const std::uint8_t> data) = 0;
   [[nodiscard]] virtual bool Seal() = 0;
 };
 
@@ -302,18 +280,15 @@ struct TransactionResult {
   PlatformError cleanup_error{PlatformError::kNone};
   bool cleanup_unresolved{};
 
-  [[nodiscard]] bool ok() const noexcept {
-    return error == TransactionError::kNone;
-  }
+  [[nodiscard]] bool ok() const noexcept { return error == TransactionError::kNone; }
 };
 
 class ReceiveTransaction final {
  public:
-  ReceiveTransaction(
-      ValidatedReceiveRequest request,
-      std::shared_ptr<TemporaryBudget> temporary_budget,
-      std::unique_ptr<StreamingIntegrityVerifier> verifier,
-      PlatformBackend& platform);
+  ReceiveTransaction(ValidatedReceiveRequest request,
+                     std::shared_ptr<TemporaryBudget> temporary_budget,
+                     std::unique_ptr<StreamingIntegrityVerifier> verifier,
+                     PlatformBackend& platform);
   ~ReceiveTransaction();
 
   ReceiveTransaction(const ReceiveTransaction&) = delete;
@@ -322,8 +297,7 @@ class ReceiveTransaction final {
   ReceiveTransaction& operator=(ReceiveTransaction&&) = delete;
 
   [[nodiscard]] TransactionResult Begin();
-  [[nodiscard]] TransactionResult Write(
-      std::span<const std::uint8_t> data);
+  [[nodiscard]] TransactionResult Write(std::span<const std::uint8_t> data);
   [[nodiscard]] TransactionResult SealAndCommit();
   [[nodiscard]] TransactionResult Abort();
 
@@ -332,8 +306,7 @@ class ReceiveTransaction final {
 
  private:
   [[nodiscard]] TransactionResult FailAndCleanup(
-      TransactionError error,
-      PlatformError platform_error = PlatformError::kNone);
+      TransactionError error, PlatformError platform_error = PlatformError::kNone);
   void ReleaseReservation() noexcept;
 
   mutable std::mutex mutex_{};
