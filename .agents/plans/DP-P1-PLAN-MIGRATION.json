@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "DP-P1-PLAN-MIGRATION",
   "title": "Migrate P1 delivery planning",
-  "status": "draft",
+  "status": "approved",
   "source": {
     "kind": "governance",
     "path": "docs/adr/0014-delivery-plan-governance.md"
@@ -25,9 +25,9 @@
     }
   ],
   "approval": {
-    "approved_by": "",
-    "approved_at": "",
-    "content_sha256": ""
+    "approved_by": "integration-owner",
+    "approved_at": "2026-08-09T10:19:50+00:00",
+    "content_sha256": "0a4304bd9fabce5109c0445b9925d42836efe53ef07f91968a04236168aff5d1"
   },
   "superseded_by": ""
 }

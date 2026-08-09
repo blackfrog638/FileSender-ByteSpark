@@ -1,0 +1,125 @@
+{
+  "schema_version": 3,
+  "id": "XT-064",
+  "delivery_plan": "DP-P1-PLAN-MIGRATION",
+  "requirement_ids": [
+    "REQ-P1-PLAN-MIGRATION"
+  ],
+  "delivery_role": "implementation_acceptance",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-064.md",
+  "commit": {
+    "type": "feat",
+    "scope": "harness",
+    "summary": "migrate p1 delivery planning"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Incomplete mappings or acceptance closure could hide required P1 work or authorize a false milestone.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "Dependency drift could allow pairing or cross-platform acceptance to bypass reviewed security prerequisites.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test"
+      ]
+    },
+    "performance": {
+      "level": "none",
+      "rationale": "The migration reads small governance documents and changes no runtime performance path.",
+      "gates": []
+    },
+    "compatibility": {
+      "level": "medium",
+      "rationale": "Legacy tasks must gain inverse planning metadata without changing accepted task-record provenance or scheduler semantics.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "The migration is serialized by task ownership and introduces no concurrent runtime behavior.",
+      "gates": []
+    },
+    "platform": {
+      "level": "none",
+      "rationale": "Planning documents and standard-library validation are host independent.",
+      "gates": []
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "Approved content digests and the generated roadmap view are durable repository state that must reject semantic drift.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task executes accepted ADR 0014 without changing its Delivery Plan contract."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task changes planning metadata and generated documentation, not runtime architecture boundaries."
+    },
+    "roadmap": {
+      "status": "updated",
+      "references": [
+        "docs/roadmap.md"
+      ],
+      "rationale": "The task adds stable requirement markers and a generated P1 execution view."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "delivery_plan_test",
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make delivery-plan-test",
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

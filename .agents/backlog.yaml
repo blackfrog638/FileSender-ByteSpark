@@ -1105,6 +1105,33 @@
         "REQ-STORAGE-FORMAT-REPAIR"
       ],
       "delivery_role": "implementation_acceptance"
+    },
+    {
+      "id": "XT-064",
+      "title": "P1 delivery plan migration",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-063"
+      ],
+      "owned_paths": [
+        ".agents/backlog.yaml",
+        ".agents/plans/DP-P1-PLAN-MIGRATION.json",
+        ".agents/plans/DP-P1-DELIVERY.json",
+        ".agents/tasks/XT-*.md",
+        "docs/roadmap.md",
+        "tool/harness/delivery_plan.py",
+        "tool/harness/delivery_plan_test.py",
+        "Makefile"
+      ],
+      "delivery_plan": "DP-P1-PLAN-MIGRATION",
+      "requirement_ids": [
+        "REQ-P1-PLAN-MIGRATION"
+      ],
+      "delivery_role": "implementation_acceptance"
     }
   ]
 }
