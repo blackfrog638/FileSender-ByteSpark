@@ -2,7 +2,7 @@
   "schema_version": 3,
   "id": "XT-061",
   "task_type": "feature",
-  "state": "integrated",
+  "state": "done",
   "owner": "tls-certificate-bounds-agent",
   "base_sha": "4f246338cc875ff4a5a163ea5c6610e5ef8c1b47",
   "head_sha": "1d96d89c14933c63cd7508a7632762c59ac3f46b",
@@ -113,9 +113,9 @@
     ],
     "source_commits_sha256": "5a3591a3564eda217000720afa0e5e8e91ed611aeff793d283b1369ffbd181c7",
     "source_patch_id": "0808b6e167dc5048c325b88d00cf1fea29c02db7",
-    "result": "",
+    "result": "ba1cc935a366b6ac59ac8f67450cf7c327508acf",
     "result_patch_id": "0808b6e167dc5048c325b88d00cf1fea29c02db7",
-    "verified_sha": ""
+    "verified_sha": "ba1cc935a366b6ac59ac8f67450cf7c327508acf"
   },
   "verification": {
     "status": "passed",
@@ -129,11 +129,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:1d96d89c14933c63cd7508a7632762c59ac3f46b:2026-08-09T15:08:01Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31320342302"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-09T23:26:56+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
