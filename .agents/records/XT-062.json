@@ -13,8 +13,10 @@
     "summary": "qualify linux secret service backend"
   },
   "architecture_change": {
-    "mode": "none",
-    "modules": [],
+    "mode": "refactor",
+    "modules": [
+      "identity"
+    ],
     "supersedes": {
       "paths": [],
       "symbols": [],

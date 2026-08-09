@@ -4,7 +4,8 @@
 - Date: 2026-08-07
 - Accepted by task: XT-018
 - Amended by tasks: XT-046 (utf8proc and initial dependency provenance),
-  XT-051 (pinned Linux libsecret dependency)
+  XT-051 (pinned Linux libsecret dependency), XT-062 (GNOME Keyring
+  qualification)
 - Runtime provider review: XT-024
 - Security profile: `docs/adr/0002-pairing-and-transport-security.md`
 
@@ -99,8 +100,10 @@ The identity and pairing-record abstraction uses these production backends:
 - Windows Credential Manager generic credentials with
   `CRED_PERSIST_LOCAL_MACHINE`; enterprise persistence and machine-wide DPAPI
   are forbidden;
-- Linux Secret Service through libsecret, only when the concrete service is
-  qualified as device-local and non-synchronizing.
+- Linux GNOME Keyring through libsecret, restricted to the current-user,
+  root-owned `/usr/bin/gnome-keyring-daemon`, its encrypted libsecret session,
+  and the persistent `login` collection. Other Secret Service providers and
+  synchronized keyring-data deployments are unsupported.
 
 An unknown Linux Secret Service, a locked or unavailable store, denied access,
 corruption, or an unqualified backend produces `storage_unavailable` and
@@ -126,14 +129,14 @@ security-profile primitives, and TLS provider as lower-level inputs to the
 session workstream. The review found no reachable exploitable weakness in the
 XT-022 or XT-023 delivery diff.
 
-This is not a production pairing or three-platform conformance claim. Linux
-pairing remains disabled until one concrete Secret Service is qualified and
-passes positive lifecycle evidence under XT-062. The session workstream must
-not select production ALPN/profile bytes until XT-060 registers those values
-and limits, and XT-061 must enforce the certificate ceiling before XT-025 can
-start. A TLS capability created without an expected pin is valid only inside a
-bounded first-pairing attempt; established transport requires the active
-repository pin.
+This is not a production pairing or three-platform conformance claim. XT-062
+qualifies only the exact GNOME Keyring profile above with a dedicated real
+service gate; Linux remains fail-closed for every other Secret Service or
+deployment profile. The session workstream must not select production
+ALPN/profile bytes until XT-060 registers those values and limits, and XT-061
+must enforce the certificate ceiling before XT-025 can start. A TLS capability
+created without an expected pin is valid only inside a bounded first-pairing
+attempt; established transport requires the active repository pin.
 
 The complete prerequisite, blocker, and negative-test disposition is recorded
 in `protocol/security/XT-024-runtime-review.md`.
@@ -207,8 +210,9 @@ infrastructure details.
 - macOS deployment target 10.14 remains provisional until the selected stack
   passes packaged runtime tests; raising it requires a separate compatibility
   decision.
-- Linux pairing support is fail-closed when a qualified local Secret Service
-  is unavailable.
+- Linux pairing support is fail-closed when the qualified GNOME Keyring
+  executable, owner, encrypted session, persistent login collection, or
+  device-local non-synchronizing deployment assumptions are unavailable.
 
 ## Alternatives rejected
 
