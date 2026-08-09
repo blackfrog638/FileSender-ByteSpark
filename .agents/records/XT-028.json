@@ -2,10 +2,10 @@
   "schema_version": 2,
   "id": "XT-028",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "transfer-engine-agent",
+  "base_sha": "cb65241e4ea0693574f2fd10ec33d7f30016c4fb",
+  "head_sha": "65e5d4112d5ee6f3a52b5b1781bcd0cc2d25b4f5",
   "handoff": ".agents/handoffs/XT-028.md",
   "architecture_change": {
     "mode": "replace",
@@ -24,37 +24,58 @@
     "functionality": {
       "level": "critical",
       "rationale": "Offer, acceptance, chunk flow, integrity, acknowledgement, and commit form the first complete transfer path.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "security": {
       "level": "critical",
       "rationale": "Only authenticated, explicitly accepted, bounded, integrity-verified bytes may reach storage.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "performance": {
       "level": "high",
       "rationale": "Chunk sizing, credit, queue depth, hashing, and I/O determine throughput and memory use.",
-      "gates": ["make native-test", "make benchmark"]
+      "gates": [
+        "make native-test",
+        "make benchmark"
+      ]
     },
     "compatibility": {
       "level": "high",
       "rationale": "Sender and receiver must implement the accepted v1 transfer messages and failure scopes exactly.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "concurrency": {
       "level": "critical",
       "rationale": "Network completion, file I/O, acknowledgements, rejection, failure, and shutdown cross asynchronous domains.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "platform": {
       "level": "high",
       "rationale": "The transfer engine must preserve behavior above platform-specific sockets and filesystems.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "persistence": {
       "level": "high",
       "rationale": "The receiver writes temporary data and commits a durable destination after integrity verification.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     }
   },
   "impacts": {
@@ -76,19 +97,30 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "cb65241e4ea0693574f2fd10ec33d7f30016c4fb",
+    "source_head": "12f033b74d7b6901c6f74d32f661fe9a6db24234",
+    "source_commits": [
+      "34bbad0e6aee51365d36415af890dd8f73b08f47",
+      "797942ac0718cb88889ae77fa0aa65a5469c024a",
+      "65e5d4112d5ee6f3a52b5b1781bcd0cc2d25b4f5",
+      "12f033b74d7b6901c6f74d32f661fe9a6db24234"
+    ],
+    "source_commits_sha256": "48484470541859fff15b340135140a62253d36a06981a2e611be0a111c8af5f2",
+    "source_patch_id": "ab016b33e6adde8dff09e13bf54b6d116281fcab",
+    "result": "",
+    "result_patch_id": "ab016b33e6adde8dff09e13bf54b6d116281fcab",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make native-test",
       "make benchmark",
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:65e5d4112d5ee6f3a52b5b1781bcd0cc2d25b4f5:2026-08-09T21:08:29Z"
   },
   "acceptance": {
     "accepted_by": "",
