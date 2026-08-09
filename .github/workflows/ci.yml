@@ -61,7 +61,8 @@ jobs:
           if [[ "$RUNNER_OS" == "Linux" ]]; then
             sudo apt-get update
             sudo apt-get install -y \
-              autoconf autoconf-archive automake libtool ninja-build pkg-config
+              autoconf autoconf-archive automake dbus-x11 gnome-keyring \
+              libtool ninja-build pkg-config
           else
             brew install pkgconf
           fi
@@ -126,6 +127,61 @@ jobs:
           -C Debug
           --output-on-failure
           --no-tests=error
+
+  linux-secret-service:
+    name: Linux GNOME Keyring qualification
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Qualified service and build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf autoconf-archive automake dbus-x11 gnome-keyring \
+            libtool ninja-build pkg-config
+          test "$(readlink -f "$(command -v gnome-keyring-daemon)")" = \
+            /usr/bin/gnome-keyring-daemon
+          gnome-keyring-daemon --version
+
+      - name: Dependency cache identity
+        id: dependency-key
+        shell: bash
+        run: |
+          identity="${ImageOS:-$RUNNER_OS}-${ImageVersion:-unknown}"
+          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: out/vcpkg-cache
+          key: >-
+            vcpkg-linux-secret-service-${{ runner.arch }}-
+            ${{ steps.dependency-key.outputs.identity }}-
+            ${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json',
+            'cmake/dependencies/versions.json', 'cmake/vcpkg-overlay/**',
+            'cmake/triplets/**') }}
+
+      - name: Bootstrap pinned vcpkg
+        shell: bash
+        run: tool/harness/vcpkg_bootstrap.sh
+
+      - name: Configure
+        run: >-
+          cmake -S . -B out/build/linux-secret-service -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DXNN_TRANSFER_BUILD_TESTS=ON
+
+      - name: Build qualification target
+        run: >-
+          cmake --build out/build/linux-secret-service
+          --target xnn_transfer_platform_protected_store_tests
+
+      - name: Real GNOME Keyring lifecycle
+        run: >-
+          ctest --test-dir out/build/linux-secret-service
+          --output-on-failure
+          --no-tests=error
+          -R '^xnn_transfer_linux_secret_service_integration_tests$'
 
   flutter:
     name: Flutter
@@ -237,7 +293,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            autoconf autoconf-archive automake libtool ninja-build pkg-config
+            autoconf autoconf-archive automake dbus-x11 gnome-keyring \
+            libtool ninja-build pkg-config
 
       - name: Dependency cache identity
         id: dependency-key

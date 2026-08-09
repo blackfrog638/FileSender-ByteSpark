@@ -4,6 +4,7 @@
 - Date: 2026-08-08
 - Owner task: XT-022
 - Accepted by task: XT-022
+- Amended by task: XT-062 (GNOME Keyring qualification)
 - Security profile: `docs/adr/0002-pairing-and-transport-security.md`
 
 ## Context
@@ -260,7 +261,7 @@ Platform adapter status is:
 | --- | --- | --- |
 | macOS | non-synchronizing `ThisDeviceOnly` Keychain items | adapter and native/packaged integration gates passing |
 | Windows | current-user Credential Manager with `CRED_PERSIST_LOCAL_MACHINE` | adapter and native/packaged integration gates passing |
-| Linux | qualified device-local, non-synchronizing Secret Service items | adapter gates passing; concrete backend qualification unresolved |
+| Linux | current-user GNOME Keyring persistent `login` collection | exact-profile adapter and real-service lifecycle gate passing |
 
 All adapters store the common private `XNSP` version-1 envelope: magic,
 envelope version, revision, payload length, and canonical record bytes. The
@@ -285,30 +286,49 @@ generic credential blob limit. A global named mutex is scoped and owned by the
 current user SID; an object owned by another principal is rejected. Blobs
 returned by `CredReadW` and `CredEnumerateW` are zeroed before `CredFree`.
 
-The Linux adapter uses pinned libsecret 0.21.7 and only the default persistent
-collection. It does not unlock collections or execute Secret Service prompts.
-Locked items return `storage_locked`; an absent service, absent default
-collection, service-owner change, denied operation, malformed attributes,
-duplicate item, or unexpected response fails closed.
+The Linux adapter uses pinned libsecret 0.21.7 and qualifies one concrete
+profile: the current user's GNOME Keyring daemon at the canonical
+`/usr/bin/gnome-keyring-daemon` executable and its persistent `login`
+collection at `/org/freedesktop/secrets/collection/login`. The installed
+executable must be a root-owned regular file without group or other write
+permission, and its device and inode must match `/proc/<service-pid>/exe`.
+The unique D-Bus owner must run as the effective user and remain unchanged for
+the lifetime of the adapter.
+
+This qualification does not extend to KWallet, KeePassXC, alternate
+`gnome-keyring-daemon` paths, user-built replacements, the non-persistent
+`session` collection, or arbitrary implementations of the Secret Service API.
+GNOME Keyring itself does not synchronize the encrypted persistent collection;
+the supported deployment profile additionally requires the user's keyring data
+directory to remain device-local and outside third-party synchronization. A
+deployment that redirects or synchronizes that directory is outside the
+qualified profile and must keep pairing disabled.
+
+The adapter does not unlock collections or execute Secret Service prompts.
+Locked items return `storage_locked`; an absent service, absent or changed
+default collection, service-owner change, denied operation, malformed
+attributes, duplicate item, capacity excess, or unexpected response fails
+closed. Synchronous D-Bus calls have a five-second ceiling.
 
 The noninteractive raw D-Bus path helpers used for encrypted values are in
 libsecret's unstable API surface. The private Linux implementation explicitly
 opts into that surface; the exact 0.21.7 dependency pin and Linux compilation
 gate are therefore compatibility requirements.
 
-Factory construction requires a backend qualifier. Before invoking it, the
-adapter resolves the unique D-Bus owner, verifies that the service runs as the
-current user, and supplies the owner's PID and `/proc/<pid>/exe` path. The
-qualifier must establish from deployment-owned evidence that this exact
-service is device-local and non-synchronizing. There is deliberately no
-built-in executable allowlist. An absent, throwing, or rejecting qualifier
-returns `storage_unavailable`, so the repository currently enables no concrete
-Linux service by default.
+Factory construction applies the built-in GNOME Keyring identity policy; there
+is no caller-supplied qualifier that can admit another service. Qualification
+also requires the exact persistent collection path and the encrypted session
+algorithm below. A missing or mismatched condition returns
+`storage_unavailable`.
 
 The libsecret session must negotiate
 `dh-ietf1024-sha256-aes128-cbc-pkcs7`; a plaintext session is rejected. Binary
 values use libsecret `SecretValue` secure memory and the common `XNSP`
-envelope. Only the schema, application identifier, and item identifier are
+envelope. GNOME Keyring normalizes the returned Secret Service content type to
+`text/plain` even when the client writes `application/octet-stream`; the
+qualified adapter requires that exact provider behavior and validates the
+opaque bytes as `XNSP` instead of treating the content type as a payload
+encoding. Only the schema, application identifier, and item identifier are
 non-secret lookup attributes.
 
 Secret Service does not expose compare-and-swap. Cooperating XnnTransfer
@@ -319,23 +339,29 @@ non-regular lock path. Every operation rechecks the unique service owner,
 default collection alias, and lock state. Create, replace, and delete use
 direct D-Bus calls and reject any prompt instead of displaying it.
 
-Until a concrete backend proves non-synchronization, item limits, deletion,
-restart persistence, and locked/denied behavior in platform integration tests,
-Linux pairing remains explicitly unsupported. There is no filesystem,
-environment-variable, or production in-memory secret fallback; the runtime
-file is synchronization metadata only and never contains a key or record.
+The dedicated Linux integration gate runs GNOME Keyring in an isolated
+`dbus-run-session`, home, data directory, and runtime directory. It proves
+exact attributes, item bounds, create/get/CAS replace/delete/enumerate,
+cross-process first-write and stale-revision races, daemon restart persistence,
+owner replacement, collection locking, denied runtime policy, repository
+restart/reset/stale-generation cleanup, missing root and seed, partial restore,
+inconsistent rollback, and corrupt envelopes. It also checks that the runtime
+lock is an empty mode-0600 file and that known payload and seed bytes do not
+appear in persistent keyring files.
+
+There is no filesystem, environment-variable, or production in-memory secret
+fallback; the runtime file is synchronization metadata only and never contains
+a key or record. The real-service evidence does not change the documented
+complete-valid-snapshot rollback limit: restoring a mutually consistent old
+root and peer set can restore the old trust state because GNOME Keyring
+provides no trusted monotonic counter.
 
 ## Acceptance boundary
 
 The platform-independent schema, failure model, internal codec, cryptographic
 helpers, validator boundary, fake-store transaction tests, and repository
 state machine can be accepted independently. macOS and Windows have native
-credential lifecycle and packaged-library evidence. Linux has compile, link,
-negative qualification, and lock evidence, but remains explicitly unsupported
-until a concrete Secret Service passes the remaining integration evidence:
-
-- non-synchronizing device-local protection and qualification;
-- bounded enumerate/get/CAS put/delete behavior across processes;
-- locked, unavailable, denied, corrupt, rollback, restore, and deletion paths;
-- root replacement and stale-item cleanup after reset;
-- seed lifetime and cleanup at the operating-system API boundary.
+credential lifecycle and packaged-library evidence. Linux is supported only
+for the exact GNOME Keyring profile above and only while the dedicated
+real-service gate remains passing. Other Secret Service implementations and
+deployments that synchronize the keyring data directory remain unsupported.

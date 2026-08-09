@@ -2,13 +2,16 @@
 #define XNN_TRANSFER_CORE_SECURITY_IDENTITY_LINUX_SECRET_SERVICE_STORE_HPP_
 
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "xnn_transfer/core/security/identity/protected_store.hpp"
 
 namespace xnn_transfer::core::security::identity {
+
+inline constexpr std::string_view kQualifiedGnomeKeyringExecutablePath =
+    "/usr/bin/gnome-keyring-daemon";
 
 struct LinuxSecretServiceBackendIdentity {
   std::uint32_t user_id{};
@@ -16,13 +19,14 @@ struct LinuxSecretServiceBackendIdentity {
   std::string executable_path{};
 };
 
-using LinuxSecretServiceBackendQualifier =
-    std::function<bool(const LinuxSecretServiceBackendIdentity&)>;
+// The supported Linux profile is the current-user GNOME Keyring daemon from
+// the root-owned system executable. Other Secret Service implementations stay
+// unavailable even when they expose the same D-Bus API.
+[[nodiscard]] bool IsQualifiedGnomeKeyringBackendIdentity(
+    const LinuxSecretServiceBackendIdentity& identity) noexcept;
 
-// The qualifier must establish that the concrete service is device-local and
-// non-synchronizing. An absent or rejecting qualifier fails closed.
 [[nodiscard]] Result<std::unique_ptr<ProtectedStore>>
-CreateLinuxSecretServiceProtectedStore(LinuxSecretServiceBackendQualifier qualifier);
+CreateLinuxSecretServiceProtectedStore();
 
 }  // namespace xnn_transfer::core::security::identity
 

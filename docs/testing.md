@@ -10,6 +10,9 @@ The harness phase has real checks for:
 - generated-fixture drift and parser transcript-state regression;
 - byte-exact proposed security-profile vectors for transcript, SAS,
   confirmation, transport binding, and rotation proof inputs;
+- protected-identity codecs, repository transitions, per-item CAS, reset and
+  stale-generation cleanup, corruption and partial-restore failures, platform
+  adapters, and the exact GNOME Keyring profile described below;
 - host-independent path and manifest contract vectors for legal limits,
   traversal, collisions, invalid entries, and inconsistent summaries;
 - C++ compiler warnings;
@@ -24,9 +27,10 @@ The harness phase has real checks for:
 - task record, handoff, integration provenance, acceptance, and cleanup
   governance.
 
-This is not file-transfer coverage. Discovery, authenticated sessions,
-cryptography, manifest/storage enforcement, file I/O, and network recovery are
-not implemented yet and therefore are not currently tested.
+This is not file-transfer coverage. Discovery, protected identity storage, and
+the TLS provider have focused executable coverage, but authenticated sessions,
+manifest/storage enforcement, file I/O, and network recovery are not
+implemented yet and therefore are not currently tested.
 
 ## Commands
 
@@ -42,6 +46,32 @@ make governance-test # isolated task lifecycle and provenance test
 Use `XNN_TRANSFER_FUZZ_SECONDS=60 make security-test` for a longer local fuzz
 run. Crashing inputs must be minimized, committed under the owning fuzz corpus,
 and converted to deterministic regression tests.
+
+## Linux protected-store qualification
+
+Linux support is restricted to the current-user GNOME Keyring service at the
+root-owned `/usr/bin/gnome-keyring-daemon` executable, the encrypted libsecret
+session, and `/org/freedesktop/secrets/collection/login`. The focused CTest
+starts that daemon inside isolated D-Bus, home, XDG data, and XDG runtime
+directories:
+
+```bash
+ctest --test-dir out/build/ci --output-on-failure \
+  -R '^xnn_transfer_linux_secret_service_integration_tests$'
+```
+
+The test exercises exact attributes and bounds, CRUD and CAS, two-process
+contention, daemon restart, locked and denied paths, service-owner replacement,
+identity reset and cleanup, missing root and seed, partial restore,
+inconsistent rollback, corruption, and deletion. It also verifies that the
+payload-free lock is empty and private and that observed payload and seed bytes
+do not occur in the persistent keyring files.
+
+CI runs this test both in the normal Linux native/security suites and in the
+fixed `ubuntu-24.04` `Linux GNOME Keyring qualification` job. Install
+`dbus-x11` and `gnome-keyring` before configuring a local Linux test build.
+Passing this gate does not qualify another Secret Service implementation and
+does not provide complete-valid-snapshot rollback detection.
 
 ## Security test matrix
 
@@ -81,9 +111,10 @@ only after variance is known, using a reviewed relative threshold.
 
 ## CI policy
 
-- Pull requests: governance contracts, native tests on three platforms,
-  pinned dependency probes, Flutter checks, packaging on three platforms,
-  ASan/UBSan, and a short fuzz smoke test.
+- Pull requests: governance contracts, native tests on three platforms, the
+  focused GNOME Keyring lifecycle on Ubuntu 24.04, pinned dependency probes,
+  Flutter checks, packaging on three platforms, ASan/UBSan, and a short fuzz
+  smoke test.
 - Scheduled builds: longer fuzz campaigns. Performance trend collection starts
   when transfer I/O benchmarks exist.
 - Before release: cross-platform interoperability, low-space, sleep/wake,

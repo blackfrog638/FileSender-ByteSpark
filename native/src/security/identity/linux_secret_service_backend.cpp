@@ -3,6 +3,7 @@
 
 #include <libsecret/secret.h>
 #include <limits.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
@@ -50,8 +52,14 @@ constexpr char kSchemaAttribute[] = "xdg:schema";
 constexpr char kItemLabel[] = "XnnTransfer protected identity";
 constexpr char kItemLabelProperty[] = "org.freedesktop.Secret.Item.Label";
 constexpr char kItemAttributesProperty[] = "org.freedesktop.Secret.Item.Attributes";
-constexpr char kBinaryContentType[] = "application/octet-stream";
+constexpr char kWrittenContentType[] = "application/octet-stream";
+constexpr char kGnomeKeyringReturnedContentType[] = "text/plain";
 constexpr char kRequiredSessionAlgorithm[] = "dh-ietf1024-sha256-aes128-cbc-pkcs7";
+constexpr char kRequiredCollectionPath[] = "/org/freedesktop/secrets/collection/login";
+constexpr gint kDbusCallTimeoutMilliseconds = 5'000;
+constexpr std::size_t kMaxApplicationItems = kMaxPeerRecords + 1;
+
+constexpr std::size_t kPlatformEnvelopeHeaderSize = 17;
 
 struct GVariantDeleter {
   void operator()(GVariant* value) const noexcept {
@@ -85,10 +93,19 @@ struct StringVectorDeleter {
   }
 };
 
+struct GCharDeleter {
+  void operator()(gchar* value) const noexcept {
+    if (value != nullptr) {
+      g_free(value);
+    }
+  }
+};
+
 using GVariantPtr = std::unique_ptr<GVariant, GVariantDeleter>;
 using SecretValuePtr = std::unique_ptr<SecretValue, SecretValueDeleter>;
 using SecretServicePtr = std::unique_ptr<SecretService, SecretServiceDeleter>;
 using StringVectorPtr = std::unique_ptr<gchar*, StringVectorDeleter>;
+using GCharPtr = std::unique_ptr<gchar, GCharDeleter>;
 
 [[nodiscard]] ErrorCode MapGError(const GError* error) noexcept {
   if (error == nullptr) {
@@ -191,7 +208,8 @@ class LibsecretBackend final : public PlatformProtectedStoreBackend {
     SecretBuffer envelope = std::move(envelope_result).value();
     SecretValuePtr value(
         secret_value_new(reinterpret_cast<const gchar*>(envelope.bytes().data()),
-                         static_cast<gssize>(envelope.size()), kBinaryContentType));
+                         static_cast<gssize>(envelope.size()), kWrittenContentType));
+    envelope.clear();
     if (value == nullptr) {
       return Result<void>::Failure(ErrorCode::kStorageUnavailable);
     }
@@ -294,7 +312,8 @@ class LibsecretBackend final : public PlatformProtectedStoreBackend {
       GError* error = nullptr;
       GVariant* response = g_dbus_connection_call_sync(
           connection_, owner_.c_str(), path.c_str(), interface_name, method_name,
-          parameters, reply_type, G_DBUS_CALL_FLAGS_NO_AUTO_START, -1, nullptr, &error);
+          parameters, reply_type, G_DBUS_CALL_FLAGS_NO_AUTO_START,
+          kDbusCallTimeoutMilliseconds, nullptr, &error);
       if (response == nullptr) {
         return Result<GVariantPtr>::Failure(TakeGError(error));
       }
@@ -437,6 +456,12 @@ class LibsecretBackend final : public PlatformProtectedStoreBackend {
         return Result<std::vector<std::string>>::Success(std::move(result));
       }
       for (std::size_t index = 0; raw_paths[index] != nullptr; ++index) {
+        if ((item_id.has_value() && index != 0) ||
+            (!item_id.has_value() && index == kMaxApplicationItems)) {
+          return Result<std::vector<std::string>>::Failure(
+              item_id.has_value() ? ErrorCode::kCorruptRecord
+                                  : ErrorCode::kCapacityExceeded);
+        }
         auto locked_result = IsLocked(raw_paths[index], kItemInterface);
         if (!locked_result.ok()) {
           return Result<std::vector<std::string>>::Failure(locked_result.error());
@@ -523,13 +548,23 @@ class LibsecretBackend final : public PlatformProtectedStoreBackend {
     const gchar* content_type = secret_value_get_content_type(value.get());
     gsize length = 0;
     const gchar* data = secret_value_get(value.get(), &length);
-    if (content_type == nullptr || std::strcmp(content_type, kBinaryContentType) != 0 ||
-        data == nullptr) {
+    if (content_type == nullptr ||
+        std::strcmp(content_type, kGnomeKeyringReturnedContentType) != 0 ||
+        data == nullptr ||
+        length > kMaxProtectedItemPayloadSize + kPlatformEnvelopeHeaderSize) {
       return Result<PlatformProtectedItem>::Failure(ErrorCode::kCorruptRecord);
     }
     const auto* bytes = reinterpret_cast<const std::uint8_t*>(data);
-    return DecodePlatformProtectedItemEnvelope(
-        std::move(item_id), std::span<const std::uint8_t>(bytes, length));
+    try {
+      SecretBuffer envelope(std::span<const std::uint8_t>(bytes, length));
+      value.reset();
+      auto decoded_result =
+          DecodePlatformProtectedItemEnvelope(std::move(item_id), envelope.bytes());
+      envelope.clear();
+      return decoded_result;
+    } catch (const std::bad_alloc&) {
+      return Result<PlatformProtectedItem>::Failure(ErrorCode::kCapacityExceeded);
+    }
   }
 
   SecretServicePtr service_;
@@ -577,13 +612,7 @@ class LibsecretBackend final : public PlatformProtectedStoreBackend {
   }
 }
 
-[[nodiscard]] Result<std::unique_ptr<PlatformProtectedStoreBackend>> CreateBackend(
-    const LinuxSecretServiceBackendQualifier& qualifier) {
-  if (!qualifier) {
-    return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
-        ErrorCode::kStorageUnavailable);
-  }
-
+[[nodiscard]] Result<std::unique_ptr<PlatformProtectedStoreBackend>> CreateBackend() {
   GError* error = nullptr;
   SecretService* raw_service = secret_service_open_sync(
       SECRET_TYPE_SERVICE, kServiceName, SECRET_SERVICE_OPEN_SESSION, nullptr, &error);
@@ -599,14 +628,14 @@ class LibsecretBackend final : public PlatformProtectedStoreBackend {
         ErrorCode::kStorageUnavailable);
   }
   GDBusProxy* proxy = G_DBUS_PROXY(service.get());
-  const gchar* raw_owner = g_dbus_proxy_get_name_owner(proxy);
-  if (raw_owner == nullptr || raw_owner[0] == '\0') {
+  GCharPtr raw_owner(g_dbus_proxy_get_name_owner(proxy));
+  if (raw_owner == nullptr || raw_owner.get()[0] == '\0') {
     return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
         ErrorCode::kStorageUnavailable);
   }
 
   try {
-    const std::string owner(raw_owner);
+    const std::string owner(raw_owner.get());
     GDBusConnection* connection = g_dbus_proxy_get_connection(proxy);
     auto user_result = QueryBusUint(connection, "GetConnectionUnixUser", owner);
     if (!user_result.ok()) {
@@ -631,13 +660,7 @@ class LibsecretBackend final : public PlatformProtectedStoreBackend {
     LinuxSecretServiceBackendIdentity identity{user_result.value(),
                                                process_result.value(),
                                                std::move(executable_result).value()};
-    bool qualified = false;
-    try {
-      qualified = qualifier(identity);
-    } catch (...) {
-      qualified = false;
-    }
-    if (!qualified) {
+    if (!IsQualifiedGnomeKeyringBackendIdentity(identity)) {
       return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
           ErrorCode::kStorageUnavailable);
     }
@@ -654,7 +677,8 @@ class LibsecretBackend final : public PlatformProtectedStoreBackend {
     GVariantPtr owned_alias_response(alias_response);
     const gchar* raw_collection_path = nullptr;
     g_variant_get(alias_response, "(&o)", &raw_collection_path);
-    if (raw_collection_path == nullptr || std::strcmp(raw_collection_path, "/") == 0) {
+    if (raw_collection_path == nullptr ||
+        std::strcmp(raw_collection_path, kRequiredCollectionPath) != 0) {
       return Result<std::unique_ptr<PlatformProtectedStoreBackend>>::Failure(
           ErrorCode::kStorageUnavailable);
     }
@@ -677,12 +701,36 @@ class LibsecretBackend final : public PlatformProtectedStoreBackend {
 
 }  // namespace
 
-Result<std::unique_ptr<ProtectedStore>> CreateLinuxSecretServiceProtectedStore(
-    LinuxSecretServiceBackendQualifier qualifier) {
-  if (!qualifier) {
-    return Result<std::unique_ptr<ProtectedStore>>::Failure(
-        ErrorCode::kStorageUnavailable);
+bool IsQualifiedGnomeKeyringBackendIdentity(
+    const LinuxSecretServiceBackendIdentity& identity) noexcept {
+  if (identity.user_id != static_cast<std::uint32_t>(geteuid()) ||
+      identity.process_id == 0 ||
+      identity.executable_path != kQualifiedGnomeKeyringExecutablePath) {
+    return false;
   }
+
+  std::array<char, 64> process_executable{};
+  const int written =
+      std::snprintf(process_executable.data(), process_executable.size(),
+                    "/proc/%u/exe", identity.process_id);
+  if (written <= 0 || static_cast<std::size_t>(written) >= process_executable.size()) {
+    return false;
+  }
+
+  struct stat installed_status{};
+  struct stat process_status{};
+  if (stat(identity.executable_path.c_str(), &installed_status) != 0 ||
+      stat(process_executable.data(), &process_status) != 0 ||
+      !S_ISREG(installed_status.st_mode) || installed_status.st_uid != 0 ||
+      (installed_status.st_mode & 0022) != 0 ||
+      installed_status.st_dev != process_status.st_dev ||
+      installed_status.st_ino != process_status.st_ino) {
+    return false;
+  }
+  return true;
+}
+
+Result<std::unique_ptr<ProtectedStore>> CreateLinuxSecretServiceProtectedStore() {
   const char* runtime_directory = std::getenv("XDG_RUNTIME_DIR");
   if (runtime_directory == nullptr) {
     return Result<std::unique_ptr<ProtectedStore>>::Failure(
@@ -697,7 +745,7 @@ Result<std::unique_ptr<ProtectedStore>> CreateLinuxSecretServiceProtectedStore(
     auto guard = std::move(guard_result).value();
     guard.reset();
 
-    auto backend_result = CreateBackend(qualifier);
+    auto backend_result = CreateBackend();
     if (!backend_result.ok()) {
       return Result<std::unique_ptr<ProtectedStore>>::Failure(backend_result.error());
     }
