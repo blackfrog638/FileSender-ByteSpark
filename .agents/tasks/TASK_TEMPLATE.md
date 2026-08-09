@@ -6,6 +6,10 @@ workstream: integration
 initial_owner: unassigned
 depends_on: []
 owned_paths: []
+delivery_plan: DP-REPLACE-ME
+requirement_ids:
+  - REQ-REPLACE-ME
+delivery_role: implementation
 contract_changes: []
 handoff: .agents/handoffs/XT-000.md
 ---
@@ -17,8 +21,9 @@ networking".
 
 ## Context
 
-Link the relevant architecture section, ADR, protocol version, and predecessor
-tasks.
+Link the approved Delivery Plan, requirement IDs, relevant architecture
+section, ADR, protocol version, and predecessor tasks. The plan owns coverage;
+keep dependencies and owned paths authoritative in the backlog.
 
 Create the matching machine-readable `.agents/records/XT-000.json`. Declare
 ADR, architecture, and roadmap impact there. Use `not_required` only with a

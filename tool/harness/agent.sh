@@ -417,6 +417,7 @@ claim() {
     printf 'Worktree path already exists: %s\n' "$destination" >&2
     exit 1
   fi
+  "$governance" validate-claim "$task_id"
 
   branch="$(task_branch "$task_id")"
   base_sha="$(git -C "$root" rev-parse --verify "$base_ref^{commit}")"

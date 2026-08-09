@@ -5,6 +5,7 @@ purpose: multi-agent engineering harness
 source_of_truth:
   instructions: AGENTS.md
   backlog: .agents/backlog.yaml
+  delivery_plans: .agents/plans
   task_specs: .agents/tasks
   task_records: .agents/records
   module_inventory: .agents/architecture/modules.json
@@ -14,6 +15,10 @@ source_of_truth:
   protocol: protocol/spec
 
 integration_branch: harness
+
+delivery_plans:
+  directory: .agents/plans
+  required_from_task: XT-064
 
 commands:
   abi_compat_test: make abi-compat-test
@@ -37,6 +42,7 @@ commands:
   benchmark: make benchmark
   clangd_check: clangd --check=native/src/core/engine.cpp
   dependency_test: make dependency-test
+  delivery_plan_test: make delivery-plan-test
   commit_message_test: make commit-message-test
   vcpkg_bootstrap: make vcpkg-bootstrap
   agent_list: tool/harness/agent.sh list

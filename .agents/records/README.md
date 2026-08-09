@@ -10,6 +10,8 @@ governance. New tasks use schema version 3 and contain:
 
 - `task_type`: `feature`, `bugfix`, `refactor`, `investigation`, `test`, or
   `governance`;
+- `delivery_plan`, `requirement_ids`, and `delivery_role` for tasks at or after
+  the manifest's Delivery Plan enforcement threshold;
 - `state`: `ready`, `claimed`, `in_progress`, `blocked`, `review`,
   `integrated`, or `done`;
 - `base_sha` and `head_sha`: the task branch range reviewed for delivery;
@@ -25,6 +27,12 @@ governance. New tasks use schema version 3 and contain:
 - `verification`: trusted gate IDs, their resolved commands, and the local or
   CI evidence reference;
 - `acceptance`: the integration owner and acceptance time.
+
+Plan-bound values are identical in the backlog, task-spec front matter, and
+record. Valid roles are `implementation`, `acceptance`, and
+`implementation_acceptance`. The plan owns requirement coverage; the backlog
+continues to own dependencies and paths. Accepted legacy records before the
+threshold are not rewritten with synthetic planning history.
 
 A `bugfix` also contains a `defect` object with severity, report source,
 symptom, existing expected contract, actual behavior, bounded trigger,

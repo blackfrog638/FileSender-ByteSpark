@@ -22,6 +22,7 @@ if str(HARNESS_DIR) not in sys.path:
     sys.path.insert(0, str(HARNESS_DIR))
 import architecture_change
 import defect_proof as defect_proof_runner
+import delivery_plan as delivery_plan_contract
 from trusted_gates import GateRegistryError, load_gate_registry
 
 
@@ -1480,6 +1481,7 @@ def validate_repository(*, verify_git: bool = True) -> None:
         module_ids = set()
     if document.get("schema_version") != 1:
         errors.append("backlog schema_version must be 1")
+    errors.extend(delivery_plan_contract.validate_repository(ROOT))
 
     for task_id, task in tasks.items():
         if not re.fullmatch(r"XT-[0-9]{3,}", task_id):
@@ -1621,6 +1623,13 @@ def validate_repository(*, verify_git: bool = True) -> None:
     if errors:
         raise GovernanceError("\n".join(f"- {error}" for error in errors))
     print(f"Governance validation passed for {len(tasks)} tasks.")
+
+
+def validate_claim(task_id: str) -> None:
+    errors = delivery_plan_contract.validate_claim(ROOT, task_id)
+    if errors:
+        raise GovernanceError("\n".join(f"- {error}" for error in errors))
+    print(f"{task_id} Delivery Plan claim eligibility passed.")
 
 
 def find_worktree(task_id: str) -> Path:
@@ -1906,6 +1915,9 @@ def main() -> int:
     validate_parser = subparsers.add_parser("validate")
     validate_parser.add_argument("--no-git", action="store_true")
 
+    claim_parser = subparsers.add_parser("validate-claim")
+    claim_parser.add_argument("task_id")
+
     review_parser = subparsers.add_parser("prepare-review")
     review_parser.add_argument("task_id")
 
@@ -1945,6 +1957,8 @@ def main() -> int:
     try:
         if args.command == "validate":
             validate_repository(verify_git=not args.no_git)
+        elif args.command == "validate-claim":
+            validate_claim(args.task_id)
         elif args.command == "prepare-review":
             prepare_review(args.task_id)
         elif args.command == "update-state":

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "DP-P1-PLAN-MIGRATION",
+  "title": "Migrate P1 delivery planning",
+  "status": "draft",
+  "source": {
+    "kind": "governance",
+    "path": "docs/adr/0014-delivery-plan-governance.md"
+  },
+  "requirements": [
+    {
+      "id": "REQ-P1-PLAN-MIGRATION",
+      "source_ref": "ADR-0014-P1-MIGRATION",
+      "statement": "Represent the complete P1 roadmap decomposition as an approved Delivery Plan without rewriting accepted task provenance.",
+      "acceptance_criteria": [
+        "Every P1 roadmap item has a stable source marker and reviewed requirement mapping.",
+        "The P1 acceptance tasks transitively cover every implementation task.",
+        "Plan-bound backlog and task-spec metadata are consistent.",
+        "The roadmap execution view is generated from approved planning and runtime state."
+      ],
+      "implementation_tasks": [
+        "XT-064"
+      ],
+      "acceptance_task": "XT-064"
+    }
+  ],
+  "approval": {
+    "approved_by": "",
+    "approved_at": "",
+    "content_sha256": ""
+  },
+  "superseded_by": ""
+}

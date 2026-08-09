@@ -25,11 +25,35 @@ impact, integration provenance, and acceptance after cleanup.
 Claims require a clean, committed base. Give the generated prompt to a new
 agent and make sure that agent operates only in the printed worktree.
 
-For a task not yet in the backlog, create and review its specification first:
+For a requirement not yet represented in the backlog, create or update a
+Delivery Plan first. The plan binds stable requirement IDs to implementation
+and acceptance tasks without duplicating backlog dependencies:
 
 ```bash
-tool/harness/new_task.sh XT-007 peer-discovery native_core
+python3 tool/harness/delivery_plan.py init \
+  DP-EXAMPLE "Example delivery" \
+  --source-kind roadmap \
+  --source-path docs/roadmap.md
 ```
+
+After the draft reserves the task ID, create and review its specification:
+
+```bash
+tool/harness/new_task.sh XT-064 example-delivery native_core \
+  --delivery-plan DP-EXAMPLE \
+  --requirement-id REQ-EXAMPLE \
+  --delivery-role implementation \
+  --commit-type feat \
+  --commit-scope native \
+  --commit-summary 'implement example delivery' \
+  --architecture-mode none \
+  --owned 'native/src/example/**'
+```
+
+Resolve the generated specification and record, validate the complete plan,
+then have the integration owner approve it. Plan-bound tasks remain blocked
+until approval. `agent.sh claim` also requires every declared dependency to be
+accepted.
 
 Parallel tasks should have disjoint owned paths. When two tasks need the same
 shared contract, serialize the contract change through the integration owner,

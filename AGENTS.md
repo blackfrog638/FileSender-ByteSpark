@@ -23,6 +23,9 @@ file assigned to you before editing code.
    roadmap behavior is a feature, not a bug, and severity never removes gates.
 10. Active tasks must not own intersecting paths. A task with relevant
     upstream product or governance changes must rebase and repeat review.
+11. Roadmap requirements become executable only through an approved Delivery
+    Plan. Draft-plan tasks and tasks with unaccepted dependencies cannot be
+    claimed.
 
 ## Architecture boundaries
 
@@ -84,6 +87,32 @@ versioned source of truth for lifecycle, verification, document impact,
 integration provenance, and acceptance. Git task branches and worktrees provide
 single-clone claim isolation. Local branch configuration is only a scheduler
 cache and must agree with the tracked record while a task is active.
+
+## Delivery planning
+
+`docs/roadmap.md` owns product milestones. Versioned JSON documents under
+`.agents/plans/` own the reviewed conversion from stable requirement IDs to XT
+implementation and acceptance tasks. The backlog remains the only task
+dependency and ownership graph; task records and active branches remain the
+only runtime state.
+
+Tasks at or after the manifest's `delivery_plans.required_from_task` threshold
+declare matching `delivery_plan`, `requirement_ids`, and `delivery_role`
+metadata in the backlog, task-spec front matter, and task record. A draft plan
+may reserve future task IDs, but its registered tasks remain blocked. The
+integration owner approves a complete plan with:
+
+```bash
+python3 tool/harness/delivery_plan.py validate
+python3 tool/harness/delivery_plan.py approve \
+  DP-NAME --by integration-owner
+```
+
+Approval requires bidirectional requirement coverage, an acyclic backlog,
+task-spec metadata parity, and an acceptance task that transitively depends on
+every implementation task. Claim repeats plan approval and accepted-dependency
+checks before creating a branch or worktree. Plans never store derived runtime
+status.
 
 Only these task states are valid:
 

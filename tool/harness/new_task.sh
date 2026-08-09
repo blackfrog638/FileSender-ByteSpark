@@ -11,6 +11,8 @@ if [[ "$#" -lt 5 ]]; then
     "  --commit-type feat --commit-scope native \\" \
     "  --commit-summary 'implement concrete outcome' \\" \
     "  --architecture-mode none|add|replace|remove|refactor \\" \
+    "  --delivery-plan DP-NAME --requirement-id REQ-NAME \\" \
+    "  --delivery-role implementation|acceptance|implementation_acceptance \\" \
     "  --owned 'path/**' [--owned path] [--depends-on XT-001]" >&2
   exit 2
 fi
@@ -32,6 +34,9 @@ supersedes_paths=()
 supersedes_symbols=()
 supersedes_targets=()
 retires_leases=()
+delivery_plan=""
+requirement_ids=()
+delivery_role=""
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
     --owned)
@@ -130,6 +135,30 @@ while [[ "$#" -gt 0 ]]; do
       retires_leases+=("$2")
       shift 2
       ;;
+    --delivery-plan)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires a plan id.\n' "$1" >&2
+        exit 2
+      }
+      delivery_plan="$2"
+      shift 2
+      ;;
+    --requirement-id)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires a requirement id.\n' "$1" >&2
+        exit 2
+      }
+      requirement_ids+=("$2")
+      shift 2
+      ;;
+    --delivery-role)
+      [[ "$#" -ge 2 ]] || {
+        printf '%s requires a delivery role.\n' "$1" >&2
+        exit 2
+      }
+      delivery_role="$2"
+      shift 2
+      ;;
     *)
       printf 'Unknown argument: %s\n' "$1" >&2
       exit 2
@@ -224,6 +253,47 @@ if [[ "${#dependencies[@]}" -gt 0 ]]; then
   done
 fi
 
+required_from="$(
+  python3 -B - "$root" <<'PY'
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+sys.path.insert(0, str(root / "tool" / "harness"))
+import delivery_plan
+
+print(delivery_plan.load_config(root).required_from_number)
+PY
+)"
+task_number="${task_id#XT-}"
+if ((10#$task_number >= required_from)); then
+  if [[ -z "$delivery_plan" || "${#requirement_ids[@]}" -eq 0 || \
+    -z "$delivery_role" ]]; then
+    printf '%s requires Delivery Plan metadata.\n' "$task_id" >&2
+    exit 2
+  fi
+fi
+if [[ -n "$delivery_plan" || "${#requirement_ids[@]}" -gt 0 || \
+  -n "$delivery_role" ]]; then
+  if [[ ! "$delivery_plan" =~ ^DP-[A-Z0-9]+(-[A-Z0-9]+)*$ ]]; then
+    printf 'Invalid Delivery Plan id: %s\n' "$delivery_plan" >&2
+    exit 2
+  fi
+  for requirement_id in "${requirement_ids[@]}"; do
+    if [[ ! "$requirement_id" =~ ^REQ-[A-Z0-9]+(-[A-Z0-9]+)*$ ]]; then
+      printf 'Invalid requirement id: %s\n' "$requirement_id" >&2
+      exit 2
+    fi
+  done
+  case "$delivery_role" in
+    implementation | acceptance | implementation_acceptance) ;;
+    *)
+      printf 'Invalid delivery role: %s\n' "$delivery_role" >&2
+      exit 2
+      ;;
+  esac
+fi
+
 destination="$root/.agents/tasks/$task_id-$slug.md"
 record="$root/.agents/records/$task_id.json"
 if [[ -e "$destination" || -e "$record" ]]; then
@@ -241,6 +311,7 @@ supersedes_paths_text=""
 supersedes_symbols_text=""
 supersedes_targets_text=""
 retires_leases_text=""
+requirement_ids_text=""
 if [[ "${#architecture_modules[@]}" -gt 0 ]]; then
   architecture_modules_text="$(printf '%s\n' "${architecture_modules[@]}")"
 fi
@@ -256,6 +327,9 @@ fi
 if [[ "${#retires_leases[@]}" -gt 0 ]]; then
   retires_leases_text="$(printf '%s\n' "${retires_leases[@]}")"
 fi
+if [[ "${#requirement_ids[@]}" -gt 0 ]]; then
+  requirement_ids_text="$(printf '%s\n' "${requirement_ids[@]}")"
+fi
 DEPENDENCIES="$dependencies_text" OWNED_PATHS="$owned_paths_text" \
   TASK_TYPE="$task_type" \
   COMMIT_TYPE="$commit_type" COMMIT_SCOPE="$commit_scope" \
@@ -265,6 +339,8 @@ DEPENDENCIES="$dependencies_text" OWNED_PATHS="$owned_paths_text" \
   SUPERSEDES_SYMBOLS="$supersedes_symbols_text" \
   SUPERSEDES_TARGETS="$supersedes_targets_text" \
   RETIRES_LEASES="$retires_leases_text" \
+  DELIVERY_PLAN="$delivery_plan" REQUIREMENT_IDS="$requirement_ids_text" \
+  DELIVERY_ROLE="$delivery_role" \
   python3 -B - \
     "$root" "$task_id" "$slug" "$workstream" "$destination" "$record" <<'PY'
 import json
@@ -276,6 +352,7 @@ root_value, task_id, slug, workstream, spec_value, record_value = sys.argv[1:]
 root = Path(root_value)
 sys.path.insert(0, str(root / "tool" / "harness"))
 from trusted_gates import load_gate_registry
+import delivery_plan as delivery_plan_contract
 
 spec_path = Path(spec_value)
 record_path = Path(record_value)
@@ -293,6 +370,21 @@ commit = {
     "summary": os.environ["COMMIT_SUMMARY"],
 }
 task_type = os.environ["TASK_TYPE"]
+delivery_plan = os.environ["DELIVERY_PLAN"]
+requirement_ids = [
+    value for value in os.environ["REQUIREMENT_IDS"].splitlines() if value
+]
+delivery_role = os.environ["DELIVERY_ROLE"]
+if delivery_plan:
+    registration_errors = delivery_plan_contract.validate_registration(
+        root,
+        task_id,
+        delivery_plan,
+        requirement_ids,
+        delivery_role,
+    )
+    if registration_errors:
+        raise SystemExit("\n".join(registration_errors))
 architecture_change = {
     "mode": os.environ["ARCHITECTURE_MODE"],
     "modules": [
@@ -338,13 +430,22 @@ backlog["tasks"].append(
     {
         "id": task_id,
         "title": title,
-        "readiness": "ready",
+        "readiness": "blocked" if delivery_plan else "ready",
         "risk_profile_required": True,
         "commit_policy_required": True,
         "architecture_contract_required": True,
         "workstream": workstream,
         "depends_on": dependencies,
         "owned_paths": owned_paths,
+        **(
+            {
+                "delivery_plan": delivery_plan,
+                "requirement_ids": requirement_ids,
+                "delivery_role": delivery_role,
+            }
+            if delivery_plan
+            else {}
+        ),
     }
 )
 backlog_path.write_text(
@@ -382,6 +483,9 @@ workstream: {workstream}
 owner: unassigned
 depends_on:{yaml_list(dependencies)}
 owned_paths:{yaml_list(owned_paths)}
+{f"delivery_plan: {delivery_plan}" if delivery_plan else ""}
+{f"requirement_ids:{yaml_list(requirement_ids)}" if delivery_plan else ""}
+{f"delivery_role: {delivery_role}" if delivery_plan else ""}
 contract_changes: []
 handoff: .agents/handoffs/{task_id}.md
 ---
@@ -429,6 +533,15 @@ make verify
 record = {
     "schema_version": 3,
     "id": task_id,
+    **(
+        {
+            "delivery_plan": delivery_plan,
+            "requirement_ids": requirement_ids,
+            "delivery_role": delivery_role,
+        }
+        if delivery_plan
+        else {}
+    ),
     "task_type": task_type,
     "state": "ready",
     "owner": "unassigned",

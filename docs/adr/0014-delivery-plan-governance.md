@@ -1,8 +1,9 @@
 # ADR 0014: Delivery Plan governance
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-08-09
 - Proposed by task: XT-063
+- Accepted by task: XT-063
 
 ## Context
 
@@ -30,7 +31,7 @@ missing coverage.
 
 Add versioned Delivery Plan documents under `.agents/plans/`. A plan owns:
 
-- a stable plan ID and roadmap source;
+- a stable plan ID and roadmap or governance source;
 - stable requirement IDs and observable acceptance criteria;
 - the implementation task IDs and one acceptance task for each requirement;
 - explicit plan status and attributed approval.
@@ -43,7 +44,8 @@ Task catalogue entries and task-spec front matter carry the inverse binding:
 
 - plan ID;
 - covered requirement IDs;
-- task role.
+- task role: `implementation`, `acceptance`, or
+  `implementation_acceptance`.
 
 The validator checks both directions. This makes an omitted or stale mapping a
 hard error without introducing another task graph.
@@ -63,6 +65,15 @@ Approval is an attributed integration-owner decision recorded with an
 RFC 3339 timestamp. Approval succeeds only after the complete plan and all
 registered task bindings validate. Any semantic plan change returns the plan
 to draft and requires a new approval.
+
+Approval stores a canonical SHA-256 over the plan source, requirements,
+acceptance criteria, and task mappings. Status, approval metadata, and
+supersession bookkeeping are excluded. Governance recomputes the digest, so an
+approved plan cannot retain approval after an unreviewed semantic edit.
+
+Approved plan entries become scheduler-ready, but claim still requires every
+declared dependency to have durable `done` state. Claim checks plan approval
+and dependencies before creating a branch or worktree.
 
 Plans do not store derived task status. Status views are generated from the
 approved plan, durable task records, and active task branches.

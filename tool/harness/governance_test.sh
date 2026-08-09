@@ -8,6 +8,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 python3 -B "$root/tool/harness/trusted_gates_test.py"
 python3 -B "$root/tool/harness/defect_proof_test.py"
 python3 -B "$root/tool/harness/task_conflicts_test.py"
+python3 -B "$root/tool/harness/delivery_plan_test.py"
 temporary="$(mktemp -d)"
 repository="$temporary/repository"
 task_id="XT-999"
@@ -35,6 +36,7 @@ root = Path(sys.argv[1])
 task_id, inherited_head = sys.argv[2:]
 sys.path.insert(0, str(root / "tool" / "harness"))
 from trusted_gates import load_gate_registry
+import delivery_plan
 
 manifest_path = root / ".agents" / "manifest.yaml"
 manifest = manifest_path.read_text(encoding="utf-8")
@@ -96,6 +98,9 @@ backlog["tasks"].append(
         "workstream": "integration",
         "depends_on": [],
         "owned_paths": ["protocol/testdata/governance-fixture.txt"],
+        "delivery_plan": "DP-GOVERNANCE-FIXTURE",
+        "requirement_ids": ["REQ-GOVERNANCE-LIFECYCLE"],
+        "delivery_role": "implementation_acceptance",
     }
 )
 backlog_path.write_text(json.dumps(backlog, indent=2) + "\n", encoding="utf-8")
@@ -111,6 +116,10 @@ initial_owner: unassigned
 depends_on: []
 owned_paths:
   - protocol/testdata/governance-fixture.txt
+delivery_plan: DP-GOVERNANCE-FIXTURE
+requirement_ids:
+  - REQ-GOVERNANCE-LIFECYCLE
+delivery_role: implementation_acceptance
 contract_changes: []
 ---
 
@@ -124,6 +133,9 @@ Exercise the governance state machine in an isolated clone.
 record = {
     "schema_version": 2,
     "id": task_id,
+    "delivery_plan": "DP-GOVERNANCE-FIXTURE",
+    "requirement_ids": ["REQ-GOVERNANCE-LIFECYCLE"],
+    "delivery_role": "implementation_acceptance",
     "task_type": "test",
     "state": "ready",
     "owner": "unassigned",
@@ -206,6 +218,43 @@ record = {
     },
     "acceptance": {"accepted_by": "", "accepted_at": "", "note": ""},
 }
+plans = root / ".agents" / "plans"
+plans.mkdir(parents=True, exist_ok=True)
+fixture_plan = {
+    "schema_version": 1,
+    "id": "DP-GOVERNANCE-FIXTURE",
+    "title": "Governance lifecycle fixture",
+    "status": "approved",
+    "source": {
+        "kind": "governance",
+        "path": ".agents/manifest.yaml",
+    },
+    "requirements": [
+        {
+            "id": "REQ-GOVERNANCE-LIFECYCLE",
+            "source_ref": "GOVERNANCE-LIFECYCLE",
+            "statement": "Exercise one complete governed lifecycle.",
+            "acceptance_criteria": [
+                "The isolated task reaches accepted state."
+            ],
+            "implementation_tasks": [task_id],
+            "acceptance_task": task_id,
+        }
+    ],
+    "approval": {
+        "approved_by": "harness-test",
+        "approved_at": "2000-01-01T00:00:00+00:00",
+        "content_sha256": "",
+    },
+    "superseded_by": "",
+}
+fixture_plan["approval"]["content_sha256"] = delivery_plan.approval_digest(
+    fixture_plan
+)
+(plans / "DP-GOVERNANCE-FIXTURE.json").write_text(
+    json.dumps(fixture_plan, indent=2) + "\n",
+    encoding="utf-8",
+)
 record_path = root / ".agents" / "records" / f"{task_id}.json"
 record_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 PY
@@ -213,6 +262,7 @@ PY
 git -C "$repository" add \
   .agents/manifest.yaml \
   .agents/backlog.yaml \
+  .agents/plans \
   ".agents/tasks/$task_id-governance-lifecycle.md" \
   .agents/records
 git -C "$repository" commit \
@@ -991,6 +1041,50 @@ if "$archived_repository/tool/harness/governance.py" \
 fi
 "$repository/tool/harness/agent.sh" validate >/dev/null
 
+python3 - "$repository" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+plan = {
+    "schema_version": 1,
+    "id": "DP-TASK-GENERATOR-FIXTURE",
+    "title": "Task generator fixture",
+    "status": "draft",
+    "source": {
+        "kind": "governance",
+        "path": ".agents/manifest.yaml",
+    },
+    "requirements": [
+        {
+            "id": "REQ-GENERATE-FEATURE",
+            "source_ref": "GOVERNANCE-GENERATE-FEATURE",
+            "statement": "Generate one plan-bound feature task.",
+            "acceptance_criteria": ["The generated metadata is complete."],
+            "implementation_tasks": ["XT-998"],
+            "acceptance_task": "XT-998",
+        },
+        {
+            "id": "REQ-GENERATE-BUGFIX",
+            "source_ref": "GOVERNANCE-GENERATE-BUGFIX",
+            "statement": "Generate one plan-bound bugfix task.",
+            "acceptance_criteria": ["The generated defect contract is complete."],
+            "implementation_tasks": ["XT-997"],
+            "acceptance_task": "XT-997",
+        },
+    ],
+    "approval": {
+        "approved_by": "",
+        "approved_at": "",
+        "content_sha256": "",
+    },
+    "superseded_by": "",
+}
+path = root / ".agents" / "plans" / "DP-TASK-GENERATOR-FIXTURE.json"
+path.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+PY
+
 if "$repository/tool/harness/new_task.sh" \
   XT-997 invalid-type-fixture integration \
   --task-type incident \
@@ -1009,6 +1103,9 @@ fi
   --commit-scope harness \
   --commit-summary 'exercise generated task governance' \
   --architecture-mode none \
+  --delivery-plan DP-TASK-GENERATOR-FIXTURE \
+  --requirement-id REQ-GENERATE-FEATURE \
+  --delivery-role implementation_acceptance \
   --owned '.agents/handoffs/XT-998.md' >/dev/null
 test -f "$repository/.agents/tasks/XT-998-no-dependency-fixture.md"
 test -f "$repository/.agents/records/XT-998.json"
@@ -1020,6 +1117,9 @@ test -f "$repository/.agents/records/XT-998.json"
   --commit-scope harness \
   --commit-summary 'exercise generated bugfix governance' \
   --architecture-mode none \
+  --delivery-plan DP-TASK-GENERATOR-FIXTURE \
+  --requirement-id REQ-GENERATE-BUGFIX \
+  --delivery-role implementation_acceptance \
   --owned '.agents/handoffs/XT-997.md' >/dev/null
 test -f "$repository/.agents/tasks/XT-997-bugfix-fixture.md"
 test -f "$repository/.agents/records/XT-997.json"
@@ -1033,15 +1133,22 @@ root = Path(sys.argv[1])
 with (root / ".agents" / "backlog.yaml").open(encoding="utf-8") as source:
     backlog = json.load(source)
 task = next(item for item in backlog["tasks"] if item["id"] == "XT-998")
+assert task["readiness"] == "blocked"
 assert task["risk_profile_required"] is True
 assert task["commit_policy_required"] is True
 assert task["architecture_contract_required"] is True
+assert task["delivery_plan"] == "DP-TASK-GENERATOR-FIXTURE"
+assert task["requirement_ids"] == ["REQ-GENERATE-FEATURE"]
+assert task["delivery_role"] == "implementation_acceptance"
 
 record = json.loads(
     (root / ".agents" / "records" / "XT-998.json").read_text(encoding="utf-8")
 )
 assert record["schema_version"] == 3
 assert record["task_type"] == "feature"
+assert record["delivery_plan"] == "DP-TASK-GENERATOR-FIXTURE"
+assert record["requirement_ids"] == ["REQ-GENERATE-FEATURE"]
+assert record["delivery_role"] == "implementation_acceptance"
 assert record["commit"] == {
     "type": "test",
     "scope": "harness",
