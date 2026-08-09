@@ -1079,6 +1079,29 @@
         "tool/harness/new_task.sh",
         "Makefile"
       ]
+    },
+    {
+      "id": "XT-065",
+      "title": "Restore storage formatting",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-027"
+      ],
+      "owned_paths": [
+        "native/include/xnn_transfer/core/storage/storage.hpp",
+        "native/src/storage/filesystem_backend.cpp",
+        "native/src/storage/path_validator.cpp",
+        "native/src/storage/receive_transaction.cpp"
+      ],
+      "delivery_plan": "DP-STORAGE-FORMAT-REPAIR",
+      "requirement_ids": [
+        "REQ-STORAGE-FORMAT-REPAIR"
+      ],
+      "delivery_role": "implementation_acceptance"
     }
   ]
 }

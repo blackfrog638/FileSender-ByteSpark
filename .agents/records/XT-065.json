@@ -1,0 +1,112 @@
+{
+  "schema_version": 3,
+  "id": "XT-065",
+  "delivery_plan": "DP-STORAGE-FORMAT-REPAIR",
+  "requirement_ids": [
+    "REQ-STORAGE-FORMAT-REPAIR"
+  ],
+  "delivery_role": "implementation_acceptance",
+  "task_type": "refactor",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-065.md",
+  "commit": {
+    "type": "style",
+    "scope": "storage",
+    "summary": "restore project storage formatting"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "low",
+      "rationale": "A formatting-only rewrite could accidentally alter a token in the accepted storage implementation.",
+      "gates": [
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "none",
+      "rationale": "The task preserves all storage security logic and permits no token-level change.",
+      "gates": []
+    },
+    "performance": {
+      "level": "none",
+      "rationale": "Whitespace and line wrapping do not alter generated code or performance.",
+      "gates": []
+    },
+    "compatibility": {
+      "level": "low",
+      "rationale": "Public and internal C++ tokens must remain identical while formatting is restored.",
+      "gates": [
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "The task changes no executable concurrency behavior.",
+      "gates": []
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "The restored project format must pass the cross-platform repository source gate.",
+      "gates": [
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The task changes no storage format, file operation, or persisted state.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "Restoring checked-in source formatting changes no architectural or product decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "No runtime module, target, dependency, or ownership boundary changes."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task restores an engineering gate and does not deliver roadmap behavior."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "verify"
+    ],
+    "commands": [
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}
