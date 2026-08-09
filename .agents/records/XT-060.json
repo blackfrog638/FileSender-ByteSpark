@@ -2,10 +2,10 @@
   "schema_version": 3,
   "id": "XT-060",
   "task_type": "feature",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "pairing-wire-contract-agent",
+  "base_sha": "24cee4258887fd883de0fb9619004923568a5098",
+  "head_sha": "82697d72704e260fa4015218c0b4c6a11098b68d",
   "handoff": ".agents/handoffs/XT-060.md",
   "commit": {
     "type": "feat",
@@ -106,12 +106,23 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "24cee4258887fd883de0fb9619004923568a5098",
+    "source_head": "d2cda697826bc5bed0eb37208b629c03e912a4ad",
+    "source_commits": [
+      "81980f36b0b59e008123564e9d112f55d7c0427e",
+      "b20675d315695d528d7d72e96c9deee0bdb024c1",
+      "82697d72704e260fa4015218c0b4c6a11098b68d",
+      "d2cda697826bc5bed0eb37208b629c03e912a4ad"
+    ],
+    "source_commits_sha256": "c52a039c46e2bf33b9e0e96bf7d452702298355f3143a76dbffe3e021ab5e022",
+    "source_patch_id": "9d23fc062588a63fe340a17388de43dbd7874032",
+    "result": "",
+    "result_patch_id": "9d23fc062588a63fe340a17388de43dbd7874032",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "security_vectors",
       "security_test",
@@ -122,7 +133,7 @@
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:82697d72704e260fa4015218c0b4c6a11098b68d:2026-08-09T04:47:45Z"
   },
   "acceptance": {
     "accepted_by": "",

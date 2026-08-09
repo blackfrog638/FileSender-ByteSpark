@@ -27,6 +27,25 @@ The harness must support deterministic nonces and exporter fixtures for unit
 and golden tests. Production entropy must never be replaced by deterministic
 test entropy outside an explicitly test-only build.
 
+## Pairing-control golden evidence
+
+`protocol/testdata/security/v1/pairing-control-vectors.json` provides the
+wire-level golden evidence owned by the pairing-control specification:
+
+| Rows | Golden evidence | Remaining runtime evidence |
+| --- | --- | --- |
+| P-03, P-04 | fresh-context confirmation replay plus duplicate HELLO and post-confirm decision rejection | XT-025 live attempt replay set and idempotent local callback behavior |
+| P-05, P-06, P-07 | role swap, deterministic transcript/context binding, exact profile/ALPN, and downgrade rejection | XT-025 live TLS/session integration |
+| P-09, P-10, P-17, P-18 | authenticated rejection, peer-confirm-first ordering, commit failure, and cancellation-before-commit are explicit terminal fixtures | XT-025 protected-store fault injection, crash, and executor race tests |
+| P-13, P-19 | exact certificate-key equality plus strict canonical message fields | XT-061 pre-handshake certificate byte enforcement and XT-025 parser integration |
+| T-01, T-02, T-09 | exact active-pin reconnect, stored floor, fresh-handshake flags, kind-`04` context, and both finished values are fixed; wrong pin, lower floor, and invalid finished reject | XT-025 live TLS reconnect, resumption/early-data, and metadata-override tests |
+| T-03 through T-05 | exact non-overlapping ALPN modes and registered profile policy | XT-025 live provider configuration tests |
+| T-06 through T-10 | context/role/profile/version/capability binding and hostile canonical controls | XT-025 cross-connection state integration |
+| R-03 through R-06, R-09 through R-12 | public abort classes, byte/message/admission/deadline ceilings, and one terminal transition are normative | XT-025 timers, admission, concurrency, and oracle tests |
+
+These vectors are specification evidence, not runtime passes. A row remains
+open while its remaining owner has no executable implementation evidence.
+
 ## Discovery and candidate handling
 
 | ID | Attack or fault | Required result |
