@@ -31,6 +31,13 @@ constexpr std::string_view kOptionalCipher = "TLS_CHACHA20_POLY1305_SHA256";
 constexpr std::string_view kKeyExchangeGroup = "X25519";
 constexpr std::string_view kSignatureAlgorithm = "ed25519";
 constexpr long kCertificateLifetimeSeconds = 10L * 365L * 24L * 60L * 60L;
+constexpr int kMaxPeerCertificateDerBytes = 4'096;
+constexpr long kMaxPeerCertificateListBytes = 8'192;
+// OpenSSL excludes the four-byte handshake header, but includes these TLS 1.3
+// request-context and certificate-list length fields in max_cert_list.
+constexpr long kTls13CertificateBodyOverhead = 4;
+constexpr long kMaxPeerCertificateMessageBodyBytes =
+    kTls13CertificateBodyOverhead + kMaxPeerCertificateListBytes;
 
 using ContextPointer = std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>;
 using KeyPointer = std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)>;
@@ -44,8 +51,13 @@ using CertificatePointer = std::unique_ptr<X509, decltype(&X509_free)>;
     return 0;
   }
   X509* const certificate = X509_STORE_CTX_get_current_cert(store_context);
-  if (certificate == nullptr || X509_NAME_cmp(X509_get_subject_name(certificate),
-                                              X509_get_issuer_name(certificate)) != 0) {
+  const int encoded_size = certificate == nullptr ? -1 : i2d_X509(certificate, nullptr);
+  STACK_OF(X509)* const untrusted_chain = X509_STORE_CTX_get0_untrusted(store_context);
+  if (untrusted_chain == nullptr || sk_X509_num(untrusted_chain) != 1 ||
+      sk_X509_value(untrusted_chain, 0) != certificate || encoded_size <= 0 ||
+      encoded_size > kMaxPeerCertificateDerBytes ||
+      X509_NAME_cmp(X509_get_subject_name(certificate),
+                    X509_get_issuer_name(certificate)) != 0) {
     return 0;
   }
 
@@ -178,8 +190,14 @@ namespace {
                                              const std::vector<std::uint8_t>& alpn,
                                              X509* const certificate,
                                              EVP_PKEY* const private_key) {
-  if (context == nullptr ||
-      SSL_CTX_set_min_proto_version(context, TLS1_3_VERSION) != 1 ||
+  if (context == nullptr) {
+    return SecurityError::kTlsConfigurationFailure;
+  }
+  static_cast<void>(
+      SSL_CTX_set_max_cert_list(context, kMaxPeerCertificateMessageBodyBytes));
+  SSL_CTX_set_verify_depth(context, 0);
+
+  if (SSL_CTX_set_min_proto_version(context, TLS1_3_VERSION) != 1 ||
       SSL_CTX_set_max_proto_version(context, TLS1_3_VERSION) != 1 ||
       SSL_CTX_set_ciphersuites(context, kTls13CipherSuites.data()) != 1 ||
       SSL_CTX_set1_groups_list(context, kKeyExchangeGroup.data()) != 1 ||
@@ -196,7 +214,9 @@ namespace {
   const std::uint64_t options = SSL_CTX_set_options(context, SSL_OP_NO_TICKET);
   if ((options & SSL_OP_NO_TICKET) == 0 ||
       SSL_CTX_get_min_proto_version(context) != TLS1_3_VERSION ||
-      SSL_CTX_get_max_proto_version(context) != TLS1_3_VERSION) {
+      SSL_CTX_get_max_proto_version(context) != TLS1_3_VERSION ||
+      SSL_CTX_get_max_cert_list(context) != kMaxPeerCertificateMessageBodyBytes ||
+      SSL_CTX_get_verify_depth(context) != 0) {
     return SecurityError::kTlsConfigurationFailure;
   }
 
@@ -263,8 +283,16 @@ namespace {
 [[nodiscard]] Result<ValidatedEd25519PublicKey> ExtractValidatedPeerPublicKey(
     SSL* const connection) {
   X509* const certificate = SSL_get0_peer_certificate(connection);
+  STACK_OF(X509)* const presented_chain = SSL_get_peer_cert_chain(connection);
   STACK_OF(X509)* const verified_chain = SSL_get0_verified_chain(connection);
-  if (certificate == nullptr || verified_chain == nullptr ||
+  const int presented_chain_size =
+      presented_chain == nullptr ? -1 : sk_X509_num(presented_chain);
+  const bool exact_presented_chain =
+      SSL_is_server(connection) == 1
+          ? presented_chain_size == 0
+          : presented_chain_size == 1 &&
+                sk_X509_value(presented_chain, 0) == certificate;
+  if (certificate == nullptr || !exact_presented_chain || verified_chain == nullptr ||
       sk_X509_num(verified_chain) != 1 ||
       sk_X509_value(verified_chain, 0) != certificate ||
       X509_NAME_cmp(X509_get_subject_name(certificate),

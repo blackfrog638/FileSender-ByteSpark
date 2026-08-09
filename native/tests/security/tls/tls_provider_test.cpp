@@ -1,7 +1,11 @@
 #include "xnn_transfer/core/security/tls/tls_provider.hpp"
 
+#include <openssl/asn1.h>
 #include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/objects.h>
 #include <openssl/ssl.h>
+#include <openssl/x509.h>
 
 #include <algorithm>
 #include <array>
@@ -13,6 +17,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
@@ -30,6 +35,20 @@ namespace tls = xnn_transfer::core::security::tls;
 using SslPointer = std::unique_ptr<SSL, decltype(&SSL_free)>;
 using SessionPointer = std::unique_ptr<SSL_SESSION, decltype(&SSL_SESSION_free)>;
 using ContextPointer = std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>;
+using CertificatePointer = std::unique_ptr<X509, decltype(&X509_free)>;
+using ExtensionPointer =
+    std::unique_ptr<X509_EXTENSION, decltype(&X509_EXTENSION_free)>;
+using ObjectPointer = std::unique_ptr<ASN1_OBJECT, decltype(&ASN1_OBJECT_free)>;
+using OctetStringPointer =
+    std::unique_ptr<ASN1_OCTET_STRING, decltype(&ASN1_OCTET_STRING_free)>;
+
+constexpr long kMaxPeerCertificateListBytes = 8'192;
+constexpr long kTls13CertificateBodyOverhead = 4;
+constexpr long kMaxPeerCertificateMessageBodyBytes =
+    kTls13CertificateBodyOverhead + kMaxPeerCertificateListBytes;
+constexpr std::size_t kMaxPeerCertificateDerBytes = 4'096;
+constexpr std::size_t kTls13CertificateEntryOverhead = 5;
+constexpr std::size_t kFragmentedTransportBufferBytes = 257;
 
 static_assert(!std::is_copy_constructible_v<tls::VerifiedTlsConnection>);
 static_assert(!std::is_copy_assignable_v<tls::VerifiedTlsConnection>);
@@ -43,6 +62,31 @@ void Expect(const bool condition, const std::string_view message) {
     return;
   }
   std::cerr << "FAILED: " << message << '\n';
+  ++failures;
+}
+
+struct HandshakeFailure {
+  tls::TlsEndpointRole role{};
+  int reason{};
+};
+
+void ExpectReason(const std::optional<HandshakeFailure>& failure,
+                  const tls::TlsEndpointRole expected_role, const int expected_reason,
+                  const std::string_view message) {
+  if (failure.has_value() && failure->role == expected_role &&
+      failure->reason == expected_reason) {
+    return;
+  }
+  std::cerr << "FAILED: " << message << " (expected "
+            << (expected_role == tls::TlsEndpointRole::kClient ? "client" : "server")
+            << " OpenSSL reason " << expected_reason << ", got ";
+  if (failure.has_value()) {
+    std::cerr << (failure->role == tls::TlsEndpointRole::kClient ? "client" : "server")
+              << " reason " << failure->reason;
+  } else {
+    std::cerr << "no handshake error";
+  }
+  std::cerr << ")\n";
   ++failures;
 }
 
@@ -134,10 +178,12 @@ bool AdvanceHandshake(SSL* const connection, bool& complete) {
   return error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE;
 }
 
-bool CompleteHandshake(SSL* const client, SSL* const server) {
+bool CompleteHandshake(SSL* const client, SSL* const server,
+                       const std::size_t transport_buffer_size = 0) {
   BIO* client_bio = nullptr;
   BIO* server_bio = nullptr;
-  if (BIO_new_bio_pair(&client_bio, 0, &server_bio, 0) != 1) {
+  if (BIO_new_bio_pair(&client_bio, transport_buffer_size, &server_bio,
+                       transport_buffer_size) != 1) {
     return false;
   }
   SSL_set_bio(client, client_bio, client_bio);
@@ -159,7 +205,8 @@ bool CompleteHandshake(SSL* const client, SSL* const server) {
 
 std::optional<Handshake> Connect(SSL_CTX* const client_context,
                                  SSL_CTX* const server_context,
-                                 SSL_SESSION* const requested_session = nullptr) {
+                                 SSL_SESSION* const requested_session = nullptr,
+                                 const std::size_t transport_buffer_size = 0) {
   Handshake handshake{
       .client = SslPointer(SSL_new(client_context), &SSL_free),
       .server = SslPointer(SSL_new(server_context), &SSL_free),
@@ -171,10 +218,56 @@ std::optional<Handshake> Connect(SSL_CTX* const client_context,
       SSL_set_session(handshake.client.get(), requested_session) != 1) {
     return std::nullopt;
   }
-  if (!CompleteHandshake(handshake.client.get(), handshake.server.get())) {
+  if (!CompleteHandshake(handshake.client.get(), handshake.server.get(),
+                         transport_buffer_size)) {
     return std::nullopt;
   }
   return handshake;
+}
+
+std::optional<HandshakeFailure> HandshakeFailureReason(
+    SSL_CTX* const client_context, SSL_CTX* const server_context,
+    const std::size_t transport_buffer_size) {
+  Handshake handshake{
+      .client = SslPointer(SSL_new(client_context), &SSL_free),
+      .server = SslPointer(SSL_new(server_context), &SSL_free),
+  };
+  if (!handshake.client || !handshake.server) {
+    return std::nullopt;
+  }
+
+  BIO* client_bio = nullptr;
+  BIO* server_bio = nullptr;
+  if (BIO_new_bio_pair(&client_bio, transport_buffer_size, &server_bio,
+                       transport_buffer_size) != 1) {
+    return std::nullopt;
+  }
+  SSL_set_bio(handshake.client.get(), client_bio, client_bio);
+  SSL_set_bio(handshake.server.get(), server_bio, server_bio);
+  SSL_set_connect_state(handshake.client.get());
+  SSL_set_accept_state(handshake.server.get());
+
+  for (std::size_t iteration = 0; iteration < 1024; ++iteration) {
+    for (const auto& [role, connection] :
+         std::array<std::pair<tls::TlsEndpointRole, SSL*>, 2>{
+             std::pair{tls::TlsEndpointRole::kClient, handshake.client.get()},
+             std::pair{tls::TlsEndpointRole::kServer, handshake.server.get()}}) {
+      ERR_clear_error();
+      const int result = SSL_do_handshake(connection);
+      if (result == 1) {
+        continue;
+      }
+      const int error = SSL_get_error(connection, result);
+      if (error == SSL_ERROR_WANT_READ || error == SSL_ERROR_WANT_WRITE) {
+        continue;
+      }
+      const unsigned long error_code = ERR_peek_last_error();
+      return error_code == 0 ? std::nullopt
+                             : std::optional<HandshakeFailure>(
+                                   HandshakeFailure{role, ERR_GET_REASON(error_code)});
+    }
+  }
+  return std::nullopt;
 }
 
 bool ReconnectClient(Handshake& handshake, SSL_CTX* const server_context) {
@@ -184,6 +277,190 @@ bool ReconnectClient(Handshake& handshake, SSL_CTX* const server_context) {
   handshake.server.reset(SSL_new(server_context));
   return handshake.server != nullptr &&
          CompleteHandshake(handshake.client.get(), handshake.server.get());
+}
+
+CertificatePointer BuildPaddedIdentityCertificate(SSL_CTX* const context,
+                                                  const std::size_t padding_size) {
+  X509* const source = SSL_CTX_get0_certificate(context);
+  EVP_PKEY* const private_key = SSL_CTX_get0_privatekey(context);
+  CertificatePointer certificate(source == nullptr ? nullptr : X509_dup(source),
+                                 &X509_free);
+  ObjectPointer object(OBJ_txt2obj("1.3.6.1.4.1.55555.1", 1), &ASN1_OBJECT_free);
+  OctetStringPointer padding(ASN1_OCTET_STRING_new(), &ASN1_OCTET_STRING_free);
+  if (!certificate || private_key == nullptr || !object || !padding ||
+      padding_size > static_cast<std::size_t>((std::numeric_limits<int>::max)())) {
+    return CertificatePointer(nullptr, &X509_free);
+  }
+
+  const std::vector<unsigned char> padding_bytes(padding_size, 0xa5U);
+  if (ASN1_OCTET_STRING_set(padding.get(), padding_bytes.data(),
+                            static_cast<int>(padding_bytes.size())) != 1) {
+    return CertificatePointer(nullptr, &X509_free);
+  }
+  ExtensionPointer extension(
+      X509_EXTENSION_create_by_OBJ(nullptr, object.get(), 0, padding.get()),
+      &X509_EXTENSION_free);
+  if (!extension || X509_add_ext(certificate.get(), extension.get(), -1) != 1 ||
+      X509_sign(certificate.get(), private_key, nullptr) <= 0) {
+    return CertificatePointer(nullptr, &X509_free);
+  }
+  return certificate;
+}
+
+CertificatePointer BuildIdentityCertificateWithEncodedSize(
+    SSL_CTX* const context, const std::size_t target_size) {
+  std::size_t lower = 0;
+  std::size_t upper = target_size;
+  while (lower <= upper) {
+    const std::size_t padding_size = lower + ((upper - lower) / 2);
+    CertificatePointer certificate =
+        BuildPaddedIdentityCertificate(context, padding_size);
+    if (!certificate) {
+      return CertificatePointer(nullptr, &X509_free);
+    }
+    const int encoded_size = i2d_X509(certificate.get(), nullptr);
+    if (encoded_size <= 0) {
+      return CertificatePointer(nullptr, &X509_free);
+    }
+    const std::size_t actual_size = static_cast<std::size_t>(encoded_size);
+    if (actual_size == target_size) {
+      return certificate;
+    }
+    if (actual_size < target_size) {
+      lower = padding_size + 1;
+      continue;
+    }
+    if (padding_size == 0) {
+      break;
+    }
+    upper = padding_size - 1;
+  }
+  return CertificatePointer(nullptr, &X509_free);
+}
+
+bool InstallIdentityCertificate(SSL_CTX* const context, X509* const certificate) {
+  return context != nullptr && certificate != nullptr &&
+         SSL_CTX_use_certificate(context, certificate) == 1 &&
+         SSL_CTX_check_private_key(context) == 1;
+}
+
+struct PeerCertificateDirection {
+  SSL_CTX* client_context{};
+  SSL_CTX* server_context{};
+  SSL_CTX* sending_context{};
+  tls::TlsEndpointRole rejecting_role{};
+  std::string_view description{};
+};
+
+std::string Described(const PeerCertificateDirection& direction,
+                      const std::string_view behavior) {
+  std::string result(direction.description);
+  result += " ";
+  result += behavior;
+  return result;
+}
+
+void TestPeerCertificateBoundsForDirection(const PeerCertificateDirection& direction) {
+  CertificatePointer original(
+      X509_dup(SSL_CTX_get0_certificate(direction.sending_context)), &X509_free);
+  CertificatePointer below_der = BuildIdentityCertificateWithEncodedSize(
+      direction.sending_context, kMaxPeerCertificateDerBytes - 1);
+  CertificatePointer exact_der = BuildIdentityCertificateWithEncodedSize(
+      direction.sending_context, kMaxPeerCertificateDerBytes);
+  CertificatePointer above_der = BuildIdentityCertificateWithEncodedSize(
+      direction.sending_context, kMaxPeerCertificateDerBytes + 1);
+  CertificatePointer below_list = BuildIdentityCertificateWithEncodedSize(
+      direction.sending_context,
+      static_cast<std::size_t>(kMaxPeerCertificateListBytes) - 1 -
+          kTls13CertificateEntryOverhead);
+  CertificatePointer exact_list = BuildIdentityCertificateWithEncodedSize(
+      direction.sending_context,
+      static_cast<std::size_t>(kMaxPeerCertificateListBytes) -
+          kTls13CertificateEntryOverhead);
+  CertificatePointer above_list = BuildIdentityCertificateWithEncodedSize(
+      direction.sending_context,
+      static_cast<std::size_t>(kMaxPeerCertificateListBytes) + 1 -
+          kTls13CertificateEntryOverhead);
+
+  const bool fixtures_ready = original && below_der && exact_der && above_der &&
+                              below_list && exact_list && above_list;
+  Expect(fixtures_ready,
+         Described(direction, "constructs exact certificate boundary fixtures"));
+  if (!fixtures_ready) {
+    return;
+  }
+
+  auto expect_success = [&](X509* const certificate, const std::string_view behavior) {
+    const bool installed =
+        SSL_CTX_clear_chain_certs(direction.sending_context) == 1 &&
+        InstallIdentityCertificate(direction.sending_context, certificate);
+    Expect(installed, Described(direction, "installs a valid boundary certificate"));
+    if (installed) {
+      Expect(Connect(direction.client_context, direction.server_context, nullptr,
+                     kFragmentedTransportBufferBytes)
+                 .has_value(),
+             Described(direction, behavior));
+    }
+  };
+  auto expect_failure = [&](X509* const certificate, const int expected_reason,
+                            const std::string_view behavior) {
+    const bool installed =
+        SSL_CTX_clear_chain_certs(direction.sending_context) == 1 &&
+        InstallIdentityCertificate(direction.sending_context, certificate);
+    Expect(installed, Described(direction, "installs a hostile boundary certificate"));
+    if (installed) {
+      const auto reason =
+          HandshakeFailureReason(direction.client_context, direction.server_context,
+                                 kFragmentedTransportBufferBytes);
+      ExpectReason(reason, direction.rejecting_role, expected_reason,
+                   Described(direction, behavior));
+    }
+  };
+
+  expect_success(below_der.get(),
+                 "accepts a fragmented certificate below the DER ceiling");
+  expect_success(exact_der.get(),
+                 "accepts a fragmented certificate at the DER ceiling");
+  expect_failure(above_der.get(), SSL_R_CERTIFICATE_VERIFY_FAILED,
+                 "rejects a fragmented certificate above the DER ceiling");
+
+  expect_failure(below_list.get(), SSL_R_CERTIFICATE_VERIFY_FAILED,
+                 "parses a below-limit certificate message before rejecting its leaf");
+  expect_failure(
+      exact_list.get(), SSL_R_CERTIFICATE_VERIFY_FAILED,
+      "parses the exact-limit certificate message before rejecting its leaf");
+  expect_failure(
+      above_list.get(), SSL_R_EXCESSIVE_MESSAGE_SIZE,
+      "rejects an above-limit certificate message before certificate parsing");
+
+  const bool chain_configured =
+      SSL_CTX_clear_chain_certs(direction.sending_context) == 1 &&
+      InstallIdentityCertificate(direction.sending_context, original.get()) &&
+      SSL_CTX_add1_chain_cert(direction.sending_context, below_der.get()) == 1;
+  Expect(chain_configured,
+         Described(direction, "constructs a two-certificate hostile chain"));
+  if (chain_configured) {
+    const auto reason =
+        HandshakeFailureReason(direction.client_context, direction.server_context,
+                               kFragmentedTransportBufferBytes);
+    ExpectReason(
+        reason, direction.rejecting_role, SSL_R_CERTIFICATE_VERIFY_FAILED,
+        Described(direction, "rejects a peer chain containing two certificates"));
+  }
+
+  Expect(SSL_CTX_clear_chain_certs(direction.sending_context) == 1 &&
+             InstallIdentityCertificate(direction.sending_context, original.get()),
+         Described(direction, "restores its original identity certificate"));
+}
+
+void TestPeerCertificateBounds(const tls::OpenSslTlsContext& client,
+                               const tls::OpenSslTlsContext& server) {
+  TestPeerCertificateBoundsForDirection(PeerCertificateDirection{
+      client.native_handle(), server.native_handle(), server.native_handle(),
+      tls::TlsEndpointRole::kClient, "client endpoint"});
+  TestPeerCertificateBoundsForDirection(PeerCertificateDirection{
+      client.native_handle(), server.native_handle(), client.native_handle(),
+      tls::TlsEndpointRole::kServer, "server endpoint"});
 }
 
 void TestConfiguration(const tls::OpenSslTlsContext& client,
@@ -199,6 +476,10 @@ void TestConfiguration(const tls::OpenSslTlsContext& client,
     Expect(SSL_CTX_get_max_early_data(context) == 0, "early data is disabled");
     Expect((SSL_CTX_get_options(context) & SSL_OP_NO_TICKET) != 0,
            "ticket option remains disabled");
+    Expect(SSL_CTX_get_max_cert_list(context) == kMaxPeerCertificateMessageBodyBytes,
+           "peer Certificate body is capped before allocation");
+    Expect(SSL_CTX_get_verify_depth(context) == 0,
+           "peer certificate chain allows no intermediate certificate");
   }
 
   SslPointer early_data_connection(SSL_new(client.native_handle()), &SSL_free);
@@ -433,6 +714,7 @@ int main() {
     TestStaleCapabilityRejectedAfterConnectionReuse(
         *client.value, *server.value, *server_identity.repository.root_public_key());
     TestAlpnAndCertificateFailures(client_identity.repository, *server.value);
+    TestPeerCertificateBounds(*client.value, *server.value);
   }
 
   if (failures != 0) {

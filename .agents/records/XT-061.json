@@ -2,10 +2,10 @@
   "schema_version": 3,
   "id": "XT-061",
   "task_type": "feature",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "tls-certificate-bounds-agent",
+  "base_sha": "4f246338cc875ff4a5a163ea5c6610e5ef8c1b47",
+  "head_sha": "1d96d89c14933c63cd7508a7632762c59ac3f46b",
   "handoff": ".agents/handoffs/XT-061.md",
   "commit": {
     "type": "feat",
@@ -13,8 +13,10 @@
     "summary": "enforce peer certificate limits"
   },
   "architecture_change": {
-    "mode": "none",
-    "modules": [],
+    "mode": "refactor",
+    "modules": [
+      "tls"
+    ],
     "supersedes": {
       "paths": [],
       "symbols": [],
@@ -98,12 +100,25 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "4f246338cc875ff4a5a163ea5c6610e5ef8c1b47",
+    "source_head": "a1414d49164e684cd2f90c2087c6f60a32601154",
+    "source_commits": [
+      "127d908c527392aba8c9710bb254ed5f3aa381e2",
+      "49f4b0c0d60f399adcc857ff3487c7e1f70202c8",
+      "82e398a7d338edf7a5aecd91fa8b9aa659c0d513",
+      "e8583c378a4a94ab5a7f59873ca1989490907399",
+      "1d96d89c14933c63cd7508a7632762c59ac3f46b",
+      "a1414d49164e684cd2f90c2087c6f60a32601154"
+    ],
+    "source_commits_sha256": "5a3591a3564eda217000720afa0e5e8e91ed611aeff793d283b1369ffbd181c7",
+    "source_patch_id": "0808b6e167dc5048c325b88d00cf1fea29c02db7",
+    "result": "",
+    "result_patch_id": "0808b6e167dc5048c325b88d00cf1fea29c02db7",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "native_test",
       "security_test",
@@ -114,7 +129,7 @@
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:1d96d89c14933c63cd7508a7632762c59ac3f46b:2026-08-09T15:08:01Z"
   },
   "acceptance": {
     "accepted_by": "",
