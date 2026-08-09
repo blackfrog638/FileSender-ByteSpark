@@ -2,7 +2,7 @@
   "schema_version": 3,
   "id": "XT-062",
   "task_type": "feature",
-  "state": "integrated",
+  "state": "done",
   "owner": "linux-secret-qualification-agent",
   "base_sha": "4116b9f69ea0959a0e830738e2da596bb70f29e7",
   "head_sha": "63f437c3d5515a0a8ffc40ad3fdb787933fe17a1",
@@ -124,9 +124,9 @@
     ],
     "source_commits_sha256": "6334a5a48c641ea098084dd58b2f752fb071d54171c9372fcf4c4a0432abf318",
     "source_patch_id": "8dab587b83c5da5f0d5184f488c04303aa142729",
-    "result": "",
+    "result": "d72dcd0e5bea80f80b6f6446634eb983cc8d8e77",
     "result_patch_id": "8dab587b83c5da5f0d5184f488c04303aa142729",
-    "verified_sha": ""
+    "verified_sha": "d72dcd0e5bea80f80b6f6446634eb983cc8d8e77"
   },
   "verification": {
     "status": "passed",
@@ -142,11 +142,11 @@
       "tool/harness/desktop_bundle_test.sh",
       "make verify"
     ],
-    "reference": "local:63f437c3d5515a0a8ffc40ad3fdb787933fe17a1:2026-08-09T03:35:45Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31292892661"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-09T12:11:55+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
