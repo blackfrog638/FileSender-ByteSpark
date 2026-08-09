@@ -1,0 +1,123 @@
+{
+  "schema_version": 3,
+  "id": "XT-063",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-063.md",
+  "commit": {
+    "type": "feat",
+    "scope": "harness",
+    "summary": "govern delivery plan decomposition"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Incorrect coverage, graph, or approval validation could admit an unplanned task or reject a valid delivery plan.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "low",
+      "rationale": "Planning files are repository-controlled input, but fail-open parsing could bypass contract-first security ordering.",
+      "gates": [
+        "governance_test"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Repository validation must remain bounded as plans and tasks grow.",
+      "gates": [
+        "governance_test"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "The new planning contract must preserve XT-001 through XT-063 while making plan binding mandatory for later tasks.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "low",
+      "rationale": "Claim-time validation must not permit parallel ownership before plan approval.",
+      "gates": [
+        "governance_test"
+      ]
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "The standard-library validator and task generator must behave consistently on supported developer and CI platforms.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "Delivery Plan schema version 1 becomes durable reviewed planning data and must reject partial or inconsistent documents.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0014-delivery-plan-governance.md"
+      ],
+      "rationale": "Delivery Plan schema and claim eligibility are durable cross-workstream governance contracts."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task changes engineering governance and does not alter runtime module boundaries or dependency direction."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-064 will migrate P1 roadmap decomposition after the planning contract is accepted; this task must not change product milestone status."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

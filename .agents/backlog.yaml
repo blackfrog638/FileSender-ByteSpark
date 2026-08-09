@@ -1054,6 +1054,31 @@
         "docs/adr/0009-protected-identity-storage.md",
         "docs/testing.md"
       ]
+    },
+    {
+      "id": "XT-063",
+      "title": "Delivery plan governance",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/plans/**",
+        ".agents/manifest.yaml",
+        ".agents/README.md",
+        ".agents/records/README.md",
+        ".agents/tasks/TASK_TEMPLATE.md",
+        "docs/adr/0014-delivery-plan-governance.md",
+        "tool/harness/delivery_plan.py",
+        "tool/harness/delivery_plan_test.py",
+        "tool/harness/governance.py",
+        "tool/harness/governance_test.sh",
+        "tool/harness/new_task.sh",
+        "Makefile"
+      ]
     }
   ]
 }
