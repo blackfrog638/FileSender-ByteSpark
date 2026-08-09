@@ -2,7 +2,7 @@
   "schema_version": 3,
   "id": "XT-060",
   "task_type": "feature",
-  "state": "integrated",
+  "state": "done",
   "owner": "pairing-wire-contract-agent",
   "base_sha": "24cee4258887fd883de0fb9619004923568a5098",
   "head_sha": "82697d72704e260fa4015218c0b4c6a11098b68d",
@@ -117,9 +117,9 @@
     ],
     "source_commits_sha256": "c52a039c46e2bf33b9e0e96bf7d452702298355f3143a76dbffe3e021ab5e022",
     "source_patch_id": "9d23fc062588a63fe340a17388de43dbd7874032",
-    "result": "",
+    "result": "f5dcb687319c157f06399d9f762f1ab773c4c0ae",
     "result_patch_id": "9d23fc062588a63fe340a17388de43dbd7874032",
-    "verified_sha": ""
+    "verified_sha": "f5dcb687319c157f06399d9f762f1ab773c4c0ae"
   },
   "verification": {
     "status": "passed",
@@ -133,11 +133,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:82697d72704e260fa4015218c0b4c6a11098b68d:2026-08-09T04:47:45Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31295332766"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-09T13:23:03+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
