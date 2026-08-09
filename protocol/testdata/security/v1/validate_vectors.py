@@ -52,6 +52,143 @@ KIND_DEVICE_IDENTIFIER = 7
 
 BASE_TRANSFER_V1 = 0x00010001
 
+PAIRING_MAGIC = b"XNNP"
+PAIRING_FIXED_HEADER_LENGTH = 20
+PAIRING_ALPN = b"xnn-transfer-pairing/1"
+TRANSPORT_ALPN = b"xnn-transfer/1"
+PAIRING_MAX_BODY_LENGTH = 4_096
+PAIRING_MAX_FRAME_LENGTH = 4_116
+PAIRING_MAX_FIELDS = 16
+PAIRING_MAX_MESSAGES = 16
+PAIRING_MAX_BYTES = 65_536
+
+PAIRING_HELLO = 0x0001
+PAIRING_SELECT = 0x0002
+PAIRING_SELECT_ACK = 0x0003
+PAIRING_DECISION = 0x0004
+PAIRING_ABORT = 0x0005
+
+PAIRING_WIRE_U8 = 1
+PAIRING_WIRE_U16 = 2
+PAIRING_WIRE_BYTES = 5
+
+PAIRING_INITIATOR_TO_RESPONDER = "initiator_to_responder"
+PAIRING_RESPONDER_TO_INITIATOR = "responder_to_initiator"
+PAIRING_DIRECTIONS = {
+    PAIRING_INITIATOR_TO_RESPONDER,
+    PAIRING_RESPONDER_TO_INITIATOR,
+}
+
+PAIRING_EXPECTED_CONTRACT = {
+    "pairing_alpn_hex": PAIRING_ALPN.hex(),
+    "pairing_alpn_length": len(PAIRING_ALPN),
+    "transport_alpn_hex": TRANSPORT_ALPN.hex(),
+    "transport_alpn_length": len(TRANSPORT_ALPN),
+    "security_profile_hex": "0001",
+    "magic_hex": PAIRING_MAGIC.hex(),
+    "fixed_header_length": PAIRING_FIXED_HEADER_LENGTH,
+    "pairing_version": [1, 0],
+    "max_body_length": PAIRING_MAX_BODY_LENGTH,
+    "max_frame_length": PAIRING_MAX_FRAME_LENGTH,
+    "max_fields": PAIRING_MAX_FIELDS,
+    "max_inbound_messages_per_endpoint": PAIRING_MAX_MESSAGES,
+    "max_inbound_bytes_per_endpoint": PAIRING_MAX_BYTES,
+    "max_certificate_der": 4_096,
+    "max_certificate_list_contents": 8_192,
+    "max_certificate_handshake_message": 8_200,
+    "certificate_request_context_length": 0,
+    "certificate_chain_length": 1,
+    "max_incomplete_handshakes_global": 8,
+    "max_incomplete_handshakes_per_source": 2,
+    "max_visible_attempts": 1,
+    "max_replay_entries_global": 1_024,
+    "max_replay_entries_per_remote_key": 32,
+    "replay_retention_seconds": 600,
+    "pairing_window_seconds": 120,
+    "handshake_timeout_seconds": 5,
+    "first_frame_timeout_seconds": 5,
+    "selection_timeout_seconds": 10,
+    "frame_assembly_timeout_seconds": 10,
+    "idle_timeout_seconds": 30,
+    "decision_timeout_seconds": 90,
+    "pairing_timeout_seconds": 120,
+    "abort_flush_timeout_seconds": 1,
+    "global_bucket_capacity": 16,
+    "global_bucket_refill_per_second": 1,
+    "source_bucket_capacity": 4,
+    "source_bucket_refill_seconds": 15,
+    "public_abort_codes": {
+        "FAILED": 1,
+        "BUSY": 2,
+        "CANCELLED": 3,
+        "TIMEOUT": 4,
+    },
+    "local_terminal_codes": {
+        "PAIRING_MALFORMED": 0x1001,
+        "PAIRING_LIMIT_EXCEEDED": 0x1002,
+        "PAIRING_SEQUENCE_VIOLATION": 0x1003,
+        "PAIRING_UNSUPPORTED_VERSION": 0x1004,
+        "PAIRING_UNSUPPORTED_PROFILE": 0x1005,
+        "PAIRING_DOWNGRADE_DETECTED": 0x1006,
+        "PAIRING_ROLE_MISMATCH": 0x1007,
+        "PAIRING_STATE_VIOLATION": 0x1008,
+        "PAIRING_REPLAY_DETECTED": 0x1009,
+        "PAIRING_CONFIRMATION_FAILED": 0x100A,
+        "PAIRING_AUTHENTICATED_REJECT": 0x100B,
+        "PAIRING_LOCAL_REJECT": 0x100C,
+        "PAIRING_ALREADY_DECIDED": 0x100D,
+        "PAIRING_CANCELLED": 0x100E,
+        "PAIRING_TIMEOUT": 0x100F,
+        "PAIRING_BUSY": 0x1010,
+        "PAIRING_CERTIFICATE_REJECTED": 0x1011,
+        "PAIRING_INTERNAL_FAILURE": 0x1012,
+    },
+}
+
+PAIRING_EXPECTED_RECONNECT = {
+    "session_id_hex": "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+    "normalized_negotiation_sha256_hex": (
+        "00200c2aa0cbc45a821e0896e29e03f6a61c3546d5b1563d04a9598d9a9ed741"
+    ),
+    "raw_negotiation_transcript_sha256_hex": (
+        "d4fa3b7b5fe479187b503f3cf1148f64e16df8a5e78ab0765a6931c4472259d0"
+    ),
+    "transport_context_hex": (
+        "7fcb0313518a55ff34783e3ec2984fb28b1de235f9e7cccb6746c79dee88ed51"
+    ),
+    "transport_exporter_hex": (
+        "e0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff"
+    ),
+    "initiator_finished_hex": (
+        "1cfad1c62e5d6a4ce89de990032c2b65937563aa6e0c8518c90fbadf997ca25c"
+    ),
+    "responder_finished_hex": (
+        "46cc2c4bbf13c8fea7a312995314428148c15fcfc6a37ec5fad3bb58cbeeff87"
+    ),
+}
+
+PAIRING_REQUIRED_COVERAGE = {
+    "first-pairing",
+    "authenticated-rejection",
+    "paired-reconnect",
+    "malformed",
+    "duplicate",
+    "replay",
+    "role-swapped",
+    "oversized",
+    "unknown-profile",
+    "downgrade",
+    "missing",
+    "reordered",
+    "unknown-field",
+    "trailing",
+    "cancellation",
+    "identity-collision",
+    "commit-linearization",
+    "peer-confirm-first",
+    "reconnect-binding",
+}
+
 PAIR_CONTEXT_LABEL = b"XnnTransfer pairing v1"
 PAIR_EXPORTER_LABEL = b"EXPORTER-XnnTransfer-Pairing-v1"
 SAS_INFO_LABEL = b"XnnTransfer SAS words v1"
@@ -136,6 +273,14 @@ class ConfirmationResult:
     authenticated_result: str
     terminal: bool
     trust_commit_permitted: bool
+
+
+@dataclass(frozen=True)
+class PairingFrame:
+    message_type: int
+    sequence: int
+    fields: Dict[int, Any]
+    encoded_length: int
 
 
 def fail(code: str, detail: str) -> None:
@@ -1446,6 +1591,704 @@ def execute_negative(
     fail("INVALID_MANIFEST", f"unknown negative operation {operation!r}")
 
 
+def pairing_schema(message_type: int) -> Dict[int, Tuple[int, Optional[int]]]:
+    if message_type == PAIRING_HELLO:
+        return {
+            1: (PAIRING_WIRE_U8, 1),
+            2: (PAIRING_WIRE_BYTES, 32),
+            3: (PAIRING_WIRE_BYTES, 32),
+            4: (PAIRING_WIRE_U16, 2),
+            5: (PAIRING_WIRE_BYTES, 4),
+            6: (PAIRING_WIRE_BYTES, None),
+            7: (PAIRING_WIRE_BYTES, None),
+            8: (PAIRING_WIRE_BYTES, 10),
+        }
+    if message_type in {PAIRING_SELECT, PAIRING_SELECT_ACK}:
+        return {
+            1: (PAIRING_WIRE_BYTES, 2),
+            2: (PAIRING_WIRE_BYTES, None),
+            3: (PAIRING_WIRE_BYTES, 10),
+        }
+    if message_type == PAIRING_DECISION:
+        return {
+            1: (PAIRING_WIRE_BYTES, 34),
+            2: (PAIRING_WIRE_BYTES, 32),
+        }
+    if message_type == PAIRING_ABORT:
+        return {1: (PAIRING_WIRE_U16, 2)}
+    fail("PAIRING_MALFORMED", f"unknown pairing message type {message_type:#06x}")
+
+
+def pairing_decode_value(wire_type: int, value: bytes) -> Any:
+    if wire_type in {PAIRING_WIRE_U8, PAIRING_WIRE_U16}:
+        return int.from_bytes(value, "big")
+    return value
+
+
+def parse_pairing_body(
+    encoded: bytes,
+    schema: Mapping[int, Tuple[int, Optional[int]]],
+) -> Dict[int, Any]:
+    offset = 0
+    previous_id = 0
+    fields: Dict[int, Any] = {}
+
+    while offset < len(encoded):
+        if len(encoded) - offset < 8:
+            fail("PAIRING_MALFORMED", "trailing partial pairing TLV")
+        field_id, wire_type, flags, value_length = struct.unpack_from(
+            ">HBBI", encoded, offset
+        )
+        offset += 8
+        if len(fields) >= PAIRING_MAX_FIELDS:
+            fail("PAIRING_LIMIT_EXCEEDED", "pairing body has too many fields")
+        if field_id <= previous_id:
+            fail(
+                "PAIRING_MALFORMED",
+                "pairing fields are duplicate or out of order",
+            )
+        if flags != 0x01:
+            fail("PAIRING_MALFORMED", "pairing field is not exactly critical")
+        rule = schema.get(field_id)
+        if rule is None:
+            fail("PAIRING_MALFORMED", f"unknown pairing field {field_id}")
+        expected_type, expected_length = rule
+        if wire_type != expected_type:
+            fail("PAIRING_MALFORMED", f"pairing field {field_id} has wrong type")
+        if expected_length is not None and value_length != expected_length:
+            fail(
+                "PAIRING_MALFORMED",
+                f"pairing field {field_id} has wrong length",
+            )
+        if value_length > len(encoded) - offset:
+            fail("PAIRING_MALFORMED", f"pairing field {field_id} is truncated")
+        value = encoded[offset : offset + value_length]
+        offset += value_length
+        fields[field_id] = pairing_decode_value(wire_type, value)
+        previous_id = field_id
+
+    if set(fields) != set(schema):
+        missing = sorted(set(schema) - set(fields))
+        fail("PAIRING_MALFORMED", f"pairing body is missing fields {missing}")
+    return fields
+
+
+def parse_pairing_frame(encoded: bytes) -> PairingFrame:
+    if len(encoded) < PAIRING_FIXED_HEADER_LENGTH:
+        fail("PAIRING_MALFORMED", "pairing fixed header is truncated")
+    (
+        magic,
+        header_length,
+        major,
+        minor,
+        message_type,
+        flags,
+        sequence,
+        body_length,
+    ) = struct.unpack_from(">4sHBBHHII", encoded)
+    if magic != PAIRING_MAGIC:
+        fail("PAIRING_MALFORMED", "pairing magic is invalid")
+    if header_length != PAIRING_FIXED_HEADER_LENGTH or flags != 0:
+        fail("PAIRING_MALFORMED", "pairing fixed header is noncanonical")
+    if (major, minor) != (1, 0):
+        fail("PAIRING_UNSUPPORTED_VERSION", "pairing frame version is unsupported")
+    if sequence == 0:
+        fail("PAIRING_SEQUENCE_VIOLATION", "pairing sequence zero is reserved")
+    if body_length > PAIRING_MAX_BODY_LENGTH:
+        fail("PAIRING_LIMIT_EXCEEDED", "pairing body exceeds the hard limit")
+    total_length = PAIRING_FIXED_HEADER_LENGTH + body_length
+    if total_length > PAIRING_MAX_FRAME_LENGTH:
+        fail("PAIRING_LIMIT_EXCEEDED", "pairing frame exceeds the hard limit")
+    if len(encoded) != total_length:
+        fail("PAIRING_MALFORMED", "pairing encoded and declared lengths differ")
+    fields = parse_pairing_body(
+        encoded[PAIRING_FIXED_HEADER_LENGTH:],
+        pairing_schema(message_type),
+    )
+    return PairingFrame(message_type, sequence, fields, len(encoded))
+
+
+def pairing_decode_capabilities(encoded: bytes, name: str) -> List[int]:
+    if len(encoded) < 2:
+        fail("PAIRING_MALFORMED", f"{name} lacks a count")
+    count = int.from_bytes(encoded[:2], "big")
+    if count == 0 or len(encoded) != 2 + count * 4:
+        fail("PAIRING_MALFORMED", f"{name} count and length disagree")
+    values = [
+        int.from_bytes(encoded[offset : offset + 4], "big")
+        for offset in range(2, len(encoded), 4)
+    ]
+    if values != sorted(set(values)):
+        fail("PAIRING_MALFORMED", f"{name} is not sorted and unique")
+    if len({value >> 16 for value in values}) != len(values):
+        fail("PAIRING_MALFORMED", f"{name} repeats a capability ID")
+    return values
+
+
+def pairing_decode_version_range(
+    encoded: bytes,
+) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+    if len(encoded) != 4:
+        fail("PAIRING_MALFORMED", "version range must contain four octets")
+    minimum = (encoded[0], encoded[1])
+    maximum = (encoded[2], encoded[3])
+    if minimum[0] == 0 or minimum > maximum:
+        fail("PAIRING_MALFORMED", "version range is invalid")
+    return minimum, maximum
+
+
+def pairing_decode_limits(encoded: bytes) -> Tuple[int, int, int]:
+    if len(encoded) != 10:
+        fail("PAIRING_MALFORMED", "receive limits must contain ten octets")
+    maximum_body, maximum_in_flight, maximum_streams = struct.unpack(
+        ">IIH", encoded
+    )
+    if not 8_192 <= maximum_body <= 1_048_576:
+        fail("PAIRING_LIMIT_EXCEEDED", "receive maximum body is invalid")
+    if not 1_048_576 <= maximum_in_flight <= 67_108_864:
+        fail("PAIRING_LIMIT_EXCEEDED", "receive in-flight limit is invalid")
+    if not 1 <= maximum_streams <= 32:
+        fail("PAIRING_LIMIT_EXCEEDED", "receive stream limit is invalid")
+    return maximum_body, maximum_in_flight, maximum_streams
+
+
+class PairingTranscriptValidator:
+    def __init__(
+        self,
+        initiator_key: bytes,
+        responder_key: bytes,
+        confirmation_exporter: bytes,
+    ) -> None:
+        self.identity_keys = {
+            PAIRING_INITIATOR_TO_RESPONDER: initiator_key,
+            PAIRING_RESPONDER_TO_INITIATOR: responder_key,
+        }
+        self.confirmation_exporter = confirmation_exporter
+        self.next_sequence = {
+            PAIRING_INITIATOR_TO_RESPONDER: 1,
+            PAIRING_RESPONDER_TO_INITIATOR: 1,
+        }
+        self.message_counts = {
+            PAIRING_INITIATOR_TO_RESPONDER: 0,
+            PAIRING_RESPONDER_TO_INITIATOR: 0,
+        }
+        self.byte_counts = {
+            PAIRING_INITIATOR_TO_RESPONDER: 0,
+            PAIRING_RESPONDER_TO_INITIATOR: 0,
+        }
+        self.hellos: Dict[str, PairingFrame] = {}
+        self.selection: Optional[PairingFrame] = None
+        self.pair_context: Optional[bytes] = None
+        self.decisions: Dict[str, int] = {}
+        self.commit_ready = False
+        self.terminal: Optional[str] = None
+
+    def process(self, direction: str, encoded: bytes) -> None:
+        if self.terminal is not None:
+            fail("PAIRING_STATE_VIOLATION", "pairing input followed terminal state")
+        if direction not in PAIRING_DIRECTIONS:
+            fail("PAIRING_MALFORMED", f"invalid pairing direction {direction!r}")
+        frame = parse_pairing_frame(encoded)
+        if frame.sequence != self.next_sequence[direction]:
+            fail(
+                "PAIRING_SEQUENCE_VIOLATION",
+                f"expected sequence {self.next_sequence[direction]}, "
+                f"got {frame.sequence}",
+            )
+        self.next_sequence[direction] += 1
+        self.message_counts[direction] += 1
+        self.byte_counts[direction] += frame.encoded_length
+        if self.message_counts[direction] > PAIRING_MAX_MESSAGES:
+            fail("PAIRING_LIMIT_EXCEEDED", "pairing message budget exhausted")
+        if self.byte_counts[direction] > PAIRING_MAX_BYTES:
+            fail("PAIRING_LIMIT_EXCEEDED", "pairing byte budget exhausted")
+
+        if frame.message_type == PAIRING_HELLO:
+            self.process_hello(direction, frame)
+        elif frame.message_type == PAIRING_SELECT:
+            self.process_select(direction, frame)
+        elif frame.message_type == PAIRING_SELECT_ACK:
+            self.process_select_ack(direction, frame)
+        elif frame.message_type == PAIRING_DECISION:
+            self.process_decision(direction, frame)
+        elif frame.message_type == PAIRING_ABORT:
+            public_code = frame.fields[1]
+            if public_code not in {1, 2, 3, 4}:
+                fail("PAIRING_MALFORMED", "pairing abort code is invalid")
+            self.terminal = "aborted"
+
+    def process_hello(self, direction: str, frame: PairingFrame) -> None:
+        if self.selection is not None or direction in self.hellos:
+            fail("PAIRING_STATE_VIOLATION", "pairing hello is duplicate or late")
+        expected_role = (
+            ROLE_INITIATOR
+            if direction == PAIRING_INITIATOR_TO_RESPONDER
+            else ROLE_RESPONDER
+        )
+        if frame.fields[1] != expected_role:
+            fail("PAIRING_ROLE_MISMATCH", "hello role conflicts with TLS direction")
+        if frame.fields[3] != self.identity_keys[direction]:
+            fail(
+                "PAIRING_CERTIFICATE_REJECTED",
+                "hello identity differs from the live certificate",
+            )
+        try:
+            validate_ed25519_public_key(frame.fields[3], "pairing identity key")
+        except VectorError:
+            fail(
+                "PAIRING_CERTIFICATE_REJECTED",
+                "hello identity key is not a valid profile key",
+            )
+        if any(
+            other.fields[3] == frame.fields[3] for other in self.hellos.values()
+        ):
+            fail(
+                "PAIRING_CERTIFICATE_REJECTED",
+                "local and remote pairing identities are equal",
+            )
+        if frame.fields[4] != SECURITY_PROFILE_ID:
+            fail("PAIRING_UNSUPPORTED_PROFILE", "security profile is not 0001")
+        pairing_decode_version_range(frame.fields[5])
+        offered = pairing_decode_capabilities(
+            frame.fields[6], "offered capabilities"
+        )
+        required = pairing_decode_capabilities(
+            frame.fields[7], "required capabilities"
+        )
+        if not set(required).issubset(offered) or BASE_TRANSFER_V1 not in required:
+            fail(
+                "PAIRING_MALFORMED",
+                "required capabilities are not an offered profile",
+            )
+        pairing_decode_limits(frame.fields[8])
+        self.hellos[direction] = frame
+
+    def expected_selection(self) -> Tuple[bytes, bytes, bytes]:
+        if set(self.hellos) != PAIRING_DIRECTIONS:
+            fail("PAIRING_STATE_VIOLATION", "selection arrived before both hellos")
+        initiator = self.hellos[PAIRING_INITIATOR_TO_RESPONDER].fields
+        responder = self.hellos[PAIRING_RESPONDER_TO_INITIATOR].fields
+        initiator_min, initiator_max = pairing_decode_version_range(initiator[5])
+        responder_min, responder_max = pairing_decode_version_range(responder[5])
+        minimum = max(initiator_min, responder_min)
+        maximum = min(initiator_max, responder_max)
+        if minimum > maximum:
+            fail("PAIRING_UNSUPPORTED_VERSION", "version ranges do not intersect")
+        offered = sorted(
+            set(pairing_decode_capabilities(initiator[6], "initiator offered"))
+            & set(pairing_decode_capabilities(responder[6], "responder offered"))
+        )
+        required = set(
+            pairing_decode_capabilities(initiator[7], "initiator required")
+        ) | set(pairing_decode_capabilities(responder[7], "responder required"))
+        if not required.issubset(offered):
+            fail("PAIRING_MALFORMED", "required capability is unavailable")
+        capability_bytes = struct.pack(">H", len(offered)) + b"".join(
+            struct.pack(">I", value) for value in offered
+        )
+        initiator_limits = pairing_decode_limits(initiator[8])
+        responder_limits = pairing_decode_limits(responder[8])
+        limits = tuple(
+            min(left, right)
+            for left, right in zip(initiator_limits, responder_limits)
+        )
+        return (
+            bytes(maximum),
+            capability_bytes,
+            struct.pack(">IIH", *limits),
+        )
+
+    def process_select(self, direction: str, frame: PairingFrame) -> None:
+        if direction != PAIRING_INITIATOR_TO_RESPONDER:
+            fail("PAIRING_ROLE_MISMATCH", "responder sent pairing selection")
+        if self.selection is not None:
+            fail("PAIRING_STATE_VIOLATION", "pairing selection is duplicated")
+        expected_version, expected_capabilities, expected_limits = (
+            self.expected_selection()
+        )
+        if frame.fields[1] != expected_version:
+            fail(
+                "PAIRING_DOWNGRADE_DETECTED",
+                "selection is not the highest common version",
+            )
+        if (
+            frame.fields[2] != expected_capabilities
+            or frame.fields[3] != expected_limits
+        ):
+            fail("PAIRING_MALFORMED", "pairing selection is not deterministic")
+        self.selection = frame
+
+    def process_select_ack(self, direction: str, frame: PairingFrame) -> None:
+        if direction != PAIRING_RESPONDER_TO_INITIATOR:
+            fail("PAIRING_ROLE_MISMATCH", "initiator sent pairing selection ACK")
+        if self.selection is None:
+            fail("PAIRING_STATE_VIOLATION", "selection ACK arrived before selection")
+        if self.pair_context is not None:
+            fail("PAIRING_STATE_VIOLATION", "selection ACK is duplicated")
+        if frame.fields != self.selection.fields:
+            fail("PAIRING_MALFORMED", "selection ACK differs from selection")
+        self.pair_context = self.build_pair_context()
+
+    def build_pair_context(self) -> bytes:
+        initiator = self.hellos[PAIRING_INITIATOR_TO_RESPONDER].fields
+        responder = self.hellos[PAIRING_RESPONDER_TO_INITIATOR].fields
+        if self.selection is None:
+            fail("PAIRING_STATE_VIOLATION", "pairing selection is absent")
+        normalized = encode_object(
+            KIND_NEGOTIATION,
+            (
+                (1, bytes([ROLE_INITIATOR])),
+                (2, initiator[5]),
+                (3, initiator[6]),
+                (4, initiator[7]),
+                (5, initiator[8]),
+                (6, bytes([ROLE_RESPONDER])),
+                (7, responder[5]),
+                (8, responder[6]),
+                (9, responder[7]),
+                (10, responder[8]),
+                (11, self.selection.fields[1]),
+                (12, self.selection.fields[2]),
+                (13, self.selection.fields[3]),
+            ),
+        )
+        pairing_context = encode_object(
+            KIND_PAIR_CONTEXT,
+            (
+                (1, PAIR_CONTEXT_LABEL),
+                (2, bytes([ROLE_INITIATOR])),
+                (3, bytes([ROLE_RESPONDER])),
+                (4, initiator[2]),
+                (5, responder[2]),
+                (6, initiator[3]),
+                (7, responder[3]),
+                (8, struct.pack(">H", SECURITY_PROFILE_ID)),
+                (9, normalized),
+            ),
+        )
+        return hashlib.sha256(pairing_context).digest()
+
+    def process_decision(self, direction: str, frame: PairingFrame) -> None:
+        if self.pair_context is None:
+            fail("PAIRING_STATE_VIOLATION", "decision arrived before selection ACK")
+        if direction in self.decisions:
+            fail("PAIRING_STATE_VIOLATION", "pairing decision is duplicated")
+        expected_role = (
+            ROLE_INITIATOR
+            if direction == PAIRING_INITIATOR_TO_RESPONDER
+            else ROLE_RESPONDER
+        )
+        message = frame.fields[1]
+        if not hmac.compare_digest(message[:32], self.pair_context):
+            fail(
+                "PAIRING_CONFIRMATION_FAILED",
+                "decision context differs from the live attempt",
+            )
+        if message[32] != expected_role:
+            fail("PAIRING_ROLE_MISMATCH", "decision role conflicts with direction")
+        decision = message[33]
+        if decision not in {DECISION_REJECT, DECISION_CONFIRM}:
+            fail("PAIRING_MALFORMED", "pairing decision is invalid")
+        expected = hmac.new(
+            self.confirmation_exporter,
+            message,
+            hashlib.sha256,
+        ).digest()
+        if not hmac.compare_digest(frame.fields[2], expected):
+            fail(
+                "PAIRING_CONFIRMATION_FAILED",
+                "pairing confirmation does not bind the live attempt",
+            )
+        self.decisions[direction] = decision
+        if decision == DECISION_REJECT:
+            self.terminal = "rejected"
+        elif set(self.decisions) == PAIRING_DIRECTIONS:
+            self.commit_ready = True
+
+
+def load_pairing_frame(
+    frame_catalog: Mapping[str, Any],
+    frame_name: Any,
+) -> Tuple[str, bytes]:
+    if not isinstance(frame_name, str):
+        fail("INVALID_MANIFEST", "pairing frame reference must be a string")
+    raw_frame = require_mapping(frame_catalog.get(frame_name), frame_name)
+    direction = require_string(raw_frame.get("direction"), f"{frame_name}.direction")
+    if direction not in PAIRING_DIRECTIONS:
+        fail("INVALID_MANIFEST", f"{frame_name}.direction is invalid")
+    return direction, decode_hex(raw_frame.get("hex"), f"{frame_name}.hex")
+
+
+def run_pairing_case(
+    case: Mapping[str, Any],
+    frame_catalog: Mapping[str, Any],
+    fixtures: Mapping[str, Any],
+) -> str:
+    mode = require_string(case.get("mode"), "case.mode")
+    alpn = decode_hex(case.get("alpn_hex"), "case.alpn_hex")
+    if mode == "pairing":
+        if alpn != PAIRING_ALPN:
+            fail("PAIRING_UNSUPPORTED_VERSION", "pairing ALPN is not registered")
+        fixture_name = require_string(case.get("fixture"), "case.fixture")
+        fixture = require_mapping(fixtures.get(fixture_name), f"fixtures.{fixture_name}")
+        validator = PairingTranscriptValidator(
+            decode_hex(
+                fixture.get("initiator_identity_key_hex"),
+                f"{fixture_name}.initiator_identity_key_hex",
+                32,
+            ),
+            decode_hex(
+                fixture.get("responder_identity_key_hex"),
+                f"{fixture_name}.responder_identity_key_hex",
+                32,
+            ),
+            decode_hex(
+                fixture.get("confirmation_exporter_hex"),
+                f"{fixture_name}.confirmation_exporter_hex",
+                32,
+            ),
+        )
+        for frame_name in require_sequence(case.get("frames"), "case.frames"):
+            direction, encoded = load_pairing_frame(frame_catalog, frame_name)
+            validator.process(direction, encoded)
+        expected_context = case.get("expected_pair_context_hex")
+        if expected_context is not None:
+            expected = decode_hex(
+                expected_context, "case.expected_pair_context_hex", 32
+            )
+            if validator.pair_context is None or not hmac.compare_digest(
+                validator.pair_context, expected
+            ):
+                fail(
+                    "PAIRING_CONFIRMATION_FAILED",
+                    "pairing context does not match the normative digest",
+                )
+        local_commit = case.get("local_commit")
+        if validator.commit_ready:
+            outcome = require_string(local_commit, "case.local_commit")
+            if outcome == "success":
+                validator.terminal = "paired_local"
+            elif outcome == "failure":
+                fail(
+                    "PAIRING_INTERNAL_FAILURE",
+                    "atomic local trust commit failed",
+                )
+            elif outcome == "cancelled_before_invoke":
+                fail(
+                    "PAIRING_CANCELLED",
+                    "local cancellation won before trust commit invocation",
+                )
+            else:
+                fail("INVALID_MANIFEST", "case.local_commit is invalid")
+        elif local_commit is not None:
+            fail(
+                "INVALID_MANIFEST",
+                "case.local_commit is present before both confirmations",
+            )
+        if validator.terminal is None:
+            fail("PAIRING_STATE_VIOLATION", "pairing case is not terminal")
+        return validator.terminal
+    if mode == "reconnect":
+        if alpn != TRANSPORT_ALPN:
+            fail("PAIRING_UNSUPPORTED_VERSION", "transport ALPN is not registered")
+        if require_integer(
+            case.get("security_profile"), "case.security_profile", 0, 0xFFFF
+        ) != SECURITY_PROFILE_ID:
+            fail("PAIRING_UNSUPPORTED_PROFILE", "reconnect profile is not 0001")
+        if require_string(case.get("trust_state"), "case.trust_state") != "active":
+            fail("PAIRING_CERTIFICATE_REJECTED", "peer trust state is not active")
+        presented = decode_hex(
+            case.get("presented_key_hex"), "case.presented_key_hex", 32
+        )
+        pinned = decode_hex(case.get("active_pin_hex"), "case.active_pin_hex", 32)
+        validate_ed25519_public_key(presented, "presented reconnect key")
+        validate_ed25519_public_key(pinned, "stored reconnect pin")
+        if not hmac.compare_digest(presented, pinned):
+            fail("PAIRING_CERTIFICATE_REJECTED", "reconnect key differs from pin")
+        stored_floor = require_integer(
+            case.get("stored_security_floor"),
+            "case.stored_security_floor",
+            1,
+            0xFFFF,
+        )
+        if SECURITY_PROFILE_ID < stored_floor:
+            fail(
+                "PAIRING_UNSUPPORTED_PROFILE",
+                "reconnect profile is below the stored security floor",
+            )
+        if case.get("fresh_handshake") is not True:
+            fail("PAIRING_REPLAY_DETECTED", "reconnect handshake is not fresh")
+        if case.get("session_reused") is not False:
+            fail("PAIRING_REPLAY_DETECTED", "TLS session reuse is forbidden")
+        if case.get("early_data") is not False:
+            fail("PAIRING_STATE_VIOLATION", "TLS early data is forbidden")
+        binding = require_mapping(
+            case.get("transport_binding"), "case.transport_binding"
+        )
+        if binding != PAIRING_EXPECTED_RECONNECT:
+            fail(
+                "PAIRING_CONFIRMATION_FAILED",
+                "reconnect transport binding differs from the golden profile",
+            )
+        context = decode_hex(
+            binding.get("transport_context_hex"),
+            "transport_binding.transport_context_hex",
+            32,
+        )
+        exporter = decode_hex(
+            binding.get("transport_exporter_hex"),
+            "transport_binding.transport_exporter_hex",
+            32,
+        )
+        for role, field in (
+            (ROLE_INITIATOR, "initiator_finished_hex"),
+            (ROLE_RESPONDER, "responder_finished_hex"),
+        ):
+            expected_finished = hmac.new(
+                exporter,
+                context + bytes([role]),
+                hashlib.sha256,
+            ).digest()
+            presented_finished = decode_hex(
+                binding.get(field),
+                f"transport_binding.{field}",
+                32,
+            )
+            if not hmac.compare_digest(expected_finished, presented_finished):
+                fail(
+                    "PAIRING_CONFIRMATION_FAILED",
+                    f"{field} does not verify",
+                )
+        return "established"
+    fail("INVALID_MANIFEST", f"unknown pairing vector mode {mode!r}")
+
+
+def validate_pairing_manifest(manifest: Mapping[str, Any]) -> int:
+    if manifest.get("format_version") != 1:
+        fail("INVALID_MANIFEST", "unsupported pairing vector format")
+    if manifest.get("contract_type") != "xnn-pairing-control-v1":
+        fail("INVALID_MANIFEST", "pairing vector contract type is invalid")
+    contract = require_mapping(manifest.get("contract"), "contract")
+    if contract != PAIRING_EXPECTED_CONTRACT:
+        fail("INVALID_MANIFEST", "pairing contract metadata is not byte-exact")
+    fixtures = require_mapping(manifest.get("fixtures"), "fixtures")
+    frame_catalog = require_mapping(manifest.get("frames"), "frames")
+    cases = require_sequence(manifest.get("cases"), "cases")
+    names: set = set()
+    coverage: set = set()
+    referenced_frames: set = set()
+    failures = 0
+    positive = 0
+    hostile = 0
+
+    for raw_case in cases:
+        try:
+            case = require_mapping(raw_case, "pairing case")
+            name = require_string(case.get("id"), "case.id")
+            if name in names:
+                fail("INVALID_MANIFEST", f"duplicate pairing case {name!r}")
+            names.add(name)
+            category = require_string(case.get("coverage"), f"{name}.coverage")
+            coverage.add(category)
+            classification = require_string(
+                case.get("classification"), f"{name}.classification"
+            )
+            if classification not in {"positive", "hostile"}:
+                fail("INVALID_MANIFEST", f"{name}.classification is invalid")
+            expected = require_mapping(case.get("expect"), f"{name}.expect")
+            expected_result = require_string(
+                expected.get("result"), f"{name}.expect.result"
+            )
+            if (classification == "positive") != (expected_result == "accept"):
+                fail(
+                    "INVALID_MANIFEST",
+                    f"{name}.classification conflicts with its expected result",
+                )
+            if case.get("mode") == "pairing":
+                for frame_name in require_sequence(
+                    case.get("frames"), f"{name}.frames"
+                ):
+                    if not isinstance(frame_name, str):
+                        fail(
+                            "INVALID_MANIFEST",
+                            f"{name}.frames contains a non-string reference",
+                        )
+                    referenced_frames.add(frame_name)
+            actual_error: Optional[VectorError] = None
+            actual_terminal: Optional[str] = None
+            try:
+                actual_terminal = run_pairing_case(case, frame_catalog, fixtures)
+            except VectorError as error:
+                actual_error = error
+
+            if expected_result == "accept":
+                positive += 1
+                expected_terminal = require_string(
+                    expected.get("terminal"), f"{name}.expect.terminal"
+                )
+                if actual_error is not None:
+                    fail(
+                        "OUTPUT_MISMATCH",
+                        f"{name} unexpectedly failed: {actual_error}",
+                    )
+                if actual_terminal != expected_terminal:
+                    fail(
+                        "OUTPUT_MISMATCH",
+                        f"{name} expected {expected_terminal}, "
+                        f"got {actual_terminal}",
+                    )
+                print(f"[PASS] {name}: {actual_terminal}")
+            elif expected_result == "reject":
+                hostile += 1
+                expected_error = require_string(
+                    expected.get("error"), f"{name}.expect.error"
+                )
+                if actual_error is None:
+                    fail(
+                        "OUTPUT_MISMATCH",
+                        f"{name} expected {expected_error}, but was accepted",
+                    )
+                if actual_error.code != expected_error:
+                    fail(
+                        "OUTPUT_MISMATCH",
+                        f"{name} expected {expected_error}, "
+                        f"got {actual_error.code}",
+                    )
+                print(f"[PASS] {name}: {actual_error.code}")
+            else:
+                fail("INVALID_MANIFEST", f"{name}.expect.result is invalid")
+        except VectorError as error:
+            failures += 1
+            print(f"[FAIL] pairing vector: {error}")
+
+    missing_coverage = PAIRING_REQUIRED_COVERAGE - coverage
+    if missing_coverage:
+        failures += 1
+        print(
+            "[FAIL] pairing vector: missing required coverage "
+            + ", ".join(sorted(missing_coverage))
+        )
+    unused_frames = set(frame_catalog) - referenced_frames
+    unknown_frames = referenced_frames - set(frame_catalog)
+    if unused_frames or unknown_frames:
+        failures += 1
+        print(
+            "[FAIL] pairing vector: frame catalog mismatch; "
+            f"unused={sorted(unused_frames)}, unknown={sorted(unknown_frames)}"
+        )
+    if failures:
+        print(
+            f"{failures} of {len(cases)} pairing-control vector checks failed.",
+            file=sys.stderr,
+        )
+        return 1
+    print(
+        f"Validated {positive} positive and {hostile} hostile "
+        "XnnTransfer v1 pairing-control vectors."
+    )
+    return 0
+
+
 def validate_case_metadata(case: Mapping[str, Any], names: set) -> str:
     name = require_string(case.get("id"), "case.id")
     if name in names:
@@ -1621,13 +2464,26 @@ def main() -> int:
         "manifest",
         nargs="?",
         type=Path,
-        default=Path(__file__).with_name("vectors.json"),
     )
     args = parser.parse_args()
     try:
-        with args.manifest.open("r", encoding="utf-8") as source:
-            manifest = json.load(source)
-        return validate_manifest(require_mapping(manifest, "manifest"), args.manifest)
+        if args.manifest is not None:
+            with args.manifest.open("r", encoding="utf-8") as source:
+                manifest = require_mapping(json.load(source), "manifest")
+            if manifest.get("contract_type") == "xnn-pairing-control-v1":
+                return validate_pairing_manifest(manifest)
+            return validate_manifest(manifest, args.manifest)
+
+        fixture_root = Path(__file__).resolve().parent
+        profile_path = fixture_root / "vectors.json"
+        pairing_path = fixture_root / "pairing-control-vectors.json"
+        with profile_path.open("r", encoding="utf-8") as source:
+            profile_manifest = require_mapping(json.load(source), "manifest")
+        with pairing_path.open("r", encoding="utf-8") as source:
+            pairing_manifest = require_mapping(json.load(source), "manifest")
+        profile_result = validate_manifest(profile_manifest, profile_path)
+        pairing_result = validate_pairing_manifest(pairing_manifest)
+        return 1 if profile_result or pairing_result else 0
     except (OSError, json.JSONDecodeError, VectorError) as error:
         print(f"security vector validation failed: {error}", file=sys.stderr)
         return 2
