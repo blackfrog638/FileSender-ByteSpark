@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-026",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "pairing-abi-agent",
   "base_sha": "cb65241e4ea0693574f2fd10ec33d7f30016c4fb",
   "head_sha": "d7e9e7fbcc76289a8f9427e59e1911ea99fa8764",
@@ -97,9 +97,9 @@
     ],
     "source_commits_sha256": "9acfd9b37fc7df69f4d5efb3655b99664d56f4d80fd2ccba09fcb0e9704aa931",
     "source_patch_id": "c64533288e8a7c73916973773180fc1bd8cbaa7c",
-    "result": "",
+    "result": "dbb3402c4620b235d7d00d15b304ad1af6814523",
     "result_patch_id": "c64533288e8a7c73916973773180fc1bd8cbaa7c",
-    "verified_sha": ""
+    "verified_sha": "dbb3402c4620b235d7d00d15b304ad1af6814523"
   },
   "verification": {
     "status": "passed",
@@ -109,11 +109,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:d7e9e7fbcc76289a8f9427e59e1911ea99fa8764:2026-08-09T19:26:41Z"
+    "reference": "make verify passed at dbb3402c4620b235d7d00d15b304ad1af6814523"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-10T07:02:59+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
