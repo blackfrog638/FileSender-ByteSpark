@@ -7,7 +7,7 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "governance",
-  "state": "integrated",
+  "state": "done",
   "owner": "p1-planning-agent",
   "base_sha": "c9a23ae406e53410b6c93fd1f02f87536b17442c",
   "head_sha": "ddc5799d68e420909e1351c0ef7800fbea081877",
@@ -112,9 +112,9 @@
     ],
     "source_commits_sha256": "04ac294adf8b875e8d40e9b02841b0186520a6934eb9188716055da3ed3f2d00",
     "source_patch_id": "c558983c5275a3aec2d5e998a956014e11466238",
-    "result": "",
+    "result": "70fd843e680a4765c58937b2d36029c3d4c61395",
     "result_patch_id": "c558983c5275a3aec2d5e998a956014e11466238",
-    "verified_sha": ""
+    "verified_sha": "70fd843e680a4765c58937b2d36029c3d4c61395"
   },
   "verification": {
     "status": "passed",
@@ -128,11 +128,11 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": "local:ddc5799d68e420909e1351c0ef7800fbea081877:2026-08-09T11:01:10Z"
+    "reference": "local:70fd843e680a4765c58937b2d36029c3d4c61395:2026-08-09T11:16:36Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-09T19:16:37+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
