@@ -7,12 +7,17 @@ Ed25519 signing, or a production protocol parser.
 ## Contents
 
 - `vectors.json`: versioned, byte-exact positive and negative vectors.
+- `pairing-control-vectors.json`: production ALPN/profile registration,
+  canonical `XNNP` frames, pairing state, and hostile-input vectors.
 - `validate_vectors.py`: Python standard-library fixture oracle.
 - `wordlist.txt`: the 2,048-entry BIP39 English list in index order.
 
 The manifest records the input encoding, expected output or stable failure, and
 security invariants for every vector. TLS exporter bytes are explicit fixture
-inputs. They are not derived from a live TLS connection.
+inputs. They are not derived from a live TLS connection. Pairing-control
+vectors bind those existing cryptographic fixtures to the wire contract in
+`protocol/spec/pairing-v1.md`; they do not instantiate a TLS provider or
+protected store.
 
 ## Validation
 
@@ -24,7 +29,9 @@ python3 protocol/testdata/security/v1/validate_vectors.py
 
 The command is deterministic, performs no network or filesystem writes, and
 does not depend on host byte order, locale, Unicode normalization, or
-third-party packages.
+third-party packages. With no manifest argument it validates both
+`vectors.json` and `pairing-control-vectors.json`. Passing an explicit manifest
+validates only that manifest.
 
 ## Ed25519 fixture keys
 
@@ -143,6 +150,19 @@ alternates and wrong-key verification, negotiation downgrade, malformed raw
 transcript order, wrong fixed lengths, stale rotation counters, invalid
 rotation domains, invalid and noncanonical Ed25519 points, identity and
 non-identity low-order keys, a mixed-order key, and output mismatch.
+
+Pairing-control positives cover both confirmation arrival orders, atomic local
+commit success, authenticated rejection, and an established reconnect under
+the exact active pin. Hostile controls cover commit failure, cancellation
+before commit invocation, duplicate decisions, bad magic, duplicate sequence
+and semantic messages, replay on a fresh nonce, role swap, oversized
+declaration, unknown profile and ALPN, downgrade, duplicate/missing/reordered/
+unknown fields, trailing data, a reconnect pin mismatch, a stored-floor
+downgrade, and invalid transport-finished input. The validator reconstructs ADR
+0002 kind-`01` and kind-`02` objects from accepted control frames, requires the
+existing normative `pair_context` digest, and checks the established kind-`04`
+transport context and both finished HMACs. This prevents the registered wire
+profile from silently diverging from the accepted cryptographic vectors.
 
 ## Word list
 

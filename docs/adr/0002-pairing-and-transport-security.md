@@ -6,6 +6,7 @@
 - Security requirements: `protocol/security/threat-model.md`
 - Required negative coverage: `protocol/security/negative-test-matrix.md`
 - Runtime provider review: `protocol/security/XT-024-runtime-review.md`
+- Pairing wire contract: `protocol/spec/pairing-v1.md`
 
 ## Context
 
@@ -51,6 +52,27 @@ The initial mandatory security profile is:
 | Established-peer trust | Exact pin of the peer's Ed25519 public key |
 | Early data and resumption | Disabled in v1 |
 
+The production wire registry for this profile is:
+
+| Purpose | Registered value |
+| --- | --- |
+| First-pairing ALPN | exact ASCII bytes `xnn-transfer-pairing/1` |
+| Established-transport ALPN | exact ASCII bytes `xnn-transfer/1` |
+| Security profile | unsigned big-endian `U16` value `0x0001` |
+| Pairing-control framing | `XNNP` v1.0 from `protocol/spec/pairing-v1.md` |
+
+Each connection offers exactly one ALPN mode. Pairing and established transport
+are separate TLS connections and never negotiate or fall back between modes.
+The complete byte encodings, certificate limits, state transitions, deadlines,
+and compatibility rules are normative in `pairing-v1.md`.
+
+Because discovery advertises one service port, the TLS provider must perform a
+typed server-side demultiplex over exactly those two ALPN values. The selected
+mode determines whether the result is one bounded unpinned pairing capability
+or an established capability already resolved against an active exact pin.
+Returning a generic unpinned capability for session code to upgrade is not
+allowed.
+
 An implementation must use a maintained TLS 1.3 library. A self-signed X.509
 certificate may carry the Ed25519 public key, but certificate chain, DNS name,
 LAN address, validity metadata, and discovery metadata confer no trust. The
@@ -74,9 +96,8 @@ octets shown below, without a terminator. A role is one octet: initiator is
 `00` and confirm is `01`. Ed25519 public keys, nonces, SHA-256 values, exporter
 outputs, and HMAC-SHA256 values are exactly 32 octets. A transfer session
 identifier is exactly 16 octets. Within this accepted design,
-`security_profile` is the two-octet value `00 01`; production use remains
-blocked on wire registration and the required implementation prerequisites
-below.
+`security_profile` is the registered two-octet value `00 01`. Production use
+remains blocked on the runtime and platform implementation prerequisites below.
 
 An accepted Ed25519 identity or rotation public key must satisfy all of the
 following before use:
@@ -221,6 +242,11 @@ failure, timeout, or closed attempt makes the gate terminally reject without a
 trust write. A previously authenticated decision cannot be applied to a new
 attempt.
 
+Passing that gate means only `READY_TO_COMMIT`. Trust becomes visible at one
+protected-store compare-and-swap, not when the second confirmation arrives.
+Commit failure closes unpaired. Cancellation may win only before that operation
+is invoked; once invoked, terminal publication waits for its durable result.
+
 Object kind `04`, transport context input, has:
 
 | ID | Value |
@@ -324,7 +350,9 @@ rollback, pairing and authenticated transport fail closed.
 
 Pairing is possible only after a local user opens a short-lived pairing window
 and chooses a candidate. A discovered name, endpoint, or previously observed
-address is only a display hint.
+address is only a display hint. The connection uses the first-pairing ALPN and
+the canonical message flow in `protocol/spec/pairing-v1.md`; pairing-control
+acceptance never authorizes transfer messages on that connection.
 
 1. The peers establish TLS 1.3 with fresh ECDHE and exchange self-signed
    identity certificates. Both identities are untrusted at this point. Only
@@ -465,8 +493,10 @@ or a peer-enumeration oracle to an unauthenticated endpoint.
 Pairing is disabled outside an explicit user-opened window. Implementations
 must impose global and per-source limits on unauthenticated handshakes, cap
 pre-authentication bytes and messages, use short handshake and confirmation
-timeouts, and release partial state idempotently. Limits and machine-readable
-failure classes must be normative in the versioned wire specification.
+timeouts, and release partial state idempotently. The exact certificate,
+handshake, message, byte, admission, replay-set, and deadline ceilings plus
+machine-readable local and public failure classes are normative in
+`protocol/spec/pairing-v1.md`.
 Network saturation remains outside the availability guarantee.
 
 ## Required implementation prerequisites
@@ -474,7 +504,7 @@ Network saturation remains outside the availability guarantee.
 No pairing or transfer implementation may claim this ADR until all of the
 following exist:
 
-1. A reviewed, versioned wire specification defines canonical transcript
+1. The reviewed `protocol/spec/pairing-v1.md` defines canonical transcript
    encoding, roles, state transitions, deterministic negotiation, limits,
    timeouts, ALPN/profile identifiers, errors, and duplicate handling.
 2. Cross-platform golden vectors cover both exporter contexts, SAS words,
@@ -501,11 +531,17 @@ Windows protected-store adapters, fail-closed Linux adapter boundary,
 byte-exact profile primitives, and TLS provider are accepted as lower-level
 inputs to session implementation.
 
-This does not close the complete prerequisite list:
+This does not close the complete prerequisite list. The pairing wire contract
+and its hostile vectors close the specification portion of XR-024-01, but do
+not implement it:
 
-- XT-060 owns production pairing ALPN/profile registration, pairing states,
-  errors, timeouts, duplicate behavior, and hostile golden vectors;
+- `protocol/spec/pairing-v1.md` owns production pairing ALPN/profile
+  registration, pairing states, errors, timeouts, duplicate behavior, and
+  hostile golden vectors;
 - XT-061 owns pre-handshake enforcement of the registered certificate limits;
+- the canonical TLS provider still requires a governed typed two-mode server
+  ALPN demultiplexer and inbound active-pin resolver before XT-025; the current
+  single-ALPN, caller-supplied optional-pin API is not implementation evidence;
 - XT-062 owns device-local, non-synchronizing GNOME Keyring qualification and
   positive Linux lifecycle tests;
 - XT-025 and XT-026 own pairing/session APIs and presentation-safe attempt
