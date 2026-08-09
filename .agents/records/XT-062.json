@@ -2,10 +2,10 @@
   "schema_version": 3,
   "id": "XT-062",
   "task_type": "feature",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "linux-secret-qualification-agent",
+  "base_sha": "32ae10fd707340821f0caf5896a24212c60b7942",
+  "head_sha": "63f437c3d5515a0a8ffc40ad3fdb787933fe17a1",
   "handoff": ".agents/handoffs/XT-062.md",
   "commit": {
     "type": "feat",
@@ -13,8 +13,10 @@
     "summary": "qualify linux secret service backend"
   },
   "architecture_change": {
-    "mode": "none",
-    "modules": [],
+    "mode": "refactor",
+    "modules": [
+      "identity"
+    ],
     "supersedes": {
       "paths": [],
       "symbols": [],
@@ -111,12 +113,23 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "32ae10fd707340821f0caf5896a24212c60b7942",
+    "source_head": "bf3bb40765134396fb65a4143b9597dd1bd0ac77",
+    "source_commits": [
+      "58f675138efe1ffab72fc766bbbba44bd39960db",
+      "f43535c87a684c67f453d66493e9db2ad0fc751a",
+      "63f437c3d5515a0a8ffc40ad3fdb787933fe17a1",
+      "bf3bb40765134396fb65a4143b9597dd1bd0ac77"
+    ],
+    "source_commits_sha256": "6334a5a48c641ea098084dd58b2f752fb071d54171c9372fcf4c4a0432abf318",
+    "source_patch_id": "8dab587b83c5da5f0d5184f488c04303aa142729",
+    "result": "",
+    "result_patch_id": "8dab587b83c5da5f0d5184f488c04303aa142729",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "native_test",
       "security_test",
@@ -129,7 +142,7 @@
       "tool/harness/desktop_bundle_test.sh",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:63f437c3d5515a0a8ffc40ad3fdb787933fe17a1:2026-08-09T03:35:45Z"
   },
   "acceptance": {
     "accepted_by": "",
