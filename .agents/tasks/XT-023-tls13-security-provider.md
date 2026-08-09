@@ -11,6 +11,10 @@ owned_paths:
   - native/include/xnn_transfer/core/security/tls/**
   - native/src/security/tls/**
   - native/tests/security/tls/**
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-PAIRING
+delivery_role: implementation
 contract_changes: []
 handoff: .agents/handoffs/XT-023.md
 ---

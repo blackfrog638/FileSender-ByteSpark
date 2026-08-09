@@ -392,6 +392,36 @@ Exercise one complete planning contract.
             before_backlog,
         )
 
+    def test_status_view_derives_requirement_and_scheduler_state(self) -> None:
+        view = delivery_plan.render_status_view(
+            self.root,
+            "DP-P1-TRANSFER",
+        )
+        self.assertIn("- Requirements accepted: `0/1`", view)
+        self.assertIn(
+            "| REQ-P1-TRANSFER | planned | XT-065 | XT-064 |",
+            view,
+        )
+        self.assertIn("| XT-064 | claimable | implementation |", view)
+        self.assertIn("| XT-065 | dependency-blocked | acceptance |", view)
+
+        implementation_record = (
+            self.root / ".agents" / "records" / "XT-064.json"
+        )
+        record = json.loads(implementation_record.read_text(encoding="utf-8"))
+        record["state"] = "done"
+        write_json(implementation_record, record)
+
+        updated_view = delivery_plan.render_status_view(
+            self.root,
+            "DP-P1-TRANSFER",
+        )
+        self.assertIn(
+            "| REQ-P1-TRANSFER | acceptance-ready | XT-065 | XT-064 |",
+            updated_view,
+        )
+        self.assertIn("| XT-065 | claimable | acceptance |", updated_view)
+
     def test_init_creates_draft_plan(self) -> None:
         destination = delivery_plan.initialize_plan(
             self.root,

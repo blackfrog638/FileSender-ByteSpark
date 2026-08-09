@@ -11,6 +11,10 @@ owned_paths:
   - native/include/xnn_transfer/core/storage/**
   - native/src/storage/**
   - native/tests/storage/**
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-ONE-FILE-TRANSFER
+delivery_role: implementation
 contract_changes: []
 handoff: .agents/handoffs/XT-027.md
 ---

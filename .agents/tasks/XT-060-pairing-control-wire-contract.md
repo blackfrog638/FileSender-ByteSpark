@@ -14,6 +14,10 @@ owned_paths:
   - protocol/testdata/security/v1/README.md
   - protocol/security/negative-test-matrix.md
   - docs/adr/0002-pairing-and-transport-security.md
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-PAIRING
+delivery_role: implementation
 contract_changes:
   - Register the versioned pairing-control wire profile and production identifiers
   - Define certificate limits, terminal errors, deadlines, and duplicate semantics

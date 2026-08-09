@@ -1,0 +1,184 @@
+{
+  "schema_version": 1,
+  "id": "DP-P1-DELIVERY",
+  "title": "P1 LAN transfer delivery",
+  "status": "approved",
+  "source": {
+    "kind": "roadmap",
+    "path": "docs/roadmap.md"
+  },
+  "requirements": [
+    {
+      "id": "REQ-P1-DISCOVERY",
+      "source_ref": "RM-P1-DISCOVERY",
+      "statement": "Discover LAN peers with bounded expiry and interface-change recovery.",
+      "acceptance_criteria": [
+        "Peer candidates appear and expire through the bounded native discovery lifecycle.",
+        "Interface changes recover without treating discovery data as authenticated identity.",
+        "The cross-platform vertical-slice acceptance task proves the packaged behavior."
+      ],
+      "implementation_tasks": [
+        "XT-018",
+        "XT-019",
+        "XT-020",
+        "XT-021"
+      ],
+      "acceptance_task": "XT-032"
+    },
+    {
+      "id": "REQ-P1-PAIRING",
+      "source_ref": "RM-P1-PAIRING",
+      "statement": "Authenticate peer pairing with fail-closed identity storage, transcript, certificate, and session controls.",
+      "acceptance_criteria": [
+        "First pairing requires explicit local confirmation and binds the accepted protocol transcript.",
+        "Reconnect, revocation, timeout, replay, role, and certificate failures close without fallback.",
+        "macOS, Windows, and qualified Linux storage participate in cross-platform acceptance."
+      ],
+      "implementation_tasks": [
+        "XT-022",
+        "XT-023",
+        "XT-024",
+        "XT-025",
+        "XT-026",
+        "XT-051",
+        "XT-060",
+        "XT-061",
+        "XT-062"
+      ],
+      "acceptance_task": "XT-032"
+    },
+    {
+      "id": "REQ-P1-ONE-FILE-TRANSFER",
+      "source_ref": "RM-P1-ONE-FILE-TRANSFER",
+      "statement": "Offer one file, require explicit receiver acceptance, transfer it over an authenticated encrypted session, and commit it atomically.",
+      "acceptance_criteria": [
+        "Two real processes transfer identical bytes only after explicit receiver acceptance.",
+        "Hostile metadata and failed integrity checks cannot escape or commit through storage.",
+        "Cross-platform acceptance proves authenticated identity and atomic destination commit."
+      ],
+      "implementation_tasks": [
+        "XT-027",
+        "XT-028",
+        "XT-030"
+      ],
+      "acceptance_task": "XT-032"
+    },
+    {
+      "id": "REQ-P1-FLUTTER-FLOW",
+      "source_ref": "RM-P1-FLUTTER-FLOW",
+      "statement": "Expose peer selection, pairing, send, receive decision, and transfer progress through the Flutter application boundary.",
+      "acceptance_criteria": [
+        "Presentation consumes application abstractions and never calls dart:ffi directly.",
+        "The packaged UI drives real native discovery, pairing, offer decisions, and progress.",
+        "Cross-platform acceptance verifies the complete user flow without claiming later production behavior."
+      ],
+      "implementation_tasks": [
+        "XT-021",
+        "XT-026",
+        "XT-030",
+        "XT-031"
+      ],
+      "acceptance_task": "XT-032"
+    },
+    {
+      "id": "REQ-P1-CANCELLATION",
+      "source_ref": "RM-P1-CANCELLATION",
+      "statement": "Cancel transfers with deterministic operation, callback, temporary-file, and session cleanup.",
+      "acceptance_criteria": [
+        "Local cancellation, remote withdrawal, process exit, and shutdown are idempotent.",
+        "Failed or cancelled transfers leave no committed partial file or stale temporary artifact.",
+        "The vertical-slice acceptance task proves cancellation through the packaged application."
+      ],
+      "implementation_tasks": [
+        "XT-029",
+        "XT-030",
+        "XT-031"
+      ],
+      "acceptance_task": "XT-032"
+    },
+    {
+      "id": "REQ-P1-MULTI-FILE",
+      "source_ref": "RM-P1-MULTI-FILE",
+      "statement": "Transfer bounded multi-file manifests and directory trees.",
+      "acceptance_criteria": [
+        "Manifest and path validation bound collections and preserve destination containment.",
+        "Production adapters and Flutter flow expose multi-file and directory transfers.",
+        "Final P1 acceptance proves complete and rejected manifest behavior."
+      ],
+      "implementation_tasks": [
+        "XT-033",
+        "XT-037",
+        "XT-038"
+      ],
+      "acceptance_task": "XT-039"
+    },
+    {
+      "id": "REQ-P1-SCHEDULING",
+      "source_ref": "RM-P1-SCHEDULING",
+      "statement": "Schedule chunks with bounded backpressure, fairness, cancellation, and observable rate reporting.",
+      "acceptance_criteria": [
+        "Chunk and queue limits prevent unbounded memory or sender dominance.",
+        "Rate and progress reporting remain monotonic across production adapters.",
+        "Final P1 acceptance exercises constrained and concurrent transfer schedules."
+      ],
+      "implementation_tasks": [
+        "XT-034",
+        "XT-037",
+        "XT-038"
+      ],
+      "acceptance_task": "XT-039"
+    },
+    {
+      "id": "REQ-P1-RESUME",
+      "source_ref": "RM-P1-RESUME",
+      "statement": "Resume authenticated transfers after reconnect or process restart from bounded durable state.",
+      "acceptance_criteria": [
+        "Resume state is versioned, bounded, and tied to the authenticated peer and manifest.",
+        "Corrupt, stale, or mismatched state fails closed without committing partial data.",
+        "Final P1 acceptance proves reconnect and process-restart recovery."
+      ],
+      "implementation_tasks": [
+        "XT-036",
+        "XT-037",
+        "XT-038"
+      ],
+      "acceptance_task": "XT-039"
+    },
+    {
+      "id": "REQ-P1-COLLISION",
+      "source_ref": "RM-P1-COLLISION",
+      "statement": "Select contained destinations and apply an explicit collision policy before commit.",
+      "acceptance_criteria": [
+        "Destination selection remains inside the approved root across supported platforms.",
+        "Existing-file collisions require an explicit deterministic policy.",
+        "Final P1 acceptance covers collision, traversal, and link-boundary rejection."
+      ],
+      "implementation_tasks": [
+        "XT-035",
+        "XT-037",
+        "XT-038"
+      ],
+      "acceptance_task": "XT-039"
+    },
+    {
+      "id": "REQ-P1-ADVERSE-PLATFORM",
+      "source_ref": "RM-P1-ADVERSE-PLATFORM",
+      "statement": "Prove large-file, low-space, sleep-wake, and network-change behavior across supported platforms.",
+      "acceptance_criteria": [
+        "macOS, Windows, and Linux evidence covers large files and low-space failure.",
+        "Sleep-wake and network changes recover or fail with deterministic cleanup.",
+        "The final P1 acceptance task records the cross-platform evidence before closing the milestone."
+      ],
+      "implementation_tasks": [
+        "XT-039"
+      ],
+      "acceptance_task": "XT-039"
+    }
+  ],
+  "approval": {
+    "approved_by": "integration-owner",
+    "approved_at": "2026-08-09T10:22:10+00:00",
+    "content_sha256": "7d91720d779798e37f45db36167397157f30aa107776d97b644f1dffcaa32ab6"
+  },
+  "superseded_by": ""
+}

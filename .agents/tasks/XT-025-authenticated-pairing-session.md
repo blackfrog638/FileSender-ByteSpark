@@ -13,6 +13,10 @@ owned_paths:
   - native/include/xnn_transfer/core/session/**
   - native/src/session/**
   - native/tests/session/**
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-PAIRING
+delivery_role: implementation
 contract_changes: []
 handoff: .agents/handoffs/XT-025.md
 ---

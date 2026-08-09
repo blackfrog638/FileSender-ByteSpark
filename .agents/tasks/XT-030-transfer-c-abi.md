@@ -13,6 +13,12 @@ owned_paths:
   - native/tests/bridge/**
   - apps/desktop/lib/core/native/**
   - docs/adr/0008-p1-operation-c-abi.md
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-ONE-FILE-TRANSFER
+  - REQ-P1-FLUTTER-FLOW
+  - REQ-P1-CANCELLATION
+delivery_role: implementation
 contract_changes:
   - Add one-file offer, acceptance, progress, completion, and cancellation C ABI.
 handoff: .agents/handoffs/XT-030.md

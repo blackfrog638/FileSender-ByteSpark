@@ -7,10 +7,10 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "governance",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "p1-planning-agent",
+  "base_sha": "c9a23ae406e53410b6c93fd1f02f87536b17442c",
+  "head_sha": "ddc5799d68e420909e1351c0ef7800fbea081877",
   "handoff": ".agents/handoffs/XT-064.md",
   "commit": {
     "type": "feat",
@@ -99,12 +99,25 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "c9a23ae406e53410b6c93fd1f02f87536b17442c",
+    "source_head": "46764104b3b7867bdecfa08da21fcb2e260a0437",
+    "source_commits": [
+      "90a3a97610e06adcaaa70fea2bccd1008f755a8a",
+      "4ac13255378ea8b4b41582e62a285d1781a1e4bc",
+      "5f626e059399434df2d49389ef730bcdf7712fb1",
+      "92b730a694737223d3c7b286e666c8785036618b",
+      "ddc5799d68e420909e1351c0ef7800fbea081877",
+      "46764104b3b7867bdecfa08da21fcb2e260a0437"
+    ],
+    "source_commits_sha256": "04ac294adf8b875e8d40e9b02841b0186520a6934eb9188716055da3ed3f2d00",
+    "source_patch_id": "c558983c5275a3aec2d5e998a956014e11466238",
+    "result": "",
+    "result_patch_id": "c558983c5275a3aec2d5e998a956014e11466238",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "delivery_plan_test",
       "governance_test",
@@ -115,7 +128,7 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:ddc5799d68e420909e1351c0ef7800fbea081877:2026-08-09T11:01:10Z"
   },
   "acceptance": {
     "accepted_by": "",

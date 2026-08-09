@@ -10,6 +10,10 @@ owned_paths:
   - protocol/spec/discovery-v1.md
   - protocol/testdata/discovery/v1/**
   - docs/adr/0007-lan-discovery.md
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-DISCOVERY
+delivery_role: implementation
 contract_changes:
   - Add the unauthenticated LAN discovery v1 wire contract.
 handoff: .agents/handoffs/XT-019.md

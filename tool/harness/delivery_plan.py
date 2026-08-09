@@ -31,6 +31,7 @@ DELIVERY_ROLES = {
     "acceptance",
     "implementation_acceptance",
 }
+ACTIVE_TASK_STATES = {"claimed", "in_progress", "review", "integrated"}
 PLAN_FIELDS = {
     "schema_version",
     "id",
@@ -879,6 +880,181 @@ def validate_registration(
     return errors
 
 
+def _task_sort_key(task_id: str) -> tuple[int, str]:
+    match = TASK_ID_PATTERN.fullmatch(task_id)
+    if match is None:
+        return (sys.maxsize, task_id)
+    return (int(task_id.removeprefix("XT-")), task_id)
+
+
+def _record_state(root: Path, task_id: str) -> str:
+    path = root / ".agents" / "records" / f"{task_id}.json"
+    if not path.is_file():
+        raise DeliveryPlanError(f"{task_id} is missing its task record")
+    record = _load_json(path, root)
+    state = record.get("state")
+    if not isinstance(state, str) or not state:
+        raise DeliveryPlanError(f"{task_id}.state is missing")
+    return state
+
+
+def _scheduled_state(
+    root: Path,
+    task: dict[str, Any],
+    states: dict[str, str],
+) -> str:
+    task_id = task["id"]
+    state = states[task_id]
+    if state != "ready":
+        return state
+    dependencies = task.get("depends_on", [])
+    if not isinstance(dependencies, list):
+        raise DeliveryPlanError(f"{task_id}.depends_on must be an array")
+    for dependency in dependencies:
+        if not isinstance(dependency, str):
+            raise DeliveryPlanError(f"{task_id}.depends_on must contain task ids")
+        dependency_state = states.get(dependency)
+        if dependency_state is None:
+            dependency_state = _record_state(root, dependency)
+            states[dependency] = dependency_state
+        if dependency_state != "done":
+            return "dependency-blocked"
+    return "claimable"
+
+
+def _requirement_state(
+    requirement: dict[str, Any],
+    states: dict[str, str],
+) -> str:
+    acceptance_task = requirement["acceptance_task"]
+    if states[acceptance_task] == "done":
+        return "accepted"
+    implementations = requirement["implementation_tasks"]
+    implementation_states = [states[task_id] for task_id in implementations]
+    if all(state == "done" for state in implementation_states):
+        return "acceptance-ready"
+    if any(state in ACTIVE_TASK_STATES for state in implementation_states):
+        return "in-progress"
+    if any(state == "done" for state in implementation_states):
+        return "partially-delivered"
+    return "planned"
+
+
+def _markdown_cell(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ")
+
+
+def render_status_view(root: Path, plan_id: str) -> str:
+    errors = validate_repository(root)
+    if errors:
+        raise DeliveryPlanError("\n".join(f"- {error}" for error in errors))
+    config = load_config(root)
+    _backlog, tasks = load_backlog(root)
+    plans, _paths, load_errors = load_plans(root, config)
+    if load_errors:
+        raise DeliveryPlanError("\n".join(load_errors))
+    plan = plans.get(plan_id)
+    if plan is None:
+        raise DeliveryPlanError(f"Unknown Delivery Plan: {plan_id}")
+
+    requirements = plan.get("requirements")
+    if not isinstance(requirements, list):
+        raise DeliveryPlanError(f"{plan_id}.requirements must be an array")
+    mapped_task_ids = {
+        task_id
+        for requirement in requirements
+        for task_id in (
+            list(requirement["implementation_tasks"])
+            + [requirement["acceptance_task"]]
+        )
+    }
+    states = {
+        task_id: _record_state(root, task_id)
+        for task_id in sorted(mapped_task_ids, key=_task_sort_key)
+    }
+    scheduled_states = {
+        task_id: _scheduled_state(root, tasks[task_id], states)
+        for task_id in sorted(mapped_task_ids, key=_task_sort_key)
+    }
+    requirement_states = {
+        requirement["id"]: _requirement_state(requirement, states)
+        for requirement in requirements
+    }
+
+    task_counts: dict[str, int] = {}
+    for state in scheduled_states.values():
+        task_counts[state] = task_counts.get(state, 0) + 1
+    accepted_count = sum(
+        state == "accepted" for state in requirement_states.values()
+    )
+    approval = plan.get("approval", {})
+    summary = ", ".join(
+        f"{state}={count}" for state, count in sorted(task_counts.items())
+    )
+    lines = [
+        f"# {plan['title']} ({plan_id})",
+        "",
+        f"- Plan status: `{plan['status']}`",
+        (
+            f"- Approval: `{approval.get('approved_by', '')}` at "
+            f"`{approval.get('approved_at', '')}`"
+        ),
+        (
+            f"- Requirements accepted: `{accepted_count}/"
+            f"{len(requirements)}`"
+        ),
+        f"- Task states: {summary}",
+        "",
+        "## Requirements",
+        "",
+        "| Requirement | State | Acceptance | Implementation |",
+        "| --- | --- | --- | --- |",
+    ]
+    for requirement in requirements:
+        requirement_id = requirement["id"]
+        implementations = ", ".join(requirement["implementation_tasks"])
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_cell(value)
+                for value in (
+                    requirement_id,
+                    requirement_states[requirement_id],
+                    requirement["acceptance_task"],
+                    implementations,
+                )
+            )
+            + " |"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Tasks",
+            "",
+            "| Task | State | Role | Requirements | Depends on |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    for task_id in sorted(mapped_task_ids, key=_task_sort_key):
+        task = tasks[task_id]
+        lines.append(
+            "| "
+            + " | ".join(
+                _markdown_cell(value)
+                for value in (
+                    task_id,
+                    scheduled_states[task_id],
+                    task["delivery_role"],
+                    ", ".join(task["requirement_ids"]),
+                    ", ".join(task.get("depends_on", [])) or "-",
+                )
+            )
+            + " |"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def _candidate_plan_path(
     root: Path,
     config: DeliveryPlanConfig,
@@ -1037,6 +1213,9 @@ def main() -> int:
     approve_parser.add_argument("plan_id")
     approve_parser.add_argument("--by", required=True)
 
+    status_parser = subparsers.add_parser("status")
+    status_parser.add_argument("plan_id")
+
     args = parser.parse_args()
     root = args.root.resolve()
     try:
@@ -1065,6 +1244,9 @@ def main() -> int:
         if args.command == "approve":
             approve_plan(root, args.plan_id, args.by)
             print(f"Approved {args.plan_id} by {args.by}")
+            return 0
+        if args.command == "status":
+            print(render_status_view(root, args.plan_id), end="")
             return 0
     except DeliveryPlanError as error:
         print(f"Delivery Plan error:\n{error}", file=sys.stderr)

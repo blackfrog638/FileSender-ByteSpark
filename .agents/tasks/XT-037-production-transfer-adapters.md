@@ -12,6 +12,13 @@ owned_paths:
   - native/tests/bridge/**
   - apps/desktop/lib/core/native/**
   - docs/adr/0008-p1-operation-c-abi.md
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-MULTI-FILE
+  - REQ-P1-SCHEDULING
+  - REQ-P1-RESUME
+  - REQ-P1-COLLISION
+delivery_role: implementation
 contract_changes:
   - Extend the C ABI for manifests, destination policy, rates, pause, and resume.
 handoff: .agents/handoffs/XT-037.md

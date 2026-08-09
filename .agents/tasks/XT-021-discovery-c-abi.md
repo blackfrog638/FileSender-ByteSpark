@@ -15,6 +15,11 @@ owned_paths:
   - apps/desktop/lib/core/native/**
   - apps/desktop/test/core/native/**
   - docs/adr/0008-p1-operation-c-abi.md
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-DISCOVERY
+  - REQ-P1-FLUTTER-FLOW
+delivery_role: implementation
 contract_changes:
   - Add discovery commands and peer lifecycle events to the stable C ABI.
 handoff: .agents/handoffs/XT-021.md

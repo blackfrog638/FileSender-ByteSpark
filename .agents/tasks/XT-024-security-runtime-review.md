@@ -11,6 +11,10 @@ owned_paths:
   - protocol/security/XT-024-runtime-review.md
   - docs/adr/0002-pairing-and-transport-security.md
   - docs/adr/0006-p1-native-runtime.md
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-PAIRING
+delivery_role: implementation
 contract_changes: []
 handoff: .agents/handoffs/XT-024.md
 ---

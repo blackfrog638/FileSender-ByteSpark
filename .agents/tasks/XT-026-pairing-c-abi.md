@@ -13,6 +13,11 @@ owned_paths:
   - native/tests/bridge/**
   - apps/desktop/lib/core/native/**
   - docs/adr/0008-p1-operation-c-abi.md
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-PAIRING
+  - REQ-P1-FLUTTER-FLOW
+delivery_role: implementation
 contract_changes:
   - Add pairing, confirmation, rejection, and revocation operations to the C ABI.
 handoff: .agents/handoffs/XT-026.md

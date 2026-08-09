@@ -14,6 +14,10 @@ owned_paths:
   - native/tests/storage/**
   - native/src/session/**
   - native/tests/session/**
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-CANCELLATION
+delivery_role: implementation
 contract_changes: []
 handoff: .agents/handoffs/XT-029.md
 ---

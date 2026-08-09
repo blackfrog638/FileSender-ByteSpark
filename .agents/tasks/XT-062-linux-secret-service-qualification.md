@@ -17,6 +17,10 @@ owned_paths:
   - docs/adr/0006-p1-native-runtime.md
   - docs/adr/0009-protected-identity-storage.md
   - docs/testing.md
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-PAIRING
+delivery_role: implementation
 contract_changes:
   - Qualify one exact device-local non-synchronizing Linux Secret Service profile
 handoff: .agents/handoffs/XT-062.md

@@ -10,6 +10,13 @@ owned_paths:
   - apps/desktop/lib/app/**
   - apps/desktop/lib/features/**
   - apps/desktop/test/features/**
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-MULTI-FILE
+  - REQ-P1-SCHEDULING
+  - REQ-P1-RESUME
+  - REQ-P1-COLLISION
+delivery_role: implementation
 contract_changes: []
 handoff: .agents/handoffs/XT-038.md
 ---

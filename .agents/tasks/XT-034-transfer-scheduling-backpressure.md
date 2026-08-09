@@ -11,6 +11,10 @@ owned_paths:
   - native/src/transfer/**
   - native/tests/transfer/**
   - native/benchmarks/**
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-SCHEDULING
+delivery_role: implementation
 contract_changes: []
 handoff: .agents/handoffs/XT-034.md
 ---

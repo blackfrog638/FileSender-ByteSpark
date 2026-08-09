@@ -13,6 +13,14 @@ owned_paths:
   - docs/testing.md
   - .github/workflows/**
   - tool/harness/**
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-DISCOVERY
+  - REQ-P1-PAIRING
+  - REQ-P1-ONE-FILE-TRANSFER
+  - REQ-P1-FLUTTER-FLOW
+  - REQ-P1-CANCELLATION
+delivery_role: acceptance
 contract_changes: []
 handoff: .agents/handoffs/XT-032.md
 ---

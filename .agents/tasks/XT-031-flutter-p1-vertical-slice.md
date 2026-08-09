@@ -12,6 +12,11 @@ owned_paths:
   - apps/desktop/lib/app/**
   - apps/desktop/lib/features/**
   - apps/desktop/test/features/**
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-FLUTTER-FLOW
+  - REQ-P1-CANCELLATION
+delivery_role: implementation
 contract_changes: []
 handoff: .agents/handoffs/XT-031.md
 ---

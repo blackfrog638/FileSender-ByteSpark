@@ -19,6 +19,10 @@ owned_paths:
   - native/src/transfer/**
   - native/tests/transfer/**
   - docs/adr/0010-resume-state.md
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-RESUME
+delivery_role: implementation
 contract_changes:
   - Add the versioned persisted transfer-resume schema and migration policy.
 handoff: .agents/handoffs/XT-036.md

@@ -10,6 +10,10 @@ depends_on:
 owned_paths:
   - native/src/security/tls/tls_provider.cpp
   - native/tests/security/tls/tls_provider_test.cpp
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-PAIRING
+delivery_role: implementation
 contract_changes:
   - Enforce the pairing profile certificate byte and chain limits before adoption
 handoff: .agents/handoffs/XT-061.md

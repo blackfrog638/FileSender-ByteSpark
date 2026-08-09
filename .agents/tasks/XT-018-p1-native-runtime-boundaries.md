@@ -12,6 +12,10 @@ owned_paths:
   - native/CMakeLists.txt
   - native/src/**/CMakeLists.txt
   - native/tests/**/CMakeLists.txt
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-DISCOVERY
+delivery_role: implementation
 contract_changes:
   - Select the P1 networking, TLS, crypto, and protected-storage runtime.
   - Establish independent native module build boundaries.

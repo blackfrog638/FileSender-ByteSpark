@@ -12,6 +12,14 @@ owned_paths:
   - docs/testing.md
   - .github/workflows/**
   - tool/harness/**
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-MULTI-FILE
+  - REQ-P1-SCHEDULING
+  - REQ-P1-RESUME
+  - REQ-P1-COLLISION
+  - REQ-P1-ADVERSE-PLATFORM
+delivery_role: implementation_acceptance
 contract_changes: []
 handoff: .agents/handoffs/XT-039.md
 ---

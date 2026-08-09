@@ -244,7 +244,12 @@
         "native/CMakeLists.txt",
         "native/src/**/CMakeLists.txt",
         "native/tests/**/CMakeLists.txt"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-DISCOVERY"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-019",
@@ -258,7 +263,12 @@
         "protocol/spec/discovery-v1.md",
         "protocol/testdata/discovery/v1/**",
         "docs/adr/0007-lan-discovery.md"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-DISCOVERY"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-020",
@@ -273,7 +283,12 @@
         "native/include/xnn_transfer/core/discovery/**",
         "native/src/discovery/**",
         "native/tests/discovery/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-DISCOVERY"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-021",
@@ -293,7 +308,13 @@
         "apps/desktop/lib/core/native/**",
         "apps/desktop/test/core/native/**",
         "docs/adr/0008-p1-operation-c-abi.md"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-DISCOVERY",
+        "REQ-P1-FLUTTER-FLOW"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-022",
@@ -311,7 +332,12 @@
         "native/src/security/identity/**",
         "native/tests/security/identity/**",
         "docs/adr/0009-protected-identity-storage.md"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-PAIRING"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-023",
@@ -328,7 +354,12 @@
         "native/include/xnn_transfer/core/security/tls/**",
         "native/src/security/tls/**",
         "native/tests/security/tls/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-PAIRING"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-024",
@@ -344,7 +375,12 @@
         "protocol/security/XT-024-runtime-review.md",
         "docs/adr/0002-pairing-and-transport-security.md",
         "docs/adr/0006-p1-native-runtime.md"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-PAIRING"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-025",
@@ -355,13 +391,20 @@
       "workstream": "native_core",
       "depends_on": [
         "XT-020",
-        "XT-024"
+        "XT-024",
+        "XT-060",
+        "XT-061"
       ],
       "owned_paths": [
         "native/include/xnn_transfer/core/session/**",
         "native/src/session/**",
         "native/tests/session/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-PAIRING"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-026",
@@ -379,7 +422,13 @@
         "native/tests/bridge/**",
         "apps/desktop/lib/core/native/**",
         "docs/adr/0008-p1-operation-c-abi.md"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-PAIRING",
+        "REQ-P1-FLUTTER-FLOW"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-027",
@@ -396,7 +445,12 @@
         "native/include/xnn_transfer/core/storage/**",
         "native/src/storage/**",
         "native/tests/storage/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-ONE-FILE-TRANSFER"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-028",
@@ -414,7 +468,12 @@
         "native/include/xnn_transfer/core/transfer/**",
         "native/src/transfer/**",
         "native/tests/transfer/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-ONE-FILE-TRANSFER"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-029",
@@ -433,7 +492,12 @@
         "native/tests/storage/**",
         "native/src/session/**",
         "native/tests/session/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-CANCELLATION"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-030",
@@ -451,7 +515,14 @@
         "native/tests/bridge/**",
         "apps/desktop/lib/core/native/**",
         "docs/adr/0008-p1-operation-c-abi.md"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-ONE-FILE-TRANSFER",
+        "REQ-P1-FLUTTER-FLOW",
+        "REQ-P1-CANCELLATION"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-031",
@@ -468,7 +539,13 @@
         "apps/desktop/lib/app/**",
         "apps/desktop/lib/features/**",
         "apps/desktop/test/features/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-FLUTTER-FLOW",
+        "REQ-P1-CANCELLATION"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-032",
@@ -477,7 +554,8 @@
       "risk_profile_required": true,
       "workstream": "integration",
       "depends_on": [
-        "XT-031"
+        "XT-031",
+        "XT-062"
       ],
       "owned_paths": [
         "docs/roadmap.md",
@@ -485,7 +563,16 @@
         "docs/testing.md",
         ".github/workflows/**",
         "tool/harness/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-DISCOVERY",
+        "REQ-P1-PAIRING",
+        "REQ-P1-ONE-FILE-TRANSFER",
+        "REQ-P1-FLUTTER-FLOW",
+        "REQ-P1-CANCELLATION"
+      ],
+      "delivery_role": "acceptance"
     },
     {
       "id": "XT-033",
@@ -502,9 +589,13 @@
         "native/tests/storage/**",
         "native/include/xnn_transfer/core/transfer/**",
         "native/src/transfer/**",
-        "native/tests/transfer/**",
-        "docs/adr/0010-resume-state.md"
-      ]
+        "native/tests/transfer/**"
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-MULTI-FILE"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-034",
@@ -520,7 +611,12 @@
         "native/src/transfer/**",
         "native/tests/transfer/**",
         "native/benchmarks/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-SCHEDULING"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-035",
@@ -535,7 +631,12 @@
         "native/include/xnn_transfer/core/storage/**",
         "native/src/storage/**",
         "native/tests/storage/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-COLLISION"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-036",
@@ -557,8 +658,14 @@
         "native/tests/storage/**",
         "native/include/xnn_transfer/core/transfer/**",
         "native/src/transfer/**",
-        "native/tests/transfer/**"
-      ]
+        "native/tests/transfer/**",
+        "docs/adr/0010-resume-state.md"
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-RESUME"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-037",
@@ -575,7 +682,15 @@
         "native/tests/bridge/**",
         "apps/desktop/lib/core/native/**",
         "docs/adr/0008-p1-operation-c-abi.md"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-MULTI-FILE",
+        "REQ-P1-SCHEDULING",
+        "REQ-P1-RESUME",
+        "REQ-P1-COLLISION"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-038",
@@ -590,7 +705,15 @@
         "apps/desktop/lib/app/**",
         "apps/desktop/lib/features/**",
         "apps/desktop/test/features/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-MULTI-FILE",
+        "REQ-P1-SCHEDULING",
+        "REQ-P1-RESUME",
+        "REQ-P1-COLLISION"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-039",
@@ -607,7 +730,16 @@
         "docs/testing.md",
         ".github/workflows/**",
         "tool/harness/**"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-MULTI-FILE",
+        "REQ-P1-SCHEDULING",
+        "REQ-P1-RESUME",
+        "REQ-P1-COLLISION",
+        "REQ-P1-ADVERSE-PLATFORM"
+      ],
+      "delivery_role": "implementation_acceptance"
     },
     {
       "id": "XT-040",
@@ -832,7 +964,12 @@
         "tool/harness/dependency_manifest_test.py",
         "tool/harness/dependency_manifest_test_test.py",
         ".github/workflows/ci.yml"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-PAIRING"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-052",
@@ -1012,7 +1149,12 @@
         "protocol/testdata/security/v1/README.md",
         "protocol/security/negative-test-matrix.md",
         "docs/adr/0002-pairing-and-transport-security.md"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-PAIRING"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-061",
@@ -1029,7 +1171,12 @@
       "owned_paths": [
         "native/src/security/tls/tls_provider.cpp",
         "native/tests/security/tls/tls_provider_test.cpp"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-PAIRING"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-062",
@@ -1053,7 +1200,12 @@
         "docs/adr/0006-p1-native-runtime.md",
         "docs/adr/0009-protected-identity-storage.md",
         "docs/testing.md"
-      ]
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-PAIRING"
+      ],
+      "delivery_role": "implementation"
     },
     {
       "id": "XT-063",

@@ -12,6 +12,10 @@ owned_paths:
   - native/src/security/identity/**
   - native/tests/security/identity/**
   - docs/adr/0009-protected-identity-storage.md
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-PAIRING
+delivery_role: implementation
 contract_changes: []
 handoff: .agents/handoffs/XT-022.md
 ---

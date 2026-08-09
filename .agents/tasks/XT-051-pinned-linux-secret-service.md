@@ -20,6 +20,10 @@ owned_paths:
   - tool/harness/dependency_manifest_test.py
   - tool/harness/dependency_manifest_test_test.py
   - .github/workflows/ci.yml
+delivery_plan: DP-P1-DELIVERY
+requirement_ids:
+  - REQ-P1-PAIRING
+delivery_role: implementation
 contract_changes: []
 handoff: .agents/handoffs/XT-051.md
 ---
