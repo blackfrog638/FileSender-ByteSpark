@@ -2,9 +2,9 @@
   "schema_version": 3,
   "id": "XT-060",
   "task_type": "feature",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
+  "state": "claimed",
+  "owner": "pairing-wire-contract-agent",
+  "base_sha": "b42c301c1039a986bc060f64f8e8df2cf84e4f03",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-060.md",
   "commit": {
