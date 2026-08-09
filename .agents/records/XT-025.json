@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-025",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "pairing-session-agent",
   "base_sha": "fafcc4f828bce5062c48d181d5a4ed62283864bb",
   "head_sha": "3c6963596491a76302151d207378b71965434e41",
@@ -111,9 +111,9 @@
     ],
     "source_commits_sha256": "fc0fb91b73cbcd6103b74dd0e7be94caa674eb16cc9f9b4bea9f83c6842e51f4",
     "source_patch_id": "097fe4a2ffa0b6fe39abddd845e0b6065ada67dc",
-    "result": "",
+    "result": "600c7b0b0a3478b89189af3d3bd1db211f59eb06",
     "result_patch_id": "097fe4a2ffa0b6fe39abddd845e0b6065ada67dc",
-    "verified_sha": ""
+    "verified_sha": "600c7b0b0a3478b89189af3d3bd1db211f59eb06"
   },
   "verification": {
     "status": "passed",
@@ -122,11 +122,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:3c6963596491a76302151d207378b71965434e41:2026-08-09T18:18:54Z"
+    "reference": "make verify at 600c7b0b0a3478b89189af3d3bd1db211f59eb06"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-10T02:38:32+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
