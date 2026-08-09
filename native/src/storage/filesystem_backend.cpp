@@ -77,7 +77,7 @@ constexpr std::string_view kTemporaryPrefix = "part-";
 }
 
 [[nodiscard]] PlatformError ValidateTrustedDirectory(const int fd) noexcept {
-  struct stat metadata{};
+  struct stat metadata {};
   if (::fstat(fd, &metadata) != 0) {
     return ErrorFromErrno(errno);
   }

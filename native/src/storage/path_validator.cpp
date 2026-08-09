@@ -15,7 +15,8 @@ namespace {
 constexpr std::string_view kReservedTemporaryDirectory = ".xnn-transfer-tmp";
 
 [[nodiscard]] bool IsAsciiAlpha(const char value) noexcept {
-  return (value >= 'A' && value <= 'Z') || (value >= 'a' && value <= 'z');
+  return (value >= 'A' && value <= 'Z') ||
+         (value >= 'a' && value <= 'z');
 }
 
 [[nodiscard]] bool AsciiCaseInsensitiveEquals(const std::string_view left,
@@ -37,17 +38,21 @@ constexpr std::string_view kReservedTemporaryDirectory = ".xnn-transfer-tmp";
   return true;
 }
 
-[[nodiscard]] bool IsNoncharacter(const utf8proc_int32_t codepoint) noexcept {
+[[nodiscard]] bool IsNoncharacter(
+    const utf8proc_int32_t codepoint) noexcept {
   return (codepoint >= 0xfdd0 && codepoint <= 0xfdef) ||
-         (codepoint & 0xffff) == 0xfffe || (codepoint & 0xffff) == 0xffff;
+         (codepoint & 0xffff) == 0xfffe ||
+         (codepoint & 0xffff) == 0xffff;
 }
 
-[[nodiscard]] bool IsStrictUtf8(const std::span<const std::uint8_t> encoded) noexcept {
+[[nodiscard]] bool IsStrictUtf8(
+    const std::span<const std::uint8_t> encoded) noexcept {
   std::size_t offset = 0;
   while (offset < encoded.size()) {
     utf8proc_int32_t codepoint = 0;
     const utf8proc_ssize_t consumed = utf8proc_iterate(
-        encoded.data() + offset, static_cast<utf8proc_ssize_t>(encoded.size() - offset),
+        encoded.data() + offset,
+        static_cast<utf8proc_ssize_t>(encoded.size() - offset),
         &codepoint);
     if (consumed <= 0) {
       return false;
@@ -63,7 +68,8 @@ constexpr std::string_view kReservedTemporaryDirectory = ".xnn-transfer-tmp";
   while (offset < encoded.size()) {
     utf8proc_int32_t codepoint = 0;
     const utf8proc_ssize_t consumed = utf8proc_iterate(
-        encoded.data() + offset, static_cast<utf8proc_ssize_t>(encoded.size() - offset),
+        encoded.data() + offset,
+        static_cast<utf8proc_ssize_t>(encoded.size() - offset),
         &codepoint);
     if (consumed <= 0) {
       return ValidationError::kInvalidUtf8;
@@ -71,7 +77,8 @@ constexpr std::string_view kReservedTemporaryDirectory = ".xnn-transfer-tmp";
     if (codepoint == 0) {
       return ValidationError::kPathNul;
     }
-    if ((codepoint >= 1 && codepoint <= 0x1f) || codepoint == 0x7f) {
+    if ((codepoint >= 1 && codepoint <= 0x1f) ||
+        codepoint == 0x7f) {
       return ValidationError::kPathC0Control;
     }
     if (codepoint >= 0x80 && codepoint <= 0x9f) {
@@ -85,23 +92,26 @@ constexpr std::string_view kReservedTemporaryDirectory = ".xnn-transfer-tmp";
   return ValidationError::kNone;
 }
 
-[[nodiscard]] bool IsNfc(const std::span<const std::uint8_t> encoded) noexcept {
+[[nodiscard]] bool IsNfc(
+    const std::span<const std::uint8_t> encoded) noexcept {
   utf8proc_uint8_t* normalized = nullptr;
   const auto options =
       static_cast<utf8proc_option_t>(UTF8PROC_STABLE | UTF8PROC_COMPOSE);
-  const utf8proc_ssize_t normalized_size =
-      utf8proc_map(encoded.data(), static_cast<utf8proc_ssize_t>(encoded.size()),
-                   &normalized, options);
-  const std::unique_ptr<utf8proc_uint8_t, decltype(&std::free)> owner(normalized,
-                                                                      &std::free);
-  return normalized_size == static_cast<utf8proc_ssize_t>(encoded.size()) &&
+  const utf8proc_ssize_t normalized_size = utf8proc_map(
+      encoded.data(), static_cast<utf8proc_ssize_t>(encoded.size()),
+      &normalized, options);
+  const std::unique_ptr<utf8proc_uint8_t, decltype(&std::free)> owner(
+      normalized, &std::free);
+  return normalized_size ==
+             static_cast<utf8proc_ssize_t>(encoded.size()) &&
          normalized != nullptr &&
          std::memcmp(encoded.data(), normalized, encoded.size()) == 0;
 }
 
 }  // namespace
 
-PathValidationResult ValidateReceivePath(const std::span<const std::uint8_t> encoded) {
+PathValidationResult ValidateReceivePath(
+    const std::span<const std::uint8_t> encoded) {
   if (encoded.empty()) {
     return PathValidationResult(ValidationError::kPathEmpty);
   }
@@ -112,7 +122,8 @@ PathValidationResult ValidateReceivePath(const std::span<const std::uint8_t> enc
     return PathValidationResult(ValidationError::kInvalidUtf8);
   }
 
-  const std::string path(reinterpret_cast<const char*>(encoded.data()), encoded.size());
+  const std::string path(
+      reinterpret_cast<const char*>(encoded.data()), encoded.size());
   if (path.starts_with("//") || path.starts_with("\\\\")) {
     return PathValidationResult(ValidationError::kPathUnc);
   }
@@ -120,9 +131,11 @@ PathValidationResult ValidateReceivePath(const std::span<const std::uint8_t> enc
     return PathValidationResult(ValidationError::kPathAbsolute);
   }
   if (path.size() >= 2 && IsAsciiAlpha(path[0]) && path[1] == ':') {
-    return PathValidationResult(path.size() >= 3 && (path[2] == '/' || path[2] == '\\')
-                                    ? ValidationError::kPathDriveAbsolute
-                                    : ValidationError::kPathDriveQualified);
+    return PathValidationResult(
+        path.size() >= 3 &&
+                (path[2] == '/' || path[2] == '\\')
+            ? ValidationError::kPathDriveAbsolute
+            : ValidationError::kPathDriveQualified);
   }
   if (path.find('\\') != std::string::npos) {
     return PathValidationResult(ValidationError::kPathBackslash);
@@ -131,7 +144,8 @@ PathValidationResult ValidateReceivePath(const std::span<const std::uint8_t> enc
     return PathValidationResult(ValidationError::kPathColonOrAds);
   }
   if (path.ends_with('/')) {
-    return PathValidationResult(ValidationError::kPathTrailingSeparator);
+    return PathValidationResult(
+        ValidationError::kPathTrailingSeparator);
   }
 
   const ValidationError codepoint_error = ValidateCodepoints(encoded);
@@ -148,13 +162,16 @@ PathValidationResult ValidateReceivePath(const std::span<const std::uint8_t> enc
     const std::size_t separator = path.find('/', component_start);
     const std::size_t component_end =
         separator == std::string::npos ? path.size() : separator;
-    const std::string_view component(path.data() + component_start,
-                                     component_end - component_start);
+    const std::string_view component(
+        path.data() + component_start,
+        component_end - component_start);
     if (component.empty()) {
-      return PathValidationResult(ValidationError::kPathEmptyComponent);
+      return PathValidationResult(
+          ValidationError::kPathEmptyComponent);
     }
     if (component == ".") {
-      return PathValidationResult(ValidationError::kPathDotComponent);
+      return PathValidationResult(
+          ValidationError::kPathDotComponent);
     }
     if (component == "..") {
       return PathValidationResult(ValidationError::kPathTraversal);
@@ -165,10 +182,12 @@ PathValidationResult ValidateReceivePath(const std::span<const std::uint8_t> enc
     }
     components.emplace_back(component);
     if (components.size() > kMaxPathComponents) {
-      return PathValidationResult(ValidationError::kPathComponentCountLimit);
+      return PathValidationResult(
+          ValidationError::kPathComponentCountLimit);
     }
     if (component.size() > kMaxPathComponentBytes) {
-      return PathValidationResult(ValidationError::kPathComponentBytesLimit);
+      return PathValidationResult(
+          ValidationError::kPathComponentBytesLimit);
     }
     if (separator == std::string::npos) {
       break;
@@ -180,15 +199,18 @@ PathValidationResult ValidateReceivePath(const std::span<const std::uint8_t> enc
 }
 
 RequestValidationResult ValidateReceiveRequest(
-    const std::span<const std::uint8_t> encoded_path, const std::uint64_t declared_size,
+    const std::span<const std::uint8_t> encoded_path,
+    const std::uint64_t declared_size,
     const std::uint64_t local_max_file_bytes) {
   const PathValidationResult path = ValidateReceivePath(encoded_path);
   if (!path.ok()) {
     return RequestValidationResult(path.error());
   }
-  const std::uint64_t effective_max = std::min(local_max_file_bytes, kMaxFileBytes);
+  const std::uint64_t effective_max =
+      std::min(local_max_file_bytes, kMaxFileBytes);
   if (declared_size > effective_max) {
-    return RequestValidationResult(ValidationError::kDeclaredSizeLimit);
+    return RequestValidationResult(
+        ValidationError::kDeclaredSizeLimit);
   }
 
   return RequestValidationResult(*path.path(), declared_size);

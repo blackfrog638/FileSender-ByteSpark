@@ -6,13 +6,17 @@ namespace xnn_transfer::core::storage {
 namespace {
 
 [[nodiscard]] TransactionError ErrorForPlatform(
-    const PlatformError error, const TransactionError fallback) noexcept {
-  return error == PlatformError::kNoSpace ? TransactionError::kNoSpace : fallback;
+    const PlatformError error,
+    const TransactionError fallback) noexcept {
+  return error == PlatformError::kNoSpace
+             ? TransactionError::kNoSpace
+             : fallback;
 }
 
 }  // namespace
 
-TemporaryBudget::TemporaryBudget(const std::uint64_t limit_bytes) noexcept
+TemporaryBudget::TemporaryBudget(
+    const std::uint64_t limit_bytes) noexcept
     : limit_bytes_(limit_bytes) {}
 
 std::uint64_t TemporaryBudget::limit_bytes() const noexcept {
@@ -35,29 +39,35 @@ std::size_t TemporaryBudget::unresolved_files() const noexcept {
   return unresolved_files_;
 }
 
-bool TemporaryBudget::TryReserve(const std::uint64_t bytes) noexcept {
+bool TemporaryBudget::TryReserve(
+    const std::uint64_t bytes) noexcept {
   const std::scoped_lock lock(mutex_);
-  if (reserved_bytes_ > limit_bytes_ || bytes > limit_bytes_ - reserved_bytes_) {
+  if (reserved_bytes_ > limit_bytes_ ||
+      bytes > limit_bytes_ - reserved_bytes_) {
     return false;
   }
   reserved_bytes_ += bytes;
   return true;
 }
 
-void TemporaryBudget::Release(const std::uint64_t bytes) noexcept {
+void TemporaryBudget::Release(
+    const std::uint64_t bytes) noexcept {
   const std::scoped_lock lock(mutex_);
   reserved_bytes_ -= bytes;
 }
 
-void TemporaryBudget::MarkUnresolved(const std::uint64_t bytes) noexcept {
+void TemporaryBudget::MarkUnresolved(
+    const std::uint64_t bytes) noexcept {
   const std::scoped_lock lock(mutex_);
   unresolved_bytes_ += bytes;
   ++unresolved_files_;
 }
 
 ReceiveTransaction::ReceiveTransaction(
-    ValidatedReceiveRequest request, std::shared_ptr<TemporaryBudget> temporary_budget,
-    std::unique_ptr<StreamingIntegrityVerifier> verifier, PlatformBackend& platform)
+    ValidatedReceiveRequest request,
+    std::shared_ptr<TemporaryBudget> temporary_budget,
+    std::unique_ptr<StreamingIntegrityVerifier> verifier,
+    PlatformBackend& platform)
     : request_(std::move(request)),
       temporary_budget_(std::move(temporary_budget)),
       verifier_(std::move(verifier)),
@@ -80,14 +90,15 @@ TransactionResult ReceiveTransaction::Begin() {
   }
   if (!temporary_budget_->TryReserve(request_.declared_size())) {
     state_ = TransactionState::kAborted;
-    terminal_result_ = {.error = TransactionError::kTemporaryBudgetExceeded};
+    terminal_result_ = {
+        .error = TransactionError::kTemporaryBudgetExceeded};
     return terminal_result_;
   }
   reservation_held_ = true;
 
   TemporaryFileHandle handle;
-  const PlatformResult created =
-      platform_.CreateTemporary(request_.path(), request_.declared_size(), handle);
+  const PlatformResult created = platform_.CreateTemporary(
+      request_.path(), request_.declared_size(), handle);
   if (!created.ok() || !handle.valid()) {
     const PlatformError platform_error =
         created.ok() ? PlatformError::kIoFailure : created.error;
@@ -95,14 +106,16 @@ TransactionResult ReceiveTransaction::Begin() {
       temporary_ = handle;
       temporary_open_ = true;
       return FailAndCleanup(
-          ErrorForPlatform(platform_error, TransactionError::kOpenFailed),
+          ErrorForPlatform(platform_error,
+                           TransactionError::kOpenFailed),
           platform_error);
     }
 
     ReleaseReservation();
     state_ = TransactionState::kAborted;
     terminal_result_ = {
-        .error = ErrorForPlatform(platform_error, TransactionError::kOpenFailed),
+        .error = ErrorForPlatform(platform_error,
+                                  TransactionError::kOpenFailed),
         .platform_error = platform_error};
     return terminal_result_;
   }
@@ -113,14 +126,17 @@ TransactionResult ReceiveTransaction::Begin() {
   return {};
 }
 
-TransactionResult ReceiveTransaction::Write(const std::span<const std::uint8_t> data) {
+TransactionResult ReceiveTransaction::Write(
+    const std::span<const std::uint8_t> data) {
   const std::scoped_lock lock(mutex_);
   if (state_ != TransactionState::kReceiving) {
     return {.error = TransactionError::kInvalidState};
   }
 
-  const std::uint64_t data_size = static_cast<std::uint64_t>(data.size());
-  const std::uint64_t remaining = request_.declared_size() - received_bytes_;
+  const std::uint64_t data_size =
+      static_cast<std::uint64_t>(data.size());
+  const std::uint64_t remaining =
+      request_.declared_size() - received_bytes_;
   if (data_size > remaining) {
     return FailAndCleanup(TransactionError::kDataTooLarge);
   }
@@ -128,10 +144,11 @@ TransactionResult ReceiveTransaction::Write(const std::span<const std::uint8_t> 
     return {};
   }
 
-  const PlatformWriteResult written = platform_.WriteTemporary(temporary_, data);
+  const PlatformWriteResult written =
+      platform_.WriteTemporary(temporary_, data);
   if (!written.ok() || written.bytes_written != data.size()) {
-    const TransactionError error =
-        ErrorForPlatform(written.error, TransactionError::kWriteFailed);
+    const TransactionError error = ErrorForPlatform(
+        written.error, TransactionError::kWriteFailed);
     return FailAndCleanup(error, written.error);
   }
   if (!verifier_->Update(data)) {
@@ -154,15 +171,19 @@ TransactionResult ReceiveTransaction::SealAndCommit() {
     return FailAndCleanup(TransactionError::kIntegrityFailed);
   }
 
-  const PlatformResult flushed = platform_.FlushTemporary(temporary_);
+  const PlatformResult flushed =
+      platform_.FlushTemporary(temporary_);
   if (!flushed.ok()) {
     return FailAndCleanup(
-        ErrorForPlatform(flushed.error, TransactionError::kFlushFailed), flushed.error);
+        ErrorForPlatform(flushed.error,
+                         TransactionError::kFlushFailed),
+        flushed.error);
   }
 
   const PlatformCommitResult committed =
       platform_.CommitTemporary(temporary_, request_.path());
-  if (committed.disposition == PlatformCommitDisposition::kCommitted) {
+  if (committed.disposition ==
+      PlatformCommitDisposition::kCommitted) {
     temporary_open_ = false;
     temporary_ = {};
     ReleaseReservation();
@@ -170,7 +191,8 @@ TransactionResult ReceiveTransaction::SealAndCommit() {
     terminal_result_ = {};
     return terminal_result_;
   }
-  if (committed.disposition == PlatformCommitDisposition::kOutcomeUncertain) {
+  if (committed.disposition ==
+      PlatformCommitDisposition::kOutcomeUncertain) {
     // Commit consumed the handle, but retain fail-closed accounting until
     // startup cleanup reconciles any orphan left by an uncertain rename.
     temporary_open_ = false;
@@ -178,13 +200,15 @@ TransactionResult ReceiveTransaction::SealAndCommit() {
     temporary_budget_->MarkUnresolved(request_.declared_size());
     reservation_held_ = false;
     state_ = TransactionState::kOutcomeUncertain;
-    terminal_result_ = {.error = TransactionError::kOutcomeUncertain,
-                        .platform_error = committed.error};
+    terminal_result_ = {
+        .error = TransactionError::kOutcomeUncertain,
+        .platform_error = committed.error};
     return terminal_result_;
   }
 
   return FailAndCleanup(
-      ErrorForPlatform(committed.error, TransactionError::kCommitFailed),
+      ErrorForPlatform(committed.error,
+                       TransactionError::kCommitFailed),
       committed.error);
 }
 
@@ -217,10 +241,13 @@ std::uint64_t ReceiveTransaction::received_bytes() const {
 }
 
 TransactionResult ReceiveTransaction::FailAndCleanup(
-    const TransactionError error, const PlatformError platform_error) {
-  TransactionResult result{.error = error, .platform_error = platform_error};
+    const TransactionError error,
+    const PlatformError platform_error) {
+  TransactionResult result{
+      .error = error, .platform_error = platform_error};
   if (temporary_open_) {
-    const PlatformResult cleanup = platform_.CleanupTemporary(temporary_);
+    const PlatformResult cleanup =
+        platform_.CleanupTemporary(temporary_);
     if (!cleanup.ok()) {
       result.cleanup_error = cleanup.error;
       result.cleanup_unresolved = true;
@@ -229,7 +256,8 @@ TransactionResult ReceiveTransaction::FailAndCleanup(
       }
       temporary_open_ = false;
       temporary_ = {};
-      temporary_budget_->MarkUnresolved(request_.declared_size());
+      temporary_budget_->MarkUnresolved(
+          request_.declared_size());
       reservation_held_ = false;
       state_ = TransactionState::kCleanupUnresolved;
       terminal_result_ = result;
