@@ -5,7 +5,7 @@ initial_state: ready
 workstream: native_bridge
 initial_owner: unassigned
 depends_on:
-  - XT-036
+  - XT-073
 owned_paths:
   - native/include/xnn_transfer/c_api.h
   - native/src/bridge/**
@@ -31,8 +31,10 @@ Dart adapters while preserving bounded snapshots and event recovery.
 
 ## Context
 
-XT-036 completes native multi-file, scheduling, storage policy, and resume
-semantics. This task changes only the public adapter surface.
+XT-033 through XT-036, XT-072, and XT-073 complete native multi-file,
+scheduling, storage policy, persistence, and recovery semantics. XT-069 and
+XT-070 already own the production connection and network transport. This task
+changes only the additive public adapter surface.
 
 ## Constraints
 
@@ -41,6 +43,7 @@ semantics. This task changes only the public adapter surface.
   of peer-controlled and display event fields.
 - Bound manifest pagination and snapshot recovery after dropped events.
 - Commands must reject stale transfer and destination-policy handles.
+- Do not create sockets, TLS sessions, filesystem workers, or frame dispatch.
 
 ## Acceptance criteria
 

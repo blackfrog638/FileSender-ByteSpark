@@ -1,0 +1,128 @@
+{
+  "schema_version": 3,
+  "id": "XT-074",
+  "delivery_plan": "DP-P1-DELIVERY",
+  "requirement_ids": [
+    "REQ-P1-SCHEDULING",
+    "REQ-P1-RESUME"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "feature",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-074.md",
+  "commit": {
+    "type": "feat",
+    "scope": "desktop",
+    "summary": "add transfer recovery flow"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "The UI must represent pause, disconnect, recovery, expiry, revocation, cancellation, and completion without illegal transitions.",
+      "gates": [
+        "flutter_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "Flutter must not persist or reconstruct identity, trust, offsets, commitments, paths, or resume authorization.",
+      "gates": [
+        "flutter_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "high",
+      "rationale": "Restart reconciliation and large restored manifests must remain responsive and virtualized.",
+      "gates": [
+        "flutter_test"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Application state must consume typed XT-037 snapshots without redefining native recovery policy.",
+      "gates": [
+        "flutter_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Duplicate commands, stale handles, reconnect, restart snapshots, revocation, navigation, and disposal race in Flutter state.",
+      "gates": [
+        "flutter_test",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Restart, keyboard, accessibility, and desktop lifecycle behavior must work on all supported Flutter targets.",
+      "gates": [
+        "flutter_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "The UI consumes native persisted-state snapshots but must never become an independent durable authority.",
+      "gates": [
+        "flutter_test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task consumes accepted native recovery contracts and adds no public decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Presentation continues through application abstractions and typed native adapters."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-039 accepts the production flow after cross-platform reliability evidence."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "flutter_test",
+      "verify"
+    ],
+    "commands": [
+      "make flutter-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

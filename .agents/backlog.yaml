@@ -554,15 +554,12 @@
       "risk_profile_required": true,
       "workstream": "integration",
       "depends_on": [
-        "XT-031",
-        "XT-062"
+        "XT-071"
       ],
       "owned_paths": [
         "docs/roadmap.md",
         "docs/architecture.md",
-        "docs/testing.md",
-        ".github/workflows/**",
-        "tool/harness/**"
+        "docs/testing.md"
       ],
       "delivery_plan": "DP-P1-DELIVERY",
       "requirement_ids": [
@@ -576,7 +573,7 @@
     },
     {
       "id": "XT-033",
-      "title": "Multi file manifests",
+      "title": "Multi file manifest storage",
       "readiness": "ready",
       "risk_profile_required": true,
       "workstream": "native_core",
@@ -586,10 +583,7 @@
       "owned_paths": [
         "native/include/xnn_transfer/core/storage/**",
         "native/src/storage/**",
-        "native/tests/storage/**",
-        "native/include/xnn_transfer/core/transfer/**",
-        "native/src/transfer/**",
-        "native/tests/transfer/**"
+        "native/tests/storage/**"
       ],
       "delivery_plan": "DP-P1-DELIVERY",
       "requirement_ids": [
@@ -604,7 +598,7 @@
       "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
-        "XT-033"
+        "XT-072"
       ],
       "owned_paths": [
         "native/include/xnn_transfer/core/transfer/**",
@@ -640,25 +634,20 @@
     },
     {
       "id": "XT-036",
-      "title": "Resume persistence",
+      "title": "Resume state persistence",
       "readiness": "ready",
       "risk_profile_required": true,
       "workstream": "native_core",
       "depends_on": [
         "XT-022",
         "XT-034",
-        "XT-035"
+        "XT-035",
+        "XT-072"
       ],
       "owned_paths": [
-        "native/include/xnn_transfer/core/session/**",
-        "native/src/session/**",
-        "native/tests/session/**",
         "native/include/xnn_transfer/core/storage/**",
         "native/src/storage/**",
         "native/tests/storage/**",
-        "native/include/xnn_transfer/core/transfer/**",
-        "native/src/transfer/**",
-        "native/tests/transfer/**",
         "docs/adr/0010-resume-state.md"
       ],
       "delivery_plan": "DP-P1-DELIVERY",
@@ -674,7 +663,7 @@
       "risk_profile_required": true,
       "workstream": "native_bridge",
       "depends_on": [
-        "XT-036"
+        "XT-073"
       ],
       "owned_paths": [
         "native/include/xnn_transfer/c_api.h",
@@ -694,7 +683,7 @@
     },
     {
       "id": "XT-038",
-      "title": "Flutter production transfer flow",
+      "title": "Flutter multi file destination flow",
       "readiness": "ready",
       "risk_profile_required": true,
       "workstream": "flutter_desktop",
@@ -710,7 +699,6 @@
       "requirement_ids": [
         "REQ-P1-MULTI-FILE",
         "REQ-P1-SCHEDULING",
-        "REQ-P1-RESUME",
         "REQ-P1-COLLISION"
       ],
       "delivery_role": "implementation"
@@ -722,14 +710,13 @@
       "risk_profile_required": true,
       "workstream": "integration",
       "depends_on": [
-        "XT-038"
+        "XT-075",
+        "XT-076"
       ],
       "owned_paths": [
         "docs/roadmap.md",
         "docs/architecture.md",
-        "docs/testing.md",
-        ".github/workflows/**",
-        "tool/harness/**"
+        "docs/testing.md"
       ],
       "delivery_plan": "DP-P1-DELIVERY",
       "requirement_ids": [
@@ -739,7 +726,7 @@
         "REQ-P1-COLLISION",
         "REQ-P1-ADVERSE-PLATFORM"
       ],
-      "delivery_role": "implementation_acceptance"
+      "delivery_role": "acceptance"
     },
     {
       "id": "XT-040",
@@ -1361,6 +1348,247 @@
         "REQ-REMOTE-ACCEPTANCE"
       ],
       "delivery_role": "implementation_acceptance"
+    },
+    {
+      "id": "XT-069",
+      "title": "Authenticated connection runtime",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-026",
+        "XT-061",
+        "XT-062"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-069.json",
+        ".agents/tasks/XT-069-authenticated-connection-runtime.md",
+        ".agents/handoffs/XT-069.md",
+        "native/include/xnn_transfer/core/security/tls/**",
+        "native/src/security/tls/**",
+        "native/tests/security/tls/**",
+        "native/include/xnn_transfer/core/session/**",
+        "native/src/session/**",
+        "native/tests/session/**",
+        "native/src/core/**",
+        "native/tests/core/**",
+        "native/CMakeLists.txt"
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-PAIRING"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-070",
+      "title": "One file network transport",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "native_bridge",
+      "depends_on": [
+        "XT-029",
+        "XT-030",
+        "XT-069"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-070.json",
+        ".agents/tasks/XT-070-one-file-network-transport.md",
+        ".agents/handoffs/XT-070.md",
+        "native/src/core/**",
+        "native/tests/core/**",
+        "native/src/bridge/**",
+        "native/tests/bridge/**",
+        "native/CMakeLists.txt"
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-PAIRING",
+        "REQ-P1-ONE-FILE-TRANSFER",
+        "REQ-P1-FLUTTER-FLOW",
+        "REQ-P1-CANCELLATION"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-071",
+      "title": "P1 vertical slice e2e harness",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-031",
+        "XT-070"
+      ],
+      "owned_paths": [
+        ".agents/manifest.yaml",
+        ".agents/records/XT-071.json",
+        ".agents/tasks/XT-071-p1-vertical-slice-e2e-harness.md",
+        ".agents/handoffs/XT-071.md",
+        ".github/workflows/ci.yml",
+        "apps/desktop/integration_test/**",
+        "apps/desktop/test_driver/**",
+        "tool/harness/p1_vertical_slice_e2e.py",
+        "tool/harness/p1_vertical_slice_e2e_test.py",
+        "Makefile"
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-DISCOVERY",
+        "REQ-P1-PAIRING",
+        "REQ-P1-ONE-FILE-TRANSFER",
+        "REQ-P1-FLUTTER-FLOW",
+        "REQ-P1-CANCELLATION"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-072",
+      "title": "Multi file transfer orchestration",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-033"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-072.json",
+        ".agents/tasks/XT-072-multi-file-transfer-orchestration.md",
+        ".agents/handoffs/XT-072.md",
+        "native/include/xnn_transfer/core/transfer/**",
+        "native/src/transfer/**",
+        "native/tests/transfer/**",
+        "native/benchmarks/**"
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-MULTI-FILE"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-073",
+      "title": "Resume authorization and recovery",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-036"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-073.json",
+        ".agents/tasks/XT-073-resume-authorization-and-recovery.md",
+        ".agents/handoffs/XT-073.md",
+        "native/include/xnn_transfer/core/session/**",
+        "native/src/session/**",
+        "native/tests/session/**",
+        "native/include/xnn_transfer/core/transfer/**",
+        "native/src/transfer/**",
+        "native/tests/transfer/**",
+        "native/benchmarks/**"
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-RESUME"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-074",
+      "title": "Flutter transfer recovery flow",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "flutter_desktop",
+      "depends_on": [
+        "XT-038"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-074.json",
+        ".agents/tasks/XT-074-flutter-transfer-recovery-flow.md",
+        ".agents/handoffs/XT-074.md",
+        "apps/desktop/lib/app/**",
+        "apps/desktop/lib/features/**",
+        "apps/desktop/test/features/**"
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-SCHEDULING",
+        "REQ-P1-RESUME"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-075",
+      "title": "P1 production reliability e2e",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-074"
+      ],
+      "owned_paths": [
+        ".agents/manifest.yaml",
+        ".agents/records/XT-075.json",
+        ".agents/tasks/XT-075-p1-production-reliability-e2e.md",
+        ".agents/handoffs/XT-075.md",
+        ".github/workflows/ci.yml",
+        "apps/desktop/integration_test/**",
+        "apps/desktop/test_driver/**",
+        "tool/harness/p1_production_e2e.py",
+        "tool/harness/p1_production_e2e_test.py",
+        "Makefile"
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-MULTI-FILE",
+        "REQ-P1-SCHEDULING",
+        "REQ-P1-RESUME",
+        "REQ-P1-COLLISION",
+        "REQ-P1-ADVERSE-PLATFORM"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-076",
+      "title": "P1 performance qualification",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-037",
+        "XT-075"
+      ],
+      "owned_paths": [
+        ".agents/manifest.yaml",
+        ".agents/records/XT-076.json",
+        ".agents/tasks/XT-076-p1-performance-qualification.md",
+        ".agents/handoffs/XT-076.md",
+        ".github/workflows/ci.yml",
+        "tool/harness/p1_performance.py",
+        "tool/harness/p1_performance_test.py",
+        "Makefile"
+      ],
+      "delivery_plan": "DP-P1-DELIVERY",
+      "requirement_ids": [
+        "REQ-P1-SCHEDULING"
+      ],
+      "delivery_role": "implementation"
     }
   ]
 }

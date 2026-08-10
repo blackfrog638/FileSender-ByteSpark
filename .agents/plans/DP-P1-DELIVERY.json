@@ -21,7 +21,8 @@
         "XT-018",
         "XT-019",
         "XT-020",
-        "XT-021"
+        "XT-021",
+        "XT-071"
       ],
       "acceptance_task": "XT-032"
     },
@@ -43,7 +44,10 @@
         "XT-051",
         "XT-060",
         "XT-061",
-        "XT-062"
+        "XT-062",
+        "XT-069",
+        "XT-070",
+        "XT-071"
       ],
       "acceptance_task": "XT-032"
     },
@@ -59,7 +63,9 @@
       "implementation_tasks": [
         "XT-027",
         "XT-028",
-        "XT-030"
+        "XT-030",
+        "XT-070",
+        "XT-071"
       ],
       "acceptance_task": "XT-032"
     },
@@ -76,7 +82,9 @@
         "XT-021",
         "XT-026",
         "XT-030",
-        "XT-031"
+        "XT-031",
+        "XT-070",
+        "XT-071"
       ],
       "acceptance_task": "XT-032"
     },
@@ -92,7 +100,9 @@
       "implementation_tasks": [
         "XT-029",
         "XT-030",
-        "XT-031"
+        "XT-031",
+        "XT-070",
+        "XT-071"
       ],
       "acceptance_task": "XT-032"
     },
@@ -107,8 +117,10 @@
       ],
       "implementation_tasks": [
         "XT-033",
+        "XT-072",
         "XT-037",
-        "XT-038"
+        "XT-038",
+        "XT-075"
       ],
       "acceptance_task": "XT-039"
     },
@@ -124,7 +136,10 @@
       "implementation_tasks": [
         "XT-034",
         "XT-037",
-        "XT-038"
+        "XT-038",
+        "XT-074",
+        "XT-075",
+        "XT-076"
       ],
       "acceptance_task": "XT-039"
     },
@@ -139,8 +154,10 @@
       ],
       "implementation_tasks": [
         "XT-036",
+        "XT-073",
         "XT-037",
-        "XT-038"
+        "XT-074",
+        "XT-075"
       ],
       "acceptance_task": "XT-039"
     },
@@ -156,7 +173,8 @@
       "implementation_tasks": [
         "XT-035",
         "XT-037",
-        "XT-038"
+        "XT-038",
+        "XT-075"
       ],
       "acceptance_task": "XT-039"
     },
@@ -170,15 +188,15 @@
         "The final P1 acceptance task records the cross-platform evidence before closing the milestone."
       ],
       "implementation_tasks": [
-        "XT-039"
+        "XT-075"
       ],
       "acceptance_task": "XT-039"
     }
   ],
   "approval": {
     "approved_by": "integration-owner",
-    "approved_at": "2026-08-09T10:22:10+00:00",
-    "content_sha256": "7d91720d779798e37f45db36167397157f30aa107776d97b644f1dffcaa32ab6"
+    "approved_at": "2026-08-10T11:06:04+00:00",
+    "content_sha256": "0a9e67073b5d5df8fd96068058c2e318397f9a4424babb0cec5be5a152b4eef6"
   },
   "superseded_by": ""
 }

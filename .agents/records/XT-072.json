@@ -1,0 +1,135 @@
+{
+  "schema_version": 3,
+  "id": "XT-072",
+  "delivery_plan": "DP-P1-DELIVERY",
+  "requirement_ids": [
+    "REQ-P1-MULTI-FILE"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "feature",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-072.md",
+  "commit": {
+    "type": "feat",
+    "scope": "native",
+    "summary": "orchestrate multi file transfers"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "Manifest-level transfer state must preserve per-entry ordering, integrity, partial outcomes, and one-file compatibility.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "A stream-to-entry mismatch or incomplete manifest validation could redirect writes or bypass aggregate limits.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "performance": {
+      "level": "high",
+      "rationale": "Large manifests and many small files must not create unbounded per-entry state or repeated full-manifest work.",
+      "gates": [
+        "native_test",
+        "benchmark",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Manifest commitments and existing one-file protocol behavior must remain compatible with protocol v1.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Multiple entry streams, cancellation, failure, commit, and connection teardown race within one transfer.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Directory and file orchestration consumes platform storage behavior across all supported desktop filesystems.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "critical",
+      "rationale": "Partial manifest outcomes must commit only verified entries and clean every uncommitted storage transaction.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements accepted protocol v1 manifest behavior and XT-033 storage contracts."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Multi-file orchestration remains within the canonical transfer module."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-039 accepts the complete production behavior after adapters, UI, and platform evidence."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "native_test",
+      "security_test",
+      "benchmark",
+      "verify"
+    ],
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make benchmark",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

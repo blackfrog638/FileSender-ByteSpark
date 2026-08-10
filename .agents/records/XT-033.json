@@ -10,7 +10,7 @@
   "risks": {
     "functionality": {
       "level": "high",
-      "rationale": "Multi-file and directory transfers must preserve complete manifest validation, ordering, and partial terminal results.",
+      "rationale": "Multi-file and directory storage transactions must preserve complete manifest validation, ordering, and partial terminal results.",
       "gates": ["make native-test", "make verify"]
     },
     "security": {
@@ -20,7 +20,7 @@
     },
     "performance": {
       "level": "high",
-      "rationale": "Large manifests and many small files can amplify memory, hashing, traversal, and scheduling costs.",
+      "rationale": "Large manifests and many small files can amplify memory, hashing, traversal, and filesystem costs.",
       "gates": ["make native-test", "make benchmark"]
     },
     "compatibility": {
@@ -30,7 +30,7 @@
     },
     "concurrency": {
       "level": "high",
-      "rationale": "Parallel entry processing, partial I/O failure, cancellation, and commit can race within one transfer.",
+      "rationale": "Parallel entry preparation, partial I/O failure, cancellation, and commit can race within one storage transaction.",
       "gates": ["make native-test", "make security-test"]
     },
     "platform": {
@@ -54,7 +54,7 @@
     "architecture": {
       "status": "not_required",
       "references": [],
-      "rationale": "Multi-file behavior remains within existing native storage and transfer modules."
+      "rationale": "Manifest storage remains within the existing native storage module; XT-072 owns transfer orchestration."
     },
     "roadmap": {
       "status": "not_required",

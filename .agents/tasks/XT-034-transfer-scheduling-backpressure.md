@@ -5,7 +5,7 @@ initial_state: ready
 workstream: native_core
 initial_owner: unassigned
 depends_on:
-  - XT-033
+  - XT-072
 owned_paths:
   - native/include/xnn_transfer/core/transfer/**
   - native/src/transfer/**
@@ -26,8 +26,8 @@ and stable rate reporting for concurrent files and transfers.
 
 ## Context
 
-Protocol v1 defines credit and unacknowledged-byte limits. XT-033 supplies
-multi-file state and manifest ordering.
+Protocol v1 defines credit and unacknowledged-byte limits. XT-072 supplies
+multi-file transfer state and manifest ordering.
 
 ## Constraints
 

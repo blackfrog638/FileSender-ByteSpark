@@ -5,14 +5,11 @@ initial_state: ready
 workstream: integration
 initial_owner: unassigned
 depends_on:
-  - XT-031
-  - XT-062
+  - XT-071
 owned_paths:
   - docs/roadmap.md
   - docs/architecture.md
   - docs/testing.md
-  - .github/workflows/**
-  - tool/harness/**
 delivery_plan: DP-P1-DELIVERY
 requirement_ids:
   - REQ-P1-DISCOVERY
@@ -32,10 +29,10 @@ the first P1 roadmap section only when security and cleanup gates pass.
 
 ## Context
 
-XT-031 completes the user flow. XT-062 supplies the qualified Linux protected
-identity backend required for a three-platform pairing claim. This integration
-task owns cross-platform interoperability evidence and milestone
-documentation, not feature invention.
+XT-031 completes the user flow, XT-069 and XT-070 provide the authenticated
+connection and real one-file network transport, and XT-071 supplies the
+cross-platform E2E harness. This task accepts their immutable evidence and
+updates milestone documentation; it does not invent runtime or test behavior.
 
 ## Constraints
 
@@ -44,6 +41,7 @@ documentation, not feature invention.
 - Require the exact qualified Linux Secret Service profile; a fail-closed
   unsupported backend is correct runtime behavior but is not Linux conformance.
 - Include hostile peer, cancellation, process exit, and artifact cleanup checks.
+- Do not add product code, test harnesses, or CI behavior during acceptance.
 - Keep every P1 production-transfer checkbox open.
 
 ## Acceptance criteria

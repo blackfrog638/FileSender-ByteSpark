@@ -1,0 +1,133 @@
+{
+  "schema_version": 3,
+  "id": "XT-069",
+  "delivery_plan": "DP-P1-DELIVERY",
+  "requirement_ids": [
+    "REQ-P1-PAIRING"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "feature",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-069.md",
+  "commit": {
+    "type": "feat",
+    "scope": "native",
+    "summary": "add authenticated connection runtime"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "The runtime must turn completed TLS and pairing primitives into real connections without inventing identity, session, or transcript state.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "ALPN confusion, unpinned established channels, malformed certificates, or discovery-derived identity would break the accepted pairing security profile.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Handshake, frame assembly, timers, and connection limits must remain bounded under slow or hostile peers.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Both registered ALPN modes and existing TLS, session, and identity contracts must remain wire and source compatible.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Socket, SSL, timer, executor, session callback, and engine shutdown lifetimes race across asynchronous completion.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Asio socket and OpenSSL lifecycle behavior must hold across macOS, Windows, and Linux production builds.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "Inbound exact-pin resolution and trust commit consume protected identity records and must fail closed on unavailable or corrupt storage.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements the accepted security profile and ALPN demultiplexing decision without changing it."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The existing engine-owned worker runtime and TLS/session dependency direction remain unchanged."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-032 closes pairing only after the complete vertical-slice evidence passes."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "native_test",
+      "security_test",
+      "verify"
+    ],
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

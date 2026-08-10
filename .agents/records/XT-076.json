@@ -1,0 +1,127 @@
+{
+  "schema_version": 3,
+  "id": "XT-076",
+  "delivery_plan": "DP-P1-DELIVERY",
+  "requirement_ids": [
+    "REQ-P1-SCHEDULING"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "test",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-076.md",
+  "commit": {
+    "type": "perf",
+    "scope": "harness",
+    "summary": "qualify p1 transfer performance"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "Qualification must measure the production path and reject incomplete metrics or partial platform results.",
+      "gates": [
+        "benchmark",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "Performance output must not expose local paths, credentials, identity material, or attacker-controlled unbounded labels.",
+      "gates": [
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "critical",
+      "rationale": "The task owns comparable throughput, CPU, RSS, fairness, recovery-latency, and retransmission evidence for P1.",
+      "gates": [
+        "benchmark",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Metric schema, units, build metadata, and scenario definitions must remain comparable across supported platforms.",
+      "gates": [
+        "benchmark",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Concurrent stream fairness and slow-receiver backpressure require controlled scheduling and bounded child-process teardown.",
+      "gates": [
+        "benchmark",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "Timer, CPU, RSS, filesystem, and socket measurements differ across macOS, Windows, and Linux and require explicit metadata.",
+      "gates": [
+        "benchmark",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "Recovery-latency and retransmission scenarios consume durable checkpoints but do not redefine their format.",
+      "gates": [
+        "benchmark"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task measures accepted behavior and introduces no product or compatibility decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Only performance qualification infrastructure changes."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-039 evaluates the results before closing production P1."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "benchmark",
+      "verify"
+    ],
+    "commands": [
+      "make benchmark",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

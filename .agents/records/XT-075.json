@@ -1,0 +1,136 @@
+{
+  "schema_version": 3,
+  "id": "XT-075",
+  "delivery_plan": "DP-P1-DELIVERY",
+  "requirement_ids": [
+    "REQ-P1-MULTI-FILE",
+    "REQ-P1-SCHEDULING",
+    "REQ-P1-RESUME",
+    "REQ-P1-COLLISION",
+    "REQ-P1-ADVERSE-PLATFORM"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "test",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-075.md",
+  "commit": {
+    "type": "test",
+    "scope": "harness",
+    "summary": "qualify p1 production reliability"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "Final P1 reliability evidence must exercise production multi-file, collision, failure, recovery, and cleanup rather than isolated components.",
+      "gates": [
+        "desktop_bundle_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Adverse tests must preserve authenticated identity, containment, existing files, and fail-closed cleanup under hostile inputs and races.",
+      "gates": [
+        "security_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "high",
+      "rationale": "Large sparse files, constrained storage, delayed I/O, and long matrices must remain bounded and deterministic in CI.",
+      "gates": [
+        "desktop_bundle_test",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "The interoperability matrix must cover supported macOS, Windows, and Linux sender and receiver roles.",
+      "gates": [
+        "desktop_bundle_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Sleep, wake, interface churn, process kill, reconnect, cancellation, destination races, and child teardown are concurrency release gates.",
+      "gates": [
+        "security_test",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "Platform-specific filesystems, sleep, network interfaces, process control, and packaging must all produce explicit evidence.",
+      "gates": [
+        "desktop_bundle_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "critical",
+      "rationale": "Low space, restart, resume, collision, process kill, and cleanup must not corrupt committed files or retain stale checkpoints.",
+      "gates": [
+        "security_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task produces executable evidence against accepted product, security, and persistence decisions."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Only packaged-application tests and CI infrastructure change."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-039 alone evaluates this evidence and closes the P1 production roadmap."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "desktop_bundle_test",
+      "security_test",
+      "verify"
+    ],
+    "commands": [
+      "tool/harness/desktop_bundle_test.sh",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

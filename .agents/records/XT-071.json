@@ -1,0 +1,140 @@
+{
+  "schema_version": 3,
+  "id": "XT-071",
+  "delivery_plan": "DP-P1-DELIVERY",
+  "requirement_ids": [
+    "REQ-P1-DISCOVERY",
+    "REQ-P1-PAIRING",
+    "REQ-P1-ONE-FILE-TRANSFER",
+    "REQ-P1-FLUTTER-FLOW",
+    "REQ-P1-CANCELLATION"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "test",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-071.md",
+  "commit": {
+    "type": "test",
+    "scope": "harness",
+    "summary": "add p1 vertical slice e2e"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "A weak harness could make XT-032 accept UI simulations instead of real packaged discovery, pairing, transfer, cancellation, and cleanup.",
+      "gates": [
+        "desktop_bundle_test",
+        "flutter_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "The harness must prove authenticated identity and hostile-peer rejection without logging identity material or bypassing production boundaries.",
+      "gates": [
+        "security_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Process orchestration and artifacts must be bounded so cross-platform CI remains deterministic.",
+      "gates": [
+        "desktop_bundle_test",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "The same packaged workflow and evidence contract must operate on macOS, Windows, and qualified Linux.",
+      "gates": [
+        "desktop_bundle_test",
+        "flutter_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Two child processes, event streams, timeouts, cancellation, and teardown can race and produce false passes or leaked processes.",
+      "gates": [
+        "flutter_test",
+        "security_test"
+      ]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "The vertical slice cannot be accepted until packaged sender and receiver roles are exercised across all supported desktop platforms.",
+      "gates": [
+        "desktop_bundle_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "The harness must verify exact committed bytes and prove failed or cancelled transfers leave no temporary or committed partial artifact.",
+      "gates": [
+        "security_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task adds executable evidence for existing product and security contracts."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Only integration-test and CI infrastructure change."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-032 alone accepts the evidence and updates the vertical-slice roadmap."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "desktop_bundle_test",
+      "flutter_test",
+      "security_test",
+      "verify"
+    ],
+    "commands": [
+      "tool/harness/desktop_bundle_test.sh",
+      "make flutter-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

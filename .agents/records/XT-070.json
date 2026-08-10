@@ -1,0 +1,136 @@
+{
+  "schema_version": 3,
+  "id": "XT-070",
+  "delivery_plan": "DP-P1-DELIVERY",
+  "requirement_ids": [
+    "REQ-P1-PAIRING",
+    "REQ-P1-ONE-FILE-TRANSFER",
+    "REQ-P1-FLUTTER-FLOW",
+    "REQ-P1-CANCELLATION"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "feature",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-070.md",
+  "commit": {
+    "type": "feat",
+    "scope": "abi",
+    "summary": "connect one file network transport"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "The task is the first production composition that must drive pairing, offers, transfer progress, commit, rejection, and cancellation between real processes.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Unauthenticated dispatch, peer-controlled paths, premature commit, or incorrect transport binding could expose or overwrite local files.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "high",
+      "rationale": "Partial socket I/O, frame queues, file workers, and progress publication must remain bounded for large one-file transfers.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "The implementation must preserve the accepted C ABI and protocol v1 while replacing fail-closed production backends.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Socket callbacks, ordered publication, ACK completion, cancellation, file workers, and shutdown race across engine-owned executors.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "platform": {
+      "level": "critical",
+      "rationale": "Socket behavior, file opening, receive-root handling, atomic commit, and worker teardown vary across supported desktops.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "critical",
+      "rationale": "Accepted files must commit atomically while rejection, cancellation, integrity failure, and process exit leave no durable partial artifact.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "ADR 0008 and the accepted protocol and security ADRs already define the production backend boundary implemented here."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task fills existing core, bridge, session, transfer, and storage composition without changing dependency direction."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-032 closes the vertical-slice roadmap only after packaged cross-platform evidence."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "native_test",
+      "security_test",
+      "verify"
+    ],
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

@@ -5,13 +5,12 @@ initial_state: ready
 workstream: integration
 initial_owner: unassigned
 depends_on:
-  - XT-038
+  - XT-075
+  - XT-076
 owned_paths:
   - docs/roadmap.md
   - docs/architecture.md
   - docs/testing.md
-  - .github/workflows/**
-  - tool/harness/**
 delivery_plan: DP-P1-DELIVERY
 requirement_ids:
   - REQ-P1-MULTI-FILE
@@ -19,7 +18,7 @@ requirement_ids:
   - REQ-P1-RESUME
   - REQ-P1-COLLISION
   - REQ-P1-ADVERSE-PLATFORM
-delivery_role: implementation_acceptance
+delivery_role: acceptance
 contract_changes: []
 handoff: .agents/handoffs/XT-039.md
 ---
@@ -31,8 +30,10 @@ network-change, restart/resume, interoperability, and cleanup evidence passes.
 
 ## Context
 
-XT-038 completes the production UI flow. This task owns final P1 evidence,
-roadmap state, architecture truth, CI coverage, and residual-risk reporting.
+XT-075 supplies cross-platform reliability and interoperability evidence, and
+XT-076 supplies performance evidence. This task accepts their immutable
+results and owns roadmap state, architecture truth, and residual-risk
+reporting; it does not build product or test behavior.
 
 ## Constraints
 
@@ -40,6 +41,7 @@ roadmap state, architecture truth, CI coverage, and residual-risk reporting.
 - Include macOS, Windows, and Linux sender/receiver roles.
 - Use generated or sparse data without committing large artifacts.
 - Report skipped physical-network or sleep tests explicitly; skipped is not pass.
+- Do not add product code, test harnesses, benchmarks, or CI behavior.
 
 ## Acceptance criteria
 

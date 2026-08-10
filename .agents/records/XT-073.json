@@ -1,0 +1,135 @@
+{
+  "schema_version": 3,
+  "id": "XT-073",
+  "delivery_plan": "DP-P1-DELIVERY",
+  "requirement_ids": [
+    "REQ-P1-RESUME"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "feature",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-073.md",
+  "commit": {
+    "type": "feat",
+    "scope": "native",
+    "summary": "authorize transfer recovery"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "Reconnect and restart must restore only verified offsets and finish with bytes identical to the original transfer.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Resume authorization must bind authenticated peer, roles, transfer, manifest, destination, capabilities, and live session.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "high",
+      "rationale": "Recovery latency, checkpoint lookup, retransmitted bytes, and hostile resume negotiation must remain bounded.",
+      "gates": [
+        "native_test",
+        "benchmark"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "RESUME wire behavior must honor protocol v1 and the versioned checkpoint contract without downgrade fallback.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Checkpointing, ACKs, reconnect, cancellation, completion, cleanup, and session revocation race across transfer state.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Restart recovery and destination identity must remain stable across supported process and filesystem models.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "critical",
+      "rationale": "Live recovery must consume validated durable checkpoints and remove terminal or expired state exactly once.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements the resume protocol and authorization policy accepted with ADR 0010."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Recovery remains within the existing session and transfer boundaries."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-039 accepts resume only after adapters, UI, reliability, and performance evidence."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "native_test",
+      "security_test",
+      "benchmark",
+      "verify"
+    ],
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make benchmark",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

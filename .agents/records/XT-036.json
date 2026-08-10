@@ -10,17 +10,17 @@
   "risks": {
     "functionality": {
       "level": "critical",
-      "rationale": "Reconnect and process restart must resume only verified offsets or fail without corrupting destination state.",
+      "rationale": "Durable checkpoints must preserve only verified offsets and reopen without corrupting destination state.",
       "gates": ["make native-test", "make verify"]
     },
     "security": {
       "level": "critical",
-      "rationale": "Resume authorization must bind peer, roles, transfer, manifest, destination, live session, and revocation state.",
+      "rationale": "Persisted state must bind peer, transfer, manifest, destination identity, expiry, and integrity without trusting caller input.",
       "gates": ["make native-test", "make security-test"]
     },
     "performance": {
       "level": "high",
-      "rationale": "Checkpoint frequency, recovery latency, retransmitted bytes, and retained metadata affect transfer throughput.",
+      "rationale": "Checkpoint frequency and retained metadata bytes must remain bounded without dominating transfer throughput.",
       "gates": ["make native-test", "make benchmark"]
     },
     "compatibility": {
@@ -30,7 +30,7 @@
     },
     "concurrency": {
       "level": "critical",
-      "rationale": "Checkpointing, acknowledgements, disconnect, cancellation, cleanup, and restart race across storage and session state.",
+      "rationale": "Checkpoint writes, cleanup, replacement, and process interruption race within durable storage.",
       "gates": ["make native-test", "make security-test"]
     },
     "platform": {
@@ -51,12 +51,12 @@
       "references": [
         "docs/adr/0010-resume-state.md"
       ],
-      "rationale": "Resume introduces a durable persisted schema, migration, retention, and authorization policy."
+      "rationale": "Resume introduces a durable persisted schema, migration, integrity, and retention policy."
     },
     "architecture": {
       "status": "not_required",
       "references": [],
-      "rationale": "Resume remains within existing session, storage, and transfer boundaries."
+      "rationale": "Persistent resume state remains within the existing storage boundary; XT-073 owns session and transfer recovery."
     },
     "roadmap": {
       "status": "not_required",

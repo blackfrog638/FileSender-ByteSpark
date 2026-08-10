@@ -10,7 +10,7 @@
   "risks": {
     "functionality": {
       "level": "high",
-      "rationale": "Production UI must represent multi-file, collision, pause, reconnect, restart, resume, expiry, and revoke states exactly.",
+      "rationale": "Production UI must represent multi-file selection, destination decisions, collision handling, rates, cancellation, and completion exactly.",
       "gates": ["make flutter-test", "make verify"]
     },
     "security": {
@@ -30,7 +30,7 @@
     },
     "concurrency": {
       "level": "high",
-      "rationale": "Dialogs, duplicate commands, reconnect, restart recovery, revocation, and disposal race in application state.",
+      "rationale": "Manifest updates, dialogs, duplicate commands, rate events, cancellation, and disposal race in application state.",
       "gates": ["make flutter-test"]
     },
     "platform": {
@@ -39,9 +39,9 @@
       "gates": ["make flutter-test", "make verify"]
     },
     "persistence": {
-      "level": "medium",
-      "rationale": "The UI restores native resume state after restart but must not become an independent authority for it.",
-      "gates": ["make flutter-test"]
+      "level": "none",
+      "rationale": "Recovery and persisted-state presentation are owned by XT-074.",
+      "gates": []
     }
   },
   "impacts": {
