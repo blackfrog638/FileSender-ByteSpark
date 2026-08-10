@@ -1,0 +1,131 @@
+{
+  "schema_version": 3,
+  "id": "XT-068",
+  "delivery_plan": "DP-REMOTE-ACCEPTANCE",
+  "requirement_ids": [
+    "REQ-REMOTE-ACCEPTANCE"
+  ],
+  "delivery_role": "implementation_acceptance",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-068.md",
+  "commit": {
+    "type": "ci",
+    "scope": "harness",
+    "summary": "require remote CI before acceptance"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "high",
+      "rationale": "An incorrect publication sequence can mark unpushed or remotely failing work done, or can advance the protected integration branch before its exact SHA is verified.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "The CI client uses GitHub credentials and must avoid exposing tokens while rejecting unauthenticated, mismatched, or forged workflow evidence.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Acceptance intentionally waits for two complete remote workflows, so polling must be bounded and avoid unnecessary API traffic.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "Every workstream uses agent.sh acceptance; the change must preserve existing task provenance and provide deterministic retry behavior for interrupted publication.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "medium",
+      "rationale": "Another integration or remote branch update during CI waiting must not cause a stale candidate to overwrite newer harness history.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "medium",
+      "rationale": "The local publisher runs on macOS while the required workflow spans Linux, macOS, and Windows, so API and Git behavior must remain portable and shell-safe.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "The durable task record stores the verified SHA and remote workflow reference; partial failure must not persist a false done state.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0015-remote-ci-acceptance.md"
+      ],
+      "rationale": "Remote evidence and protected-branch publication define a cross-workstream acceptance contract that is expensive to reverse."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task changes delivery governance and GitHub integration but does not move production modules or alter runtime dependency direction."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The change strengthens evidence for every milestone without adding product scope or changing roadmap sequencing."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

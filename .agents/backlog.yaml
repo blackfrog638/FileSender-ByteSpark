@@ -1328,6 +1328,39 @@
         "REQ-WINDOWS-TEST-MACRO-ISOLATION"
       ],
       "delivery_role": "implementation_acceptance"
+    },
+    {
+      "id": "XT-068",
+      "title": "Remote CI acceptance",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [],
+      "owned_paths": [
+        "AGENTS.md",
+        ".agents/backlog.yaml",
+        ".agents/manifest.yaml",
+        ".agents/plans/DP-REMOTE-ACCEPTANCE.json",
+        ".agents/records/README.md",
+        ".agents/records/XT-068.json",
+        ".agents/tasks/XT-068-remote-ci-acceptance.md",
+        ".agents/handoffs/XT-068.md",
+        ".github/workflows/ci.yml",
+        "tool/harness/agent.sh",
+        "tool/harness/github_ci.py",
+        "tool/harness/github_ci_test.py",
+        "tool/harness/governance.py",
+        "tool/harness/governance_test.sh",
+        "Makefile",
+        "docs/adr/0015-remote-ci-acceptance.md"
+      ],
+      "delivery_plan": "DP-REMOTE-ACCEPTANCE",
+      "requirement_ids": [
+        "REQ-REMOTE-ACCEPTANCE"
+      ],
+      "delivery_role": "implementation_acceptance"
     }
   ]
 }
