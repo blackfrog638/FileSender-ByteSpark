@@ -1,0 +1,132 @@
+{
+  "schema_version": 3,
+  "id": "XT-077",
+  "delivery_plan": "DP-PROJECT-DASHBOARD",
+  "requirement_ids": [
+    "REQ-PROJECT-DASHBOARD"
+  ],
+  "delivery_role": "implementation_acceptance",
+  "task_type": "feature",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-077.md",
+  "commit": {
+    "type": "feat",
+    "scope": "harness",
+    "summary": "add read-only project delivery dashboard"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "medium",
+      "rationale": "An aggregation that diverges from agent.sh list or delivery_plan.py status would misrepresent delivery progress and mislead scheduling decisions, so the dashboard must reuse the existing state logic and be verified against it.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "Task titles and free-form backlog text are rendered into HTML; without escaping, untrusted content could inject markup into the generated page.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "The generator reads a bounded set of tracked files and task branches once per run; there is no hot path or runtime cost to the shipped product.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "low",
+      "rationale": "The change adds a new read-only subcommand and gate without altering the C ABI, wire protocol, persisted schema, or any shared cross-workstream contract.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "low",
+      "rationale": "Generation is a single-shot read of repository state and task branches; it holds no locks and mutates no runtime state.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "The generator is pure Python 3 over Git and tracked files, matching the existing harness tooling, and emits a platform-independent static HTML file.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The dashboard persists nothing authoritative; its only output is a git-ignored generated HTML artifact derived entirely from the tracked sources of truth.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The dashboard is a read-only, purely derived reporting tool. It introduces no new or changed public cross-workstream contract, security profile, persisted format, or architecture decision that is expensive to reverse."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "No production runtime module moves and no dependency direction changes; the tool lives within the integration workstream under tool/harness."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The dashboard reports on existing delivery progress and adds no product scope or milestone sequencing."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "source_base": "",
+    "source_head": "",
+    "source_commits": [],
+    "source_commits_sha256": "",
+    "source_patch_id": "",
+    "result": "",
+    "result_patch_id": "",
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

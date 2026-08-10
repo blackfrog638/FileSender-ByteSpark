@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "id": "DP-PROJECT-DASHBOARD",
+  "title": "Project delivery dashboard",
+  "status": "approved",
+  "source": {
+    "kind": "governance",
+    "path": "AGENTS.md"
+  },
+  "requirements": [
+    {
+      "id": "REQ-PROJECT-DASHBOARD",
+      "source_ref": "GOVERNANCE-PROJECT-DASHBOARD",
+      "statement": "The integration owner can regenerate a read-only, purely derived project delivery dashboard that aggregates task runtime state, delivery-plan requirement progress, roadmap milestones, and verification gate and risk posture from the tracked sources of truth without persisting or duplicating any authoritative state.",
+      "acceptance_criteria": [
+        "A single harness command regenerates one self-contained static HTML dashboard from live sources: task records plus task-branch runtime state, backlog dependencies and owned paths, delivery plans, the roadmap, and the manifest gate registry.",
+        "Every task runtime state in the dashboard equals the state reported by agent.sh list for the same commit, including active states resolved from task branches rather than only durable records.",
+        "Every requirement-level state in the dashboard equals the state reported by delivery_plan.py status, including accepted, acceptance-ready, in-progress, partially-delivered, planned, claimable, and dependency-blocked.",
+        "The dashboard is generated output and is never committed; a git-ignored build artifact path is used and the generator is deterministic for a fixed repository state.",
+        "All task titles and free-form text are HTML-escaped so untrusted backlog content cannot inject markup.",
+        "Negative: the generator must NOT maintain, cache, or hand-edit its own copy of task, requirement, or milestone status; any state that is not derived from the tracked sources of truth fails acceptance.",
+        "Negative: resolving active task states (claimed, in_progress, review, blocked) from only .agents/records/*.json without merging task-branch records fails acceptance because it omits in-flight work.",
+        "Negative: committing the generated HTML into the repository, or emitting a dashboard whose task or requirement states disagree with agent.sh list or delivery_plan.py status, fails acceptance.",
+        "A trusted dashboard_test gate asserts, on fixtures, that the aggregation agrees with agent.sh list and delivery_plan.py status, and it runs within governance-test and the repository verify gate."
+      ],
+      "implementation_tasks": [
+        "XT-077"
+      ],
+      "acceptance_task": "XT-077"
+    }
+  ],
+  "approval": {
+    "approved_by": "integration-owner",
+    "approved_at": "2026-08-10T13:01:36+00:00",
+    "content_sha256": "f71a4cd63fbf77f883aa393b32ad75c0dc650ebbd794a4d074067fc93fbf6931"
+  },
+  "superseded_by": ""
+}

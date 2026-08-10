@@ -1589,6 +1589,35 @@
         "REQ-P1-SCHEDULING"
       ],
       "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-077",
+      "title": "Project delivery dashboard",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [],
+      "owned_paths": [
+        ".agents/backlog.yaml",
+        ".agents/manifest.yaml",
+        ".agents/plans/DP-PROJECT-DASHBOARD.json",
+        ".agents/records/XT-077.json",
+        ".agents/tasks/XT-077-project-delivery-dashboard.md",
+        ".agents/handoffs/XT-077.md",
+        "tool/harness/agent.sh",
+        "tool/harness/dashboard.py",
+        "tool/harness/dashboard_test.py",
+        "tool/harness/governance_test.sh",
+        "Makefile",
+        ".gitignore"
+      ],
+      "delivery_plan": "DP-PROJECT-DASHBOARD",
+      "requirement_ids": [
+        "REQ-PROJECT-DASHBOARD"
+      ],
+      "delivery_role": "implementation_acceptance"
     }
   ]
 }
