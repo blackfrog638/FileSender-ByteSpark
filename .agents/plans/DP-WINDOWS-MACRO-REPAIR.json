@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "DP-WINDOWS-MACRO-REPAIR",
+  "title": "Isolate Windows test macros",
+  "status": "approved",
+  "source": {
+    "kind": "governance",
+    "path": ".github/workflows/ci.yml"
+  },
+  "requirements": [
+    {
+      "id": "REQ-WINDOWS-TEST-MACRO-ISOLATION",
+      "source_ref": "CI-NATIVE-WINDOWS-TESTS",
+      "statement": "Shared native test support isolates the Windows min and max macros so supported MSVC builds can compile standard-library min and max expressions.",
+      "acceptance_criteria": [
+        "A trusted native regression gate detects missing Windows min and max macro isolation in shared test support on every development platform.",
+        "The GitHub Actions native and desktop bundle jobs pass on windows-2022.",
+        "Repository verification passes."
+      ],
+      "implementation_tasks": [
+        "XT-067"
+      ],
+      "acceptance_task": "XT-067"
+    }
+  ],
+  "approval": {
+    "approved_by": "integration-owner",
+    "approved_at": "2026-08-10T02:52:56+00:00",
+    "content_sha256": "25aa0393be24bc5d6b7d49cef0d147594531e327dfc1aacdbb07881e343614b5"
+  },
+  "superseded_by": ""
+}

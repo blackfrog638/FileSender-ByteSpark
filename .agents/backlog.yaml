@@ -1306,6 +1306,28 @@
         "REQ-WINDOWS-SESSION-COMPILE"
       ],
       "delivery_role": "implementation_acceptance"
+    },
+    {
+      "id": "XT-067",
+      "title": "Windows test macro isolation",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-029"
+      ],
+      "owned_paths": [
+        "native/tests/session/test_support.hpp",
+        "native/tests/transfer/windows_macro_policy_test.py",
+        "native/tests/transfer/CMakeLists.txt"
+      ],
+      "delivery_plan": "DP-WINDOWS-MACRO-REPAIR",
+      "requirement_ids": [
+        "REQ-WINDOWS-TEST-MACRO-ISOLATION"
+      ],
+      "delivery_role": "implementation_acceptance"
     }
   ]
 }

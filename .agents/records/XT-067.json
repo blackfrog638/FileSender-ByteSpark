@@ -1,0 +1,131 @@
+{
+  "schema_version": 3,
+  "id": "XT-067",
+  "delivery_plan": "DP-WINDOWS-MACRO-REPAIR",
+  "requirement_ids": [
+    "REQ-WINDOWS-TEST-MACRO-ISOLATION"
+  ],
+  "delivery_role": "implementation_acceptance",
+  "task_type": "bugfix",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-067.md",
+  "commit": {
+    "type": "fix",
+    "scope": "native",
+    "summary": "isolate Windows test macros"
+  },
+  "architecture_change": {
+    "mode": "refactor",
+    "modules": [
+      "session",
+      "transfer"
+    ],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "low",
+      "rationale": "The change is limited to native test target preprocessing, but an incorrect definition could prevent the affected tests from compiling.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "none",
+      "rationale": "The task does not change production code, credentials, cryptography, trust boundaries, or input handling.",
+      "gates": []
+    },
+    "performance": {
+      "level": "none",
+      "rationale": "A preprocessor definition on test targets has no production runtime or resource impact.",
+      "gates": []
+    },
+    "compatibility": {
+      "level": "none",
+      "rationale": "No public API, ABI, wire protocol, schema, or persisted format changes.",
+      "gates": []
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "No runtime synchronization, scheduling, or teardown behavior changes.",
+      "gates": []
+    },
+    "platform": {
+      "level": "medium",
+      "rationale": "The defect blocks the supported MSVC native matrix; a deterministic policy test covers the required target definitions on every development host.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The task does not read, write, migrate, or reinterpret persisted data.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "Defining NOMINMAX for existing test targets restores an established supported-platform build and creates no public or expensive-to-reverse decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The test targets remain in their existing session and transfer module boundaries; only their Windows preprocessing environment changes."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "This bugfix restores the existing CI platform contract and does not add or reschedule product behavior."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "native_test",
+      "verify"
+    ],
+    "commands": [
+      "make native-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  },
+  "defect": {
+    "severity": "P1",
+    "source": "ci",
+    "symptom": "The supported Windows native build fails while compiling session and transfer tests after production libraries compile successfully.",
+    "expected_contract": "The CI workflow requires native tests to compile on windows-2022, and shared native test support that consumes Windows headers must prevent SDK min and max macros from rewriting standard-library expressions.",
+    "actual_behavior": "MSVC reports C2589, C3878, C2760, and C2059 when Windows min and max macros expand std::min and std::numeric_limits::max expressions in session and transfer tests.",
+    "trigger": "Compile integrated delivery 549fd420bf6bc01168314ca8a58a0f720aa98638 with MSVC 14.44 in GitHub Actions run 31350356920.",
+    "affected_since": "600c7b0b0a3478b89189af3d3bd1db211f59eb06",
+    "proof_mode": "deterministic",
+    "reproduction_commit": "",
+    "regression_gate": "native_test",
+    "contract_disposition": "restore",
+    "failure_fingerprint": "FAILED: Windows native test support must isolate min and max macros"
+  }
+}
