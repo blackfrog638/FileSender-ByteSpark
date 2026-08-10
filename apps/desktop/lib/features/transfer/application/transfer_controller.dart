@@ -52,6 +52,8 @@ class TransferController extends ChangeNotifier {
     if (ready == null || offer == null || !_pendingOfferCommands.add(offerId)) {
       return TransferCommandOutcome.invalidState;
     }
+    final Set<String> transferIdsBefore =
+        ready.transfers.map((TransferEntry transfer) => transfer.id).toSet();
 
     try {
       final TransferEntry transfer = await _gateway.acceptOffer(offerId);
@@ -59,8 +61,11 @@ class TransferController extends ChangeNotifier {
       if (current == null) {
         return TransferCommandOutcome.invalidState;
       }
+      final TransferEntry? observed = current.transferById(transfer.id);
       if (!_isAcceptedTransferValid(offer, transfer) ||
-          current.transferById(transfer.id) != null) {
+          (observed != null &&
+              (transferIdsBefore.contains(transfer.id) ||
+                  !_isObservedAcceptanceValid(transfer, observed)))) {
         _markUnavailable('Transfer gateway returned an invalid acceptance');
         return TransferCommandOutcome.gatewayError;
       }
@@ -70,7 +75,9 @@ class TransferController extends ChangeNotifier {
           incomingOffers: current.incomingOffers.where(
             (IncomingTransferOffer item) => item.id != offerId,
           ),
-          transfers: <TransferEntry>[...current.transfers, transfer],
+          transfers: observed == null
+              ? <TransferEntry>[...current.transfers, transfer]
+              : current.transfers,
         ),
       );
       return TransferCommandOutcome.applied;
@@ -254,7 +261,17 @@ class TransferController extends ChangeNotifier {
           return;
         }
         final TransferEntry? current = ready.transferById(event.transfer.id);
-        if (current == null || !_isValidUpdate(current, event.transfer)) {
+        if (current == null) {
+          if (_isValidInitialTransfer(event.transfer)) {
+            _setState(
+              ready.copyWith(
+                transfers: <TransferEntry>[...ready.transfers, event.transfer],
+              ),
+            );
+          }
+          return;
+        }
+        if (!_isValidUpdate(current, event.transfer)) {
           return;
         }
         _replaceTransfer(ready, event.transfer);
@@ -305,6 +322,31 @@ class TransferController extends ChangeNotifier {
         transfer.transferredBytes == 0 &&
         transfer.status == TransferStatus.queued &&
         transfer.failure == null;
+  }
+
+  bool _isObservedAcceptanceValid(
+    TransferEntry accepted,
+    TransferEntry observed,
+  ) {
+    return observed.id == accepted.id &&
+        observed.direction == accepted.direction &&
+        observed.peerName == accepted.peerName &&
+        observed.fileCount == accepted.fileCount &&
+        observed.totalBytes == accepted.totalBytes &&
+        _isValidInitialTransfer(observed);
+  }
+
+  bool _isValidInitialTransfer(TransferEntry transfer) {
+    return transfer.id.isNotEmpty &&
+        transfer.peerName.isNotEmpty &&
+        transfer.fileCount > 0 &&
+        transfer.totalBytes >= 0 &&
+        transfer.transferredBytes >= 0 &&
+        transfer.transferredBytes <= transfer.totalBytes &&
+        (transfer.status != TransferStatus.completed ||
+            transfer.transferredBytes == transfer.totalBytes) &&
+        (transfer.status == TransferStatus.failed) ==
+            (transfer.failure != null);
   }
 
   bool _isValidUpdate(TransferEntry current, TransferEntry next) {

@@ -2,41 +2,56 @@
   "schema_version": 2,
   "id": "XT-031",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "flutter-p1-agent",
+  "base_sha": "c72f2e00ef0d36fe08f0290219f540556d016790",
+  "head_sha": "bc3a89ebecc46f3e58df2e5c000c93bfac02314c",
   "handoff": ".agents/handoffs/XT-031.md",
   "risks": {
     "functionality": {
       "level": "high",
       "rationale": "The first usable flow must preserve discovery, pairing, offer decisions, progress, cancellation, and completion state.",
-      "gates": ["make flutter-test", "make verify"]
+      "gates": [
+        "make flutter-test",
+        "make verify"
+      ]
     },
     "security": {
       "level": "medium",
       "rationale": "The UI must distinguish untrusted peers, require explicit decisions, and render hostile display data safely.",
-      "gates": ["make flutter-test"]
+      "gates": [
+        "make flutter-test"
+      ]
     },
     "performance": {
       "level": "low",
       "rationale": "Event-driven state updates and progress rendering must not block the desktop UI.",
-      "gates": ["make flutter-test"]
+      "gates": [
+        "make flutter-test"
+      ]
     },
     "compatibility": {
       "level": "medium",
       "rationale": "Application controllers must consume the typed native gateways without bypassing established state contracts.",
-      "gates": ["make flutter-test", "make verify"]
+      "gates": [
+        "make flutter-test",
+        "make verify"
+      ]
     },
     "concurrency": {
       "level": "high",
       "rationale": "Duplicate actions, stale events, cancellation, navigation, and disposal race in application state.",
-      "gates": ["make flutter-test"]
+      "gates": [
+        "make flutter-test"
+      ]
     },
     "platform": {
       "level": "high",
       "rationale": "Keyboard, accessibility, file selection, and desktop layout must work across supported Flutter targets.",
-      "gates": ["make flutter-test", "make verify"]
+      "gates": [
+        "make flutter-test",
+        "make verify"
+      ]
     },
     "persistence": {
       "level": "none",
@@ -63,17 +78,37 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "c72f2e00ef0d36fe08f0290219f540556d016790",
+    "source_head": "2b9c3678c4e9bf11cc2d60263f907fb9229b1e1e",
+    "source_commits": [
+      "268c44b3361260cabc8193fbac29bbf1a81c6fdf",
+      "07b27ea8c9f076f8718cbf87a73010450d821464",
+      "9e52edc942e50a743a89f70c2a6107ac0c2c2d59",
+      "596d8dcabebbcf057454747ecd9f728ce833cc71",
+      "ef472e9e3656d538ce66d9854618a33bce8d3c21",
+      "4deccf2183dff382e86b1e521df8011ad0cabf5c",
+      "ce3ffa84c0c383886a162b17012ee6ee52bb8de1",
+      "c9a0927aab59fa2a919b1dad6a6d506084aef122",
+      "2875012774e6541e83127123d06597b6b0c927fd",
+      "b5eee1b2f95ebaf3bf76d34dc3aafcd508e1f1e2",
+      "8b1cff948c67f26aa50e5bcf3b8ef4c0997dc25b",
+      "bc3a89ebecc46f3e58df2e5c000c93bfac02314c",
+      "2b9c3678c4e9bf11cc2d60263f907fb9229b1e1e"
+    ],
+    "source_commits_sha256": "ecc670a8fd14c81f507cff3f98023c09edf23e2b1eca66624ed5b1526fe273a5",
+    "source_patch_id": "69fa8071a55b32d1cdd5c6e2ebfa37a04d253d7b",
+    "result": "",
+    "result_patch_id": "69fa8071a55b32d1cdd5c6e2ebfa37a04d253d7b",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make flutter-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:bc3a89ebecc46f3e58df2e5c000c93bfac02314c:2026-08-10T12:32:34Z"
   },
   "acceptance": {
     "accepted_by": "",

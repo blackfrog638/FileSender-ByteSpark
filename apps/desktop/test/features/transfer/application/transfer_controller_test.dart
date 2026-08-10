@@ -290,6 +290,22 @@ void main() {
       expect(controller.state, isA<TransferUnavailable>());
     });
 
+    test('fails closed when acceptance reuses a preexisting transfer ID',
+        () async {
+      final _FakeTransferGateway gateway = _FakeTransferGateway();
+      final TransferController controller =
+          await _initializedController(gateway);
+      gateway.emit(TransferUpdated(_transfer()));
+      gateway.emit(const IncomingOfferReceived(_offer));
+      gateway.acceptedTransfer = _transfer();
+
+      final TransferCommandOutcome outcome =
+          await controller.acceptOffer(_offer.id);
+
+      expect(outcome, TransferCommandOutcome.gatewayError);
+      expect(controller.state, isA<TransferUnavailable>());
+    });
+
     test('tracks an accepted offer withdrawn while command is pending',
         () async {
       final Completer<TransferEntry> acceptance = Completer<TransferEntry>();
@@ -311,6 +327,28 @@ void main() {
 
       final TransferReady state = _readyState(controller);
       expect(state.incomingOffers, isEmpty);
+      expect(state.transfers.single.id, 'transfer-1');
+    });
+
+    test('reconciles a transfer update that arrives before acceptance returns',
+        () async {
+      final Completer<TransferEntry> acceptance = Completer<TransferEntry>();
+      final _FakeTransferGateway gateway = _FakeTransferGateway()
+        ..acceptCompleter = acceptance;
+      final TransferController controller =
+          await _initializedController(gateway);
+      gateway.emit(const IncomingOfferReceived(_offer));
+
+      final Future<TransferCommandOutcome> acceptFuture =
+          controller.acceptOffer(_offer.id);
+      gateway.emit(IncomingOfferWithdrawn(_offer.id));
+      gateway.emit(TransferUpdated(_transfer()));
+      acceptance.complete(_transfer());
+
+      expect(await acceptFuture, TransferCommandOutcome.applied);
+      final TransferReady state = _readyState(controller);
+      expect(state.incomingOffers, isEmpty);
+      expect(state.transfers, hasLength(1));
       expect(state.transfers.single.id, 'transfer-1');
     });
 
@@ -354,6 +392,31 @@ void main() {
   });
 
   group('transfer lifecycle', () {
+    test('adds a valid native transfer that was not created from an offer',
+        () async {
+      final _FakeTransferGateway gateway = _FakeTransferGateway();
+      final TransferController controller =
+          await _initializedController(gateway);
+
+      gateway.emit(
+        const TransferUpdated(
+          TransferEntry(
+            id: 'outgoing-1',
+            direction: TransferDirection.outgoing,
+            peerName: 'Authenticated laptop',
+            fileCount: 1,
+            totalBytes: 120,
+            transferredBytes: 0,
+            status: TransferStatus.queued,
+          ),
+        ),
+      );
+
+      final TransferEntry transfer = _readyState(controller).transfers.single;
+      expect(transfer.id, 'outgoing-1');
+      expect(transfer.direction, TransferDirection.outgoing);
+    });
+
     test('supports queued, running, paused, resumed, and cancelled', () async {
       final _FakeTransferGateway gateway = _FakeTransferGateway();
       final TransferController controller =
