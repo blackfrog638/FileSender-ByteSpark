@@ -7,7 +7,7 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "bugfix",
-  "state": "claimed",
+  "state": "in_progress",
   "owner": "windows-macro-agent",
   "base_sha": "964e93cac8ea31d54d91865b368c8bff71e2d3ca",
   "head_sha": "",
