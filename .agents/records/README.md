@@ -131,6 +131,16 @@ Legacy `cherry-pick` and `merge` records retain `integration.mappings`, where
 each source/result pair must have the same stable patch ID. Only
 `agent.sh accept` can move an integrated task to `done`.
 
+For XT-068 and later, acceptance is a remote publication transaction. The
+integrated delivery SHA and the generated acceptance commit are each staged on
+`ci/XT-NNN` and must pass the complete GitHub Actions `CI` workflow. Only then
+may `harness` fast-forward to the acceptance commit. The verification reference
+must be the delivery workflow's full
+`https://github.com/<owner>/<repository>/actions/runs/<id>` URL; `local:*`,
+free-form, skipped, or partial-job evidence is rejected. A delivery or
+acceptance CI failure leaves the task `integrated`, while an interrupted final
+push can be retried with the same `agent.sh accept` command.
+
 The harness uses `commit` metadata for squash delivery subjects. Lifecycle
 commits use the task title and stable workstream scope. In both cases the
 subject explains the repository or governance action while the task number is

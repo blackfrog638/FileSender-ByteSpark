@@ -7,10 +7,10 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "governance",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "remote-ci-agent",
+  "base_sha": "f565b71cd61ad859212e75dd73b66e2501c4eb6c",
+  "head_sha": "63d902dc78f31a61ff880153fe20c1a8ac999c8f",
   "handoff": ".agents/handoffs/XT-068.md",
   "commit": {
     "type": "ci",
@@ -89,7 +89,7 @@
   "impacts": {
     "adr": {
       "required": true,
-      "status": "proposed",
+      "status": "accepted",
       "references": [
         "docs/adr/0015-remote-ci-acceptance.md"
       ],
@@ -107,12 +107,29 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "f565b71cd61ad859212e75dd73b66e2501c4eb6c",
+    "source_head": "ade4d63d997025810461e73e3ebbaec0665e819c",
+    "source_commits": [
+      "c25cc61e3d36a4c1905bb36ca9984124145f427b",
+      "e35f7da11e98b87c8f24cbf674daaf14ce319dc9",
+      "fa01207256eb936bed0a4bb1492179bab659949a",
+      "12eccfe151ca5823efa60d2f4617d3c471bf4a3a",
+      "890867e546151c5a0f2d1fb76a96669e590d4687",
+      "dc53b55df2bf42d79abf18b091924fd5c2495604",
+      "8ad4b82947451e931238d507519344ccc7b5d055",
+      "a8afa61645c992014cc0d2b62596e4d2bd384035",
+      "63d902dc78f31a61ff880153fe20c1a8ac999c8f",
+      "ade4d63d997025810461e73e3ebbaec0665e819c"
+    ],
+    "source_commits_sha256": "7a82492e3ad78a68f6caa9ba5b98512786c4fb0f549d25da43d219b099487731",
+    "source_patch_id": "04a34369a3be2964c76e94b6d76f6ad6bcda8cae",
+    "result": "",
+    "result_patch_id": "04a34369a3be2964c76e94b6d76f6ad6bcda8cae",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "governance_test",
       "verify"
@@ -121,7 +138,7 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:63d902dc78f31a61ff880153fe20c1a8ac999c8f:2026-08-10T08:06:43Z"
   },
   "acceptance": {
     "accepted_by": "",

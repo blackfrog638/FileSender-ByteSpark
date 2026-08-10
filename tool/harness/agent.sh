@@ -6,7 +6,9 @@ script_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 root="$(cd "${XNN_TRANSFER_ROOT:-$script_root}" && pwd)"
 backlog="$root/.agents/backlog.yaml"
 governance="$root/tool/harness/governance.py"
+github_ci="$root/tool/harness/github_ci.py"
 integration_branch="${XNN_TRANSFER_INTEGRATION_BRANCH:-harness}"
+remote="origin"
 claim_lock_ref="refs/xnn-transfer/locks/claim"
 claim_lock_token=""
 
@@ -19,7 +21,7 @@ Usage:
   tool/harness/agent.sh transition XT-001 in_progress|review|blocked
   tool/harness/agent.sh integrate XT-001 [--strategy squash|cherry-pick]
   tool/harness/agent.sh integrate XT-001 --continue
-  tool/harness/agent.sh accept XT-001 reviewer-slug [verification-reference]
+  tool/harness/agent.sh accept XT-001 reviewer-slug
   tool/harness/agent.sh cleanup XT-001
   tool/harness/agent.sh prompt XT-001
 
@@ -939,17 +941,104 @@ PY
   printf '%s: review -> integrated (%s)\n' "$task_id" "$strategy"
 }
 
+remote_ref_sha() {
+  local ref="$1"
+  git -C "$root" ls-remote --heads "$remote" "$ref" |
+    awk 'NR == 1 { print $1 }'
+}
+
+require_fast_forward() {
+  local remote_head="$1"
+  local candidate="$2"
+  if [[ -z "$remote_head" ]]; then
+    printf 'Remote integration branch %s does not exist.\n' \
+      "$integration_branch" >&2
+    return 1
+  fi
+  if ! git -C "$root" cat-file -e "$remote_head^{commit}" 2>/dev/null; then
+    git -C "$root" fetch --quiet "$remote" \
+      "refs/heads/$integration_branch"
+  fi
+  if ! git -C "$root" merge-base --is-ancestor \
+    "$remote_head" "$candidate"; then
+    printf '%s\n' \
+      "Remote $integration_branch at $remote_head is not an ancestor of" \
+      "candidate $candidate. Rebase and repeat review." >&2
+    return 1
+  fi
+}
+
+stage_candidate_ci() {
+  local candidate_branch="$1"
+  local candidate_ref="$2"
+  local candidate_sha="$3"
+  local current
+  current="$(remote_ref_sha "$candidate_ref")"
+  if [[ "$current" != "$candidate_sha" ]]; then
+    if ! git -C "$root" push \
+      --force-with-lease="$candidate_ref:$current" \
+      "$remote" \
+      "$candidate_sha:$candidate_ref" >&2; then
+      printf 'Cannot stage %s on %s.\n' \
+        "$candidate_sha" "$candidate_branch" >&2
+      return 1
+    fi
+  fi
+  python3 -B "$github_ci" wait \
+    --root "$root" \
+    --remote "$remote" \
+    --branch "$candidate_branch" \
+    --sha "$candidate_sha"
+}
+
+delete_candidate_ref() {
+  local candidate_ref="$1"
+  local expected_sha="$2"
+  local current
+  if ! current="$(remote_ref_sha "$candidate_ref")"; then
+    printf 'Warning: could not inspect candidate ref %s.\n' \
+      "$candidate_ref" >&2
+    return
+  fi
+  if [[ -z "$current" ]]; then
+    return
+  fi
+  if [[ "$current" != "$expected_sha" ]]; then
+    printf 'Not deleting changed candidate ref %s at %s.\n' \
+      "$candidate_ref" "$current" >&2
+    return
+  fi
+  if ! git -C "$root" push \
+    --force-with-lease="$candidate_ref:$expected_sha" \
+    "$remote" \
+    ":$candidate_ref" >/dev/null; then
+    printf 'Warning: could not delete candidate ref %s.\n' \
+      "$candidate_ref" >&2
+  fi
+}
+
+publish_integration() {
+  local expected_remote="$1"
+  local acceptance_sha="$2"
+  git -C "$root" push \
+    --force-with-lease="refs/heads/$integration_branch:$expected_remote" \
+    "$remote" \
+    "$acceptance_sha:refs/heads/$integration_branch"
+}
+
 accept() {
-  if [[ "$#" -lt 2 || "$#" -gt 3 ]]; then
+  if [[ "$#" -ne 2 ]]; then
     usage
     exit 2
   fi
 
   local task_id="$1"
   local reviewer="$2"
-  local reference="${3:-}"
-  local branch state verified_sha backup
+  local branch state verified_sha acceptance_sha backup reference
+  local candidate_branch candidate_ref remote_head task_trailer lifecycle
   branch="$(task_branch "$task_id")"
+  candidate_branch="ci/$task_id"
+  candidate_ref="refs/heads/$candidate_branch"
 
   ensure_integration_worktree
   if [[ ! "$reviewer" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
@@ -961,6 +1050,49 @@ accept() {
     exit 1
   fi
   state="$("$governance" get "$task_id" state)"
+  if [[ "$state" == "done" ]]; then
+    task_trailer="$(
+      git -C "$root" show -s --format=%B HEAD |
+        git interpret-trailers --parse |
+        awk -F': ' '$1 == "Xnn-Task" { print $2 }'
+    )"
+    lifecycle="$(
+      git -C "$root" show -s --format=%B HEAD |
+        git interpret-trailers --parse |
+        awk -F': ' '$1 == "Xnn-Lifecycle" { print $2 }'
+    )"
+    if [[ "$task_trailer" != "$task_id" || "$lifecycle" != "acceptance" ]]; then
+      printf '%s done state is not at its acceptance commit.\n' \
+        "$task_id" >&2
+      exit 1
+    fi
+    "$governance" validate >/dev/null
+    acceptance_sha="$(git -C "$root" rev-parse HEAD)"
+    remote_head="$(remote_ref_sha "refs/heads/$integration_branch")"
+    if [[ "$remote_head" == "$acceptance_sha" ]]; then
+      git -C "$root" config "branch.$branch.xnnState" done
+      delete_candidate_ref "$candidate_ref" "$acceptance_sha"
+      printf '%s: done and published\n' "$task_id"
+      return
+    fi
+    require_fast_forward "$remote_head" "$acceptance_sha"
+    if ! stage_candidate_ci \
+      "$candidate_branch" "$candidate_ref" "$acceptance_sha" >/dev/null; then
+      delete_candidate_ref "$candidate_ref" "$acceptance_sha"
+      return 1
+    fi
+    if ! publish_integration \
+      "$remote_head" "$acceptance_sha"; then
+      printf '%s\n' \
+        'Acceptance CI passed, but publishing harness failed.' \
+        "Retry: tool/harness/agent.sh accept $task_id $reviewer" >&2
+      return 1
+    fi
+    delete_candidate_ref "$candidate_ref" "$acceptance_sha"
+    git -C "$root" config "branch.$branch.xnnState" done
+    printf '%s: resumed publication -> done\n' "$task_id"
+    return
+  fi
   if [[ "$state" != "integrated" ]]; then
     printf '%s must be integrated before acceptance; state=%s\n' \
       "$task_id" "$state" >&2
@@ -970,25 +1102,61 @@ accept() {
   "$governance" validate >/dev/null
   run_verification "$root" "$task_id"
   verified_sha="$(git -C "$root" rev-parse HEAD)"
-  if [[ -z "$reference" ]]; then
-    reference="local:$verified_sha:$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+  remote_head="$(remote_ref_sha "refs/heads/$integration_branch")"
+  require_fast_forward "$remote_head" "$verified_sha"
+  if ! reference="$(
+    stage_candidate_ci \
+      "$candidate_branch" "$candidate_ref" "$verified_sha"
+  )"; then
+    delete_candidate_ref "$candidate_ref" "$verified_sha"
+    return 1
   fi
   backup="$(mktemp)"
   cp "$root/.agents/records/$task_id.json" "$backup"
-  "$governance" mark-accepted \
-    "$task_id" "$reviewer" "$reference" "$verified_sha"
+  if ! "$governance" mark-accepted \
+    "$task_id" "$reviewer" "$reference" "$verified_sha"; then
+    cp "$backup" "$root/.agents/records/$task_id.json"
+    rm -f "$backup"
+    delete_candidate_ref "$candidate_ref" "$verified_sha"
+    return 1
+  fi
   if ! "$governance" validate; then
     cp "$backup" "$root/.agents/records/$task_id.json"
     rm -f "$backup"
+    delete_candidate_ref "$candidate_ref" "$verified_sha"
     printf 'Acceptance record failed governance validation.\n' >&2
     exit 1
   fi
-  rm -f "$backup"
-  commit_record \
+  if ! commit_record \
     "$root" \
     "$task_id" \
     acceptance \
-    "$(task_lifecycle_subject "$task_id" acceptance)"
+    "$(task_lifecycle_subject "$task_id" acceptance)"; then
+    git -C "$root" reset --hard "$verified_sha" >/dev/null
+    cp "$backup" "$root/.agents/records/$task_id.json"
+    rm -f "$backup"
+    delete_candidate_ref "$candidate_ref" "$verified_sha"
+    return 1
+  fi
+  acceptance_sha="$(git -C "$root" rev-parse HEAD)"
+  if ! stage_candidate_ci \
+    "$candidate_branch" "$candidate_ref" "$acceptance_sha" >/dev/null; then
+    git -C "$root" reset --hard "$verified_sha" >/dev/null
+    git -C "$root" config "branch.$branch.xnnState" integrated
+    rm -f "$backup"
+    delete_candidate_ref "$candidate_ref" "$acceptance_sha"
+    printf '%s remains integrated after acceptance CI failure.\n' \
+      "$task_id" >&2
+    return 1
+  fi
+  rm -f "$backup"
+  if ! publish_integration "$remote_head" "$acceptance_sha"; then
+    printf '%s\n' \
+      'Acceptance CI passed, but publishing harness failed.' \
+      "Retry: tool/harness/agent.sh accept $task_id $reviewer" >&2
+    return 1
+  fi
+  delete_candidate_ref "$candidate_ref" "$acceptance_sha"
   git -C "$root" config "branch.$branch.xnnState" done
   printf '%s: integrated -> done\n' "$task_id"
 }

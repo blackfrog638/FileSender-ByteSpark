@@ -72,8 +72,11 @@ concrete supersession claims. Temporary production code requires an
 7. Complete `.agents/handoffs/HANDOFF_TEMPLATE.md` in the task file or PR and
    move the runtime state to `review`.
 8. The integration owner runs `agent.sh integrate <task>`, then
-   `agent.sh accept <task> <reviewer>`. A required integration fix returns the
-   task to `in_progress` for a new reviewed source range.
+   `agent.sh accept <task> <reviewer>`. Acceptance stages the immutable
+   delivery and acceptance SHAs on `ci/XT-NNN`, requires the complete GitHub
+   Actions workflow to pass for both, and only then advances the protected
+   integration branch. A required integration fix returns the task to
+   `in_progress` for a new reviewed source range.
 9. Run `agent.sh cleanup <task>` only after the durable record is `done`.
 
 All new commits follow `docs/commit-policy.md`. Subjects use
@@ -145,8 +148,11 @@ excluded from that patch comparison and validated as structured provenance.
 Integration also proves that the current payload is byte-equivalent to the
 payload submitted for review. Any post-review handoff or product change returns
 the task to `in_progress` for a fresh review.
-`agent.sh accept` records the delivery SHA after verification in a separate
-acceptance commit.
+`agent.sh accept` records the delivery SHA and GitHub Actions run URL after
+local and remote verification in a separate acceptance commit. That commit
+must pass the same remote workflow before the protected integration branch
+advances and the task becomes `done`. Local-only verification references are
+not valid for tasks at or after XT-068.
 
 An integration owner may explicitly select `--strategy cherry-pick` only when
 individual commit topology is a reviewed delivery requirement. A hand-written

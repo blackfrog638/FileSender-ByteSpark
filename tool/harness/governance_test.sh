@@ -9,8 +9,10 @@ python3 -B "$root/tool/harness/trusted_gates_test.py"
 python3 -B "$root/tool/harness/defect_proof_test.py"
 python3 -B "$root/tool/harness/task_conflicts_test.py"
 python3 -B "$root/tool/harness/delivery_plan_test.py"
+python3 -B "$root/tool/harness/github_ci_test.py"
 temporary="$(mktemp -d)"
 repository="$temporary/repository"
+remote_repository="$temporary/remote.git"
 task_id="XT-999"
 
 cleanup() {
@@ -25,15 +27,79 @@ python3 -B \
   --root \
   "$repository"
 git -C "$repository" checkout -B harness >/dev/null
-inherited_head="$(git -C "$repository" rev-parse HEAD)"
+git init --quiet --bare "$remote_repository"
+git -C "$repository" remote set-url origin "$remote_repository"
+inherited_delivery="$(git -C "$repository" rev-parse HEAD)"
 
-python3 - "$repository" "$task_id" "$inherited_head" <<'PY'
+cat >"$repository/tool/harness/github_ci.py" <<'PY'
+#!/usr/bin/env python3
+
+import argparse
+import json
+import subprocess
+from pathlib import Path
+
+parser = argparse.ArgumentParser()
+subparsers = parser.add_subparsers(dest="command", required=True)
+wait = subparsers.add_parser("wait")
+wait.add_argument("--root", required=True)
+wait.add_argument("--remote", required=True)
+wait.add_argument("--branch", required=True)
+wait.add_argument("--sha", required=True)
+args = parser.parse_args()
+if args.command == "wait":
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            args.root,
+            "ls-remote",
+            "--heads",
+            args.remote,
+            f"refs/heads/{args.branch}",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    actual = result.stdout.split()[0] if result.stdout.split() else ""
+    if actual != args.sha:
+        raise SystemExit(
+            f"candidate ref has {actual or 'no SHA'}, expected {args.sha}"
+        )
+    mode_result = subprocess.run(
+        ["git", "-C", args.root, "config", "--get", "xnnTest.remoteCi"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    mode = mode_result.stdout.strip() or "success"
+    task_id = args.branch.removeprefix("ci/")
+    record_path = (
+        Path(args.root) / ".agents" / "records" / f"{task_id}.json"
+    )
+    state = json.loads(record_path.read_text(encoding="utf-8"))["state"]
+    if mode == "fail-delivery":
+        raise SystemExit("fixture rejected delivery CI")
+    if mode == "fail-acceptance" and state == "done":
+        raise SystemExit("fixture rejected acceptance CI")
+    print("https://github.com/example/XnnTransfer/actions/runs/999")
+PY
+git -C "$repository" add tool/harness/github_ci.py
+git -C "$repository" commit \
+  -m "test(harness): install remote CI fixture" >/dev/null
+git -C "$repository" push --quiet origin harness
+
+python3 - \
+  "$repository" \
+  "$task_id" \
+  "$inherited_delivery" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 root = Path(sys.argv[1])
-task_id, inherited_head = sys.argv[2:]
+task_id, inherited_delivery = sys.argv[2:]
 sys.path.insert(0, str(root / "tool" / "harness"))
 from trusted_gates import load_gate_registry
 import delivery_plan
@@ -72,11 +138,13 @@ for path in sorted((root / ".agents" / "records").glob("XT-*.json")):
             integration.get("strategy") == "squash"
             and not integration.get("result")
         ):
-            integration["result"] = inherited_head
-        integration["verified_sha"] = inherited_head
+            integration["result"] = inherited_delivery
+        integration["verified_sha"] = inherited_delivery
         record["state"] = "done"
         verification["status"] = "passed"
-        verification["reference"] = "test:inherited-integration"
+        verification["reference"] = (
+            "https://github.com/example/XnnTransfer/actions/runs/998"
+        )
         record["acceptance"] = {
             "accepted_by": "harness-test",
             "accepted_at": "2000-01-01T00:00:00+00:00",
@@ -267,6 +335,7 @@ git -C "$repository" add \
   .agents/records
 git -C "$repository" commit \
   -m "test(harness): register governance fixture" >/dev/null
+git -C "$repository" push --quiet origin harness
 
 "$repository/tool/harness/agent.sh" validate >/dev/null
 
@@ -894,8 +963,79 @@ path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 PY
 expect_tamper_rejected result_patch_id
 
+git -C "$repository" config xnnTest.remoteCi fail-delivery
+if "$repository/tool/harness/agent.sh" \
+  accept "$task_id" integration-owner >/dev/null 2>&1; then
+  printf 'Acceptance ignored a failed delivery CI run.\n' >&2
+  exit 1
+fi
+test "$(
+  "$repository/tool/harness/governance.py" get "$task_id" state
+)" = "integrated"
+test "$(git -C "$repository" rev-parse HEAD)" = "$delivery"
+test "$(
+  git --git-dir="$remote_repository" rev-parse refs/heads/harness
+)" = "$integration_base"
+if git --git-dir="$remote_repository" show-ref \
+  --verify --quiet "refs/heads/ci/$task_id"; then
+  printf 'Failed delivery CI left its candidate branch behind.\n' >&2
+  exit 1
+fi
+
+git -C "$repository" config xnnTest.remoteCi fail-acceptance
+if "$repository/tool/harness/agent.sh" \
+  accept "$task_id" integration-owner >/dev/null 2>&1; then
+  printf 'Acceptance ignored a failed acceptance-commit CI run.\n' >&2
+  exit 1
+fi
+test "$(
+  "$repository/tool/harness/governance.py" get "$task_id" state
+)" = "integrated"
+test "$(git -C "$repository" rev-parse HEAD)" = "$delivery"
+test "$(
+  git --git-dir="$remote_repository" rev-parse refs/heads/harness
+)" = "$integration_base"
+if git --git-dir="$remote_repository" show-ref \
+  --verify --quiet "refs/heads/ci/$task_id"; then
+  printf 'Failed acceptance CI left its candidate branch behind.\n' >&2
+  exit 1
+fi
+
+cat >"$remote_repository/hooks/pre-receive" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+git_dir="$(cd "$(dirname "$0")/.." && pwd)"
+while read -r old_sha new_sha ref; do
+  if [[ -f "$git_dir/reject-harness" &&
+    "$ref" == "refs/heads/harness" ]]; then
+    printf 'fixture rejected harness publication\n' >&2
+    exit 1
+  fi
+done
+SH
+chmod +x "$remote_repository/hooks/pre-receive"
+touch "$remote_repository/reject-harness"
+git -C "$repository" config xnnTest.remoteCi success
+if "$repository/tool/harness/agent.sh" \
+  accept "$task_id" integration-owner >/dev/null 2>&1; then
+  printf 'Acceptance ignored a failed protected-branch publication.\n' >&2
+  exit 1
+fi
+test "$(
+  "$repository/tool/harness/governance.py" get "$task_id" state
+)" = "done"
+acceptance="$(git -C "$repository" rev-parse HEAD)"
+test "$acceptance" != "$delivery"
+test "$(
+  git --git-dir="$remote_repository" rev-parse refs/heads/harness
+)" = "$integration_base"
+test "$(
+  git --git-dir="$remote_repository" rev-parse "refs/heads/ci/$task_id"
+)" = "$acceptance"
+
+rm "$remote_repository/reject-harness"
 "$repository/tool/harness/agent.sh" \
-  accept "$task_id" integration-owner test:governance >/dev/null
+  accept "$task_id" integration-owner >/dev/null
 acceptance="$(git -C "$repository" rev-parse HEAD)"
 test "$(
   git -C "$repository" rev-list --count "$integration_base..$acceptance"
@@ -913,7 +1053,36 @@ delivery = sys.argv[2]
 assert record["state"] == "done"
 assert record["integration"]["result"] == delivery
 assert record["integration"]["verified_sha"] == delivery
+assert (
+    record["verification"]["reference"]
+    == "https://github.com/example/XnnTransfer/actions/runs/999"
+)
 PY
+test "$(
+  git --git-dir="$remote_repository" rev-parse refs/heads/harness
+)" = "$acceptance"
+if git --git-dir="$remote_repository" show-ref \
+  --verify --quiet "refs/heads/ci/$task_id"; then
+  printf 'Acceptance left its ephemeral CI branch behind.\n' >&2
+  exit 1
+fi
+done_record="$temporary/$task_id-done.json"
+cp "$record" "$done_record"
+python3 - "$record" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+record = json.loads(path.read_text(encoding="utf-8"))
+record["verification"]["reference"] = "local:untrusted"
+path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+PY
+if "$repository/tool/harness/governance.py" validate >/dev/null 2>&1; then
+  printf 'Governance accepted local-only evidence for a new task.\n' >&2
+  exit 1
+fi
+cp "$done_record" "$record"
 "$repository/tool/harness/agent.sh" cleanup "$task_id" >/dev/null
 
 test ! -e "$task_worktree"

@@ -42,7 +42,11 @@ VALID_STATES = {
 ACTIVE_STATES = {"claimed", "in_progress", "blocked", "review", "integrated"}
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+REMOTE_CI_REFERENCE_PATTERN = re.compile(
+    r"^https://github\.com/[^/]+/[^/]+/actions/runs/[1-9][0-9]*$"
+)
 RISK_SCHEMA_MIN_TASK_NUMBER = 41
+REMOTE_CI_MIN_TASK_NUMBER = 68
 RISK_DIMENSIONS = (
     "functionality",
     "security",
@@ -1410,11 +1414,22 @@ def validate_record(
     if state == "done":
         if verification.get("status") != "passed":
             errors.append(f"{task_id}.verification.status must be passed")
-        require_string(
+        verification_reference = require_string(
             errors,
             verification.get("reference"),
             f"{task_id}.verification.reference",
         )
+        if (
+            task_number >= REMOTE_CI_MIN_TASK_NUMBER
+            and verification_reference
+            and not REMOTE_CI_REFERENCE_PATTERN.fullmatch(
+                verification_reference
+            )
+        ):
+            errors.append(
+                f"{task_id}.verification.reference must be a GitHub Actions "
+                "run URL"
+            )
         require_string(
             errors,
             acceptance.get("accepted_by"),
@@ -1855,6 +1870,14 @@ def mark_accepted(task_id: str, reviewer: str, reference: str, verified_sha: str
     record = load_record(task_id)
     if record.get("state") != "integrated":
         raise GovernanceError(f"{task_id} must be integrated before acceptance")
+    task_number = int(task_id.removeprefix("XT-"))
+    if (
+        task_number >= REMOTE_CI_MIN_TASK_NUMBER
+        and not REMOTE_CI_REFERENCE_PATTERN.fullmatch(reference)
+    ):
+        raise GovernanceError(
+            f"{task_id} acceptance requires a GitHub Actions run URL"
+        )
     record["state"] = "done"
     if (
         record["integration"].get("strategy") == "squash"

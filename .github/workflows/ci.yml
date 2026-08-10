@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - harness
+      - "ci/**"
   schedule:
     - cron: "0 3 * * 0"
 
