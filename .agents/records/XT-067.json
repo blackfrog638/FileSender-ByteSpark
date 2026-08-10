@@ -7,10 +7,10 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "bugfix",
-  "state": "in_progress",
+  "state": "review",
   "owner": "windows-macro-agent",
   "base_sha": "964e93cac8ea31d54d91865b368c8bff71e2d3ca",
-  "head_sha": "",
+  "head_sha": "6bf886f25370ee68b84ffe7937d6219e55b41879",
   "handoff": ".agents/handoffs/XT-067.md",
   "commit": {
     "type": "fix",
@@ -95,7 +95,7 @@
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "native_test",
       "verify"
@@ -104,7 +104,21 @@
       "make native-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:6bf886f25370ee68b84ffe7937d6219e55b41879:2026-08-10T03:24:35Z",
+    "defect_proof": {
+      "mode": "deterministic",
+      "gate": "native_test",
+      "command_sha256": "3de273218e3be98919043b865b023b33ee98345ab3f6b4b1ae24103d0498aef6",
+      "failure_fingerprint_sha256": "245a482dcb95c49c32a889f2cd228aaffcd2a3a932001a2ad61e49dfb0caa4ad",
+      "base_commit": "964e93cac8ea31d54d91865b368c8bff71e2d3ca",
+      "reproduction_commit": "65f0f60466f8d8249b0342f876b120e00d19af52",
+      "head_commit": "6bf886f25370ee68b84ffe7937d6219e55b41879",
+      "base_exit_code": 0,
+      "reproduction_exit_code": 2,
+      "head_exit_code": 0,
+      "reproduction_output_sha256": "e0581d2d5b5ad28098ac2330957a8b831c89eaab152cd9d9936191af6a83b41d",
+      "checked_at": "2026-08-10T03:26:20+00:00"
+    }
   },
   "acceptance": {
     "accepted_by": "",
