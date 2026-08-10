@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-031",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "flutter-p1-agent",
   "base_sha": "c72f2e00ef0d36fe08f0290219f540556d016790",
   "head_sha": "bc3a89ebecc46f3e58df2e5c000c93bfac02314c",
@@ -98,9 +98,9 @@
     ],
     "source_commits_sha256": "ecc670a8fd14c81f507cff3f98023c09edf23e2b1eca66624ed5b1526fe273a5",
     "source_patch_id": "69fa8071a55b32d1cdd5c6e2ebfa37a04d253d7b",
-    "result": "",
+    "result": "b636788c59912b72a24a501e443ed945235c2355",
     "result_patch_id": "69fa8071a55b32d1cdd5c6e2ebfa37a04d253d7b",
-    "verified_sha": ""
+    "verified_sha": "b636788c59912b72a24a501e443ed945235c2355"
   },
   "verification": {
     "status": "passed",
@@ -108,11 +108,11 @@
       "make flutter-test",
       "make verify"
     ],
-    "reference": "local:bc3a89ebecc46f3e58df2e5c000c93bfac02314c:2026-08-10T12:32:34Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31390245789"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-10T21:14:00+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
