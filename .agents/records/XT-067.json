@@ -7,9 +7,9 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "bugfix",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
+  "state": "claimed",
+  "owner": "windows-macro-agent",
+  "base_sha": "964e93cac8ea31d54d91865b368c8bff71e2d3ca",
   "head_sha": "",
   "handoff": ".agents/handoffs/XT-067.md",
   "commit": {
