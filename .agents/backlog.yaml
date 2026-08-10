@@ -1284,6 +1284,28 @@
         "REQ-P1-PLAN-MIGRATION"
       ],
       "delivery_role": "implementation_acceptance"
+    },
+    {
+      "id": "XT-066",
+      "title": "Windows session iterator",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-025"
+      ],
+      "owned_paths": [
+        "native/src/session/wire.cpp",
+        "native/tests/session/CMakeLists.txt",
+        "native/tests/session/standard_library_include_test.py"
+      ],
+      "delivery_plan": "DP-WINDOWS-ITERATOR-REPAIR",
+      "requirement_ids": [
+        "REQ-WINDOWS-SESSION-COMPILE"
+      ],
+      "delivery_role": "implementation_acceptance"
     }
   ]
 }

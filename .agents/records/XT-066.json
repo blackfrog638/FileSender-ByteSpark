@@ -1,0 +1,131 @@
+{
+  "schema_version": 3,
+  "id": "XT-066",
+  "delivery_plan": "DP-WINDOWS-ITERATOR-REPAIR",
+  "requirement_ids": [
+    "REQ-WINDOWS-SESSION-COMPILE"
+  ],
+  "delivery_role": "implementation_acceptance",
+  "task_type": "bugfix",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-066.md",
+  "commit": {
+    "type": "fix",
+    "scope": "session",
+    "summary": "include iterator for capability negotiation"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "low",
+      "rationale": "The repair changes include ownership only, but the regression gate must prove the capability negotiation source remains buildable.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "none",
+      "rationale": "The repair changes no parsing, authentication, negotiation, or trust-boundary behavior.",
+      "gates": []
+    },
+    "performance": {
+      "level": "none",
+      "rationale": "A direct standard-library include changes no generated runtime behavior or performance.",
+      "gates": []
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "The existing source fails to compile with the supported MSVC toolchain while compiling through incidental transitive includes on libc++.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "The repair changes no executable state, ordering, synchronization, or callback behavior.",
+      "gates": []
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "GitHub Actions run 31346642027 fails both supported Windows build jobs at the same missing standard-library declaration.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "The repair does not read, write, migrate, or delete persisted data.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "Restoring direct include ownership changes no public contract or expensive-to-reverse decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The repair leaves all module, target, dependency, and ownership boundaries unchanged."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The repair restores an already accepted Windows build contract and adds no roadmap behavior."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "native_test",
+      "verify"
+    ],
+    "commands": [
+      "make native-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  },
+  "defect": {
+    "severity": "P1",
+    "source": "ci",
+    "symptom": "The supported Windows native and desktop bundle builds fail while compiling session capability negotiation.",
+    "expected_contract": "The CI workflow requires native and desktop bundle builds to compile on windows-2022, and each C++ translation unit must directly include the standard declarations it uses.",
+    "actual_behavior": "MSVC reports C2039 and C3861 for std::back_inserter in native/src/session/wire.cpp, followed by C2672 for std::set_intersection.",
+    "trigger": "Compile xnn_transfer_session from acceptance commit 73148833a0db947f49183b5e6b61646adc8d077d with MSVC 14.44 on windows-2022.",
+    "affected_since": "600c7b0b0a3478b89189af3d3bd1db211f59eb06",
+    "proof_mode": "deterministic",
+    "reproduction_commit": "",
+    "regression_gate": "native_test",
+    "contract_disposition": "restore",
+    "failure_fingerprint": "FAILED: session wire must directly include iterator for std::back_inserter"
+  }
+}

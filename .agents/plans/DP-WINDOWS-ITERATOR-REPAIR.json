@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "DP-WINDOWS-ITERATOR-REPAIR",
+  "title": "Restore Windows session compilation",
+  "status": "approved",
+  "source": {
+    "kind": "governance",
+    "path": ".github/workflows/ci.yml"
+  },
+  "requirements": [
+    {
+      "id": "REQ-WINDOWS-SESSION-COMPILE",
+      "source_ref": "CI-NATIVE-WINDOWS",
+      "statement": "Session wire sources directly include the standard-library declarations they use and compile under the supported MSVC toolchain.",
+      "acceptance_criteria": [
+        "A trusted native regression gate detects a missing direct iterator include on every development platform.",
+        "The GitHub Actions native and desktop bundle jobs pass on windows-2022.",
+        "Repository verification passes."
+      ],
+      "implementation_tasks": [
+        "XT-066"
+      ],
+      "acceptance_task": "XT-066"
+    }
+  ],
+  "approval": {
+    "approved_by": "integration-owner",
+    "approved_at": "2026-08-10T01:26:39+00:00",
+    "content_sha256": "498a9a361a3de46c50bcbca44dbf0b2926f42f8eff10a2f800964cb408d46844"
+  },
+  "superseded_by": ""
+}
