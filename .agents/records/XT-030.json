@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-030",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "transfer-abi-agent",
   "base_sha": "84cf6182f6cd9461c51bf44d117f2f147d9f1add",
   "head_sha": "5b286fa71e5e46ee7860f366306e1717440014e6",
@@ -96,9 +96,9 @@
     ],
     "source_commits_sha256": "e29fe348628756b1407e7201414c6f18f0599ba6363f1c3bf5fd84ea8584731a",
     "source_patch_id": "1c18a838a240fd1b1b49936d738f0df240c8c5f2",
-    "result": "",
+    "result": "e6ba3d2bfbb55011b2c401c2d6282872b35e7d50",
     "result_patch_id": "1c18a838a240fd1b1b49936d738f0df240c8c5f2",
-    "verified_sha": ""
+    "verified_sha": "e6ba3d2bfbb55011b2c401c2d6282872b35e7d50"
   },
   "verification": {
     "status": "passed",
@@ -108,11 +108,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:5b286fa71e5e46ee7860f366306e1717440014e6:2026-08-10T05:32:10Z"
+    "reference": "local:e6ba3d2bfbb55011b2c401c2d6282872b35e7d50:2026-08-10T05:49:06Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-10T13:49:07+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
