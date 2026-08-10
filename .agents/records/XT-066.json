@@ -7,10 +7,10 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "bugfix",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "windows-iterator-agent",
+  "base_sha": "dfd0a9fa980868dd773b5a17b1f529039567c8f0",
+  "head_sha": "71fb64996b8aeae5b15fea1cd1dea05b6a981b3e",
   "handoff": ".agents/handoffs/XT-066.md",
   "commit": {
     "type": "fix",
@@ -18,8 +18,10 @@
     "summary": "include iterator for capability negotiation"
   },
   "architecture_change": {
-    "mode": "none",
-    "modules": [],
+    "mode": "refactor",
+    "modules": [
+      "session"
+    ],
     "supersedes": {
       "paths": [],
       "symbols": [],
@@ -93,12 +95,24 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "dfd0a9fa980868dd773b5a17b1f529039567c8f0",
+    "source_head": "f597b4db445898d46cdcc43e62b8237c6f49d335",
+    "source_commits": [
+      "e05ba6db0091724d224470fec2c59c144b3dada1",
+      "0c81cf148cd89e87455c7bd4f929c799a9766444",
+      "81cf8cd2446e94f388090796c94d6c075f4b3af0",
+      "71fb64996b8aeae5b15fea1cd1dea05b6a981b3e",
+      "f597b4db445898d46cdcc43e62b8237c6f49d335"
+    ],
+    "source_commits_sha256": "299e8cedfee2f7642bcef63eb986d393a4e9e01fee23224599c3c6865a848c73",
+    "source_patch_id": "2a3206d83798df7ac4908eb6270d4b87f61dbe88",
+    "result": "",
+    "result_patch_id": "2a3206d83798df7ac4908eb6270d4b87f61dbe88",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "native_test",
       "verify"
@@ -107,7 +121,21 @@
       "make native-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:71fb64996b8aeae5b15fea1cd1dea05b6a981b3e:2026-08-10T02:35:52Z",
+    "defect_proof": {
+      "mode": "deterministic",
+      "gate": "native_test",
+      "command_sha256": "3de273218e3be98919043b865b023b33ee98345ab3f6b4b1ae24103d0498aef6",
+      "failure_fingerprint_sha256": "ff6488bc1e16c43941cab98488f605f2ce0c77dd8552aeba2354570cef7c5701",
+      "base_commit": "dfd0a9fa980868dd773b5a17b1f529039567c8f0",
+      "reproduction_commit": "81cf8cd2446e94f388090796c94d6c075f4b3af0",
+      "head_commit": "71fb64996b8aeae5b15fea1cd1dea05b6a981b3e",
+      "base_exit_code": 0,
+      "reproduction_exit_code": 2,
+      "head_exit_code": 0,
+      "reproduction_output_sha256": "bdc0710da437fc6bdaed4c80f497f801e7ef6ab1dcd3102cc14ec7ecb61686d6",
+      "checked_at": "2026-08-10T02:37:46+00:00"
+    }
   },
   "acceptance": {
     "accepted_by": "",
@@ -123,7 +151,7 @@
     "trigger": "Compile xnn_transfer_session from acceptance commit 73148833a0db947f49183b5e6b61646adc8d077d with MSVC 14.44 on windows-2022.",
     "affected_since": "600c7b0b0a3478b89189af3d3bd1db211f59eb06",
     "proof_mode": "deterministic",
-    "reproduction_commit": "",
+    "reproduction_commit": "81cf8cd2446e94f388090796c94d6c075f4b3af0",
     "regression_gate": "native_test",
     "contract_disposition": "restore",
     "failure_fingerprint": "FAILED: session wire must directly include iterator for std::back_inserter"

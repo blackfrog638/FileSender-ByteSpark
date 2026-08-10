@@ -1,5 +1,18 @@
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
+add_test(
+  NAME xnn_transfer_session_standard_library_include
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/standard_library_include_test.py"
+    "${PROJECT_SOURCE_DIR}/native/src/session/wire.cpp"
+)
+set_tests_properties(
+  xnn_transfer_session_standard_library_include
+  PROPERTIES
+    TIMEOUT 30
+)
+
 set(
   xnn_transfer_pairing_vectors
   "${PROJECT_SOURCE_DIR}/protocol/testdata/security/v1/pairing-control-vectors.json"
