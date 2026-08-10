@@ -1,0 +1,130 @@
+{
+  "schema_version": 3,
+  "id": "XT-079",
+  "delivery_plan": "DP-FUTURE-TDD",
+  "requirement_ids": [
+    "REQ-FUTURE-TDD-PROOF",
+    "REQ-FUTURE-TDD-ADOPTION"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-079.md",
+  "commit": {
+    "type": "ci",
+    "scope": "harness",
+    "summary": "enforce deterministic TDD checkpoints"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "A weak checkpoint could accept implementation-first work, unrelated failures, mutable tests, or fabricated Red evidence as TDD.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "The proof runner executes trusted commands in detached worktrees and must reject command injection, untrusted gates, path escapes, and secret-bearing output.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Base, Red, and head replay can multiply focused-test cost, so proof must remain bounded and avoid invoking unrelated full suites.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "Existing deterministic bugfix proof, lifecycle transitions, and all pre-XT-083 task branches must continue to review and integrate unchanged.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Checkpoint worktrees, task branches, interruptions, and concurrent claims must not leak refs, directories, locks, or partial proof records.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Git path handling, shell execution, temporary worktrees, signals, and cleanup differ across macOS, Windows, and Linux.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "Generated proof digests become durable task evidence and must remain attributable to the exact plan, gate, test surface, and commits.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements the checkpoint and proof behavior decided by ADR 0016 without changing that governance contract."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The proof runner remains integration-owned tooling and does not affect production module boundaries."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Deterministic TDD proof changes engineering governance, not product scope or milestone sequencing."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

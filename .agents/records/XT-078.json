@@ -1,0 +1,132 @@
+{
+  "schema_version": 3,
+  "id": "XT-078",
+  "delivery_plan": "DP-FUTURE-TDD",
+  "requirement_ids": [
+    "REQ-FUTURE-TDD-CONTRACT",
+    "REQ-FUTURE-TDD-ADOPTION"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-078.md",
+  "commit": {
+    "type": "ci",
+    "scope": "harness",
+    "summary": "define future TDD evidence contracts"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "An incomplete criterion or test-contract schema would let future tasks claim TDD without binding requirements, negative definitions, or evidence.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "medium",
+      "rationale": "Security-sensitive future work depends on fail-closed proof and trusted gate references; permissive schema validation could create false security evidence.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Schema validation runs over bounded tracked JSON and task records and must remain practical inside repository verification.",
+      "gates": [
+        "governance_test"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "The future-only activation must preserve every existing plan and schema-v1, v2, and v3 task record without fabricated migration.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "This task validates immutable tracked documents and does not add concurrent execution or shared mutable runtime state.",
+      "gates": []
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "The validators use Python standard-library parsing and path-independent fixtures and must behave consistently on supported development hosts.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "Delivery Plans and task records are durable governance formats; approval digests and schema compatibility must reject semantic drift.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0016-future-tdd-governance.md"
+      ],
+      "rationale": "The task introduces durable Delivery Plan and task-record schemas plus a future compatibility boundary that is expensive to reverse."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The change is confined to integration-owned governance formats and validators and does not move production modules or dependency directions."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The plan governs future engineering execution and adds no product requirement or milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "delivery_plan_test",
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make delivery-plan-test",
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

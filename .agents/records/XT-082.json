@@ -1,0 +1,137 @@
+{
+  "schema_version": 3,
+  "id": "XT-082",
+  "delivery_plan": "DP-FUTURE-TDD",
+  "requirement_ids": [
+    "REQ-FUTURE-TDD-CONTRACT",
+    "REQ-FUTURE-TDD-PROOF",
+    "REQ-FUTURE-TDD-EVIDENCE",
+    "REQ-FUTURE-TDD-ADOPTION"
+  ],
+  "delivery_role": "acceptance",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-082.md",
+  "commit": {
+    "type": "ci",
+    "scope": "harness",
+    "summary": "verify future TDD governance"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "False acceptance would activate future-task TDD governance without proving chronology, criterion coverage, or evidence closure.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "Acceptance must prove untrusted commands, forged proof, stale remote evidence, and mock topology cannot satisfy security-sensitive criteria.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "The full adversarial governance suite and detached proof replay must remain bounded enough for mandatory remote acceptance.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "Acceptance must prove both sides of the XT-083 boundary without rewriting or rejecting existing plans and task records.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "medium",
+      "rationale": "Adversarial acceptance covers claim locking, proof worktree cleanup, workflow job completion, and evidence publication races.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "The accepted workflow must preserve cross-platform path handling and validate required platform and role matrices.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "Plan approval, proof digests, evidence bundles, and the activation threshold become durable audit provenance after acceptance.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task independently accepts implementation against ADR 0016 and introduces no additional decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Acceptance verifies integration-owned governance behavior without changing production architecture."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The accepted capability affects future engineering process, not product roadmap scope."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "delivery_plan_test",
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make delivery-plan-test",
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

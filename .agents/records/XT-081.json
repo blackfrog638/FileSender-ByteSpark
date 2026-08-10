@@ -1,0 +1,135 @@
+{
+  "schema_version": 3,
+  "id": "XT-081",
+  "delivery_plan": "DP-FUTURE-TDD",
+  "requirement_ids": [
+    "REQ-FUTURE-TDD-CONTRACT",
+    "REQ-FUTURE-TDD-PROOF",
+    "REQ-FUTURE-TDD-EVIDENCE",
+    "REQ-FUTURE-TDD-ADOPTION"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-081.md",
+  "commit": {
+    "type": "ci",
+    "scope": "harness",
+    "summary": "require TDD for future tasks"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "Incorrect activation or generator wiring could leave future tasks ungoverned despite the underlying contracts and proof runners existing.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "A compatibility bypass, untrusted gate, or incomplete prompt could let future security-sensitive work claim evidence it never produced.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Generation, prompt rendering, and claim validation process bounded tracked metadata and should not materially delay normal scheduling.",
+      "gates": [
+        "governance_test"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "XT-083 must be the exact activation boundary: earlier tasks remain valid while no later task may use legacy compatibility paths.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "medium",
+      "rationale": "Claim locking and stale-base checks must remain atomic when multiple future agents attempt to schedule governed tasks.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "medium",
+      "rationale": "Generated metadata, prompts, shell entrypoints, and path matching must behave consistently across supported development platforms.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "The manifest threshold, generated records, and criterion bindings are durable governance state and must not drift across sources.",
+      "gates": [
+        "delivery_plan_test",
+        "governance_test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task activates and documents the compatibility boundary already decided in ADR 0016."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The change connects integration-owned governance tools and does not alter production module boundaries."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Future TDD adoption governs engineering execution and does not add or reorder product milestones."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "delivery_plan_test",
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make delivery-plan-test",
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

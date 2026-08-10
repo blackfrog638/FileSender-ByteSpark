@@ -1,0 +1,130 @@
+{
+  "schema_version": 3,
+  "id": "XT-080",
+  "delivery_plan": "DP-FUTURE-TDD",
+  "requirement_ids": [
+    "REQ-FUTURE-TDD-EVIDENCE",
+    "REQ-FUTURE-TDD-ADOPTION"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "governance",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-080.md",
+  "commit": {
+    "type": "ci",
+    "scope": "harness",
+    "summary": "bind criterion evidence to remote CI"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "Workflow-level success without criterion, scenario, matrix, binary, and artifact binding could falsely close future requirements.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Remote API responses and artifacts cross a trust boundary; stale SHA, altered evidence, unbounded labels, or leaked secrets must fail closed.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Polling jobs, matrices, and artifacts must be bounded so acceptance does not create unbounded API traffic or indefinite waits.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "The change extends XT-068 remote-CI acceptance and must preserve its retry, candidate-branch, and protected-branch publication semantics.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "high",
+      "rationale": "Concurrent workflow jobs and delayed artifact publication must resolve to one complete immutable evidence set without races or partial acceptance.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "Platform and role matrices must distinguish macOS, Windows, and Linux evidence and reject missing or skipped combinations.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "Evidence digests and remote references become durable acceptance provenance and must remain bound to the exact integrated source and binaries.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements the structured evidence and acceptance closure decision from ADR 0016 without changing it."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "Evidence collection remains integration-owned CI tooling and does not alter production architecture or dependencies."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task strengthens future acceptance evidence and adds no product scope or roadmap milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  }
+}

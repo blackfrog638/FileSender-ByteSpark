@@ -1618,6 +1618,166 @@
         "REQ-PROJECT-DASHBOARD"
       ],
       "delivery_role": "implementation_acceptance"
+    },
+    {
+      "id": "XT-078",
+      "title": "Future tdd contract governance",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-077"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-078.json",
+        ".agents/tasks/XT-078-future-tdd-contract-governance.md",
+        ".agents/handoffs/XT-078.md",
+        "tool/harness/delivery_plan.py",
+        "tool/harness/delivery_plan_test.py",
+        "tool/harness/governance.py",
+        "tool/harness/governance_test.sh",
+        "tool/harness/tdd_contract.py",
+        "tool/harness/tdd_contract_test.py",
+        "docs/adr/0016-future-tdd-governance.md"
+      ],
+      "delivery_plan": "DP-FUTURE-TDD",
+      "requirement_ids": [
+        "REQ-FUTURE-TDD-CONTRACT",
+        "REQ-FUTURE-TDD-ADOPTION"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-079",
+      "title": "Deterministic tdd checkpoints",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-078"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-079.json",
+        ".agents/tasks/XT-079-deterministic-tdd-checkpoints.md",
+        ".agents/handoffs/XT-079.md",
+        ".agents/manifest.yaml",
+        "tool/harness/agent.sh",
+        "tool/harness/governance.py",
+        "tool/harness/governance_test.sh",
+        "tool/harness/task_conflicts.py",
+        "tool/harness/task_conflicts_test.py",
+        "tool/harness/tdd_proof.py",
+        "tool/harness/tdd_proof_test.py",
+        "Makefile"
+      ],
+      "delivery_plan": "DP-FUTURE-TDD",
+      "requirement_ids": [
+        "REQ-FUTURE-TDD-PROOF",
+        "REQ-FUTURE-TDD-ADOPTION"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-080",
+      "title": "Criterion evidence closure",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-079"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-080.json",
+        ".agents/tasks/XT-080-criterion-evidence-closure.md",
+        ".agents/handoffs/XT-080.md",
+        ".agents/manifest.yaml",
+        ".github/workflows/ci.yml",
+        "tool/harness/agent.sh",
+        "tool/harness/evidence.py",
+        "tool/harness/evidence_test.py",
+        "tool/harness/github_ci.py",
+        "tool/harness/github_ci_test.py",
+        "tool/harness/governance.py",
+        "tool/harness/governance_test.sh",
+        "Makefile"
+      ],
+      "delivery_plan": "DP-FUTURE-TDD",
+      "requirement_ids": [
+        "REQ-FUTURE-TDD-EVIDENCE",
+        "REQ-FUTURE-TDD-ADOPTION"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-081",
+      "title": "Future tdd adoption",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-078",
+        "XT-079",
+        "XT-080"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-081.json",
+        ".agents/tasks/XT-081-future-tdd-adoption.md",
+        ".agents/handoffs/XT-081.md",
+        "AGENTS.md",
+        ".agents/manifest.yaml",
+        ".agents/tasks/TASK_TEMPLATE.md",
+        ".agents/plans/README.md",
+        "docs/testing.md",
+        "tool/harness/agent.sh",
+        "tool/harness/governance.py",
+        "tool/harness/governance_test.sh",
+        "tool/harness/new_task.sh",
+        "tool/harness/task_conflicts.py",
+        "tool/harness/task_conflicts_test.py",
+        "Makefile"
+      ],
+      "delivery_plan": "DP-FUTURE-TDD",
+      "requirement_ids": [
+        "REQ-FUTURE-TDD-CONTRACT",
+        "REQ-FUTURE-TDD-PROOF",
+        "REQ-FUTURE-TDD-EVIDENCE",
+        "REQ-FUTURE-TDD-ADOPTION"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-082",
+      "title": "Future tdd acceptance",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-081"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-082.json",
+        ".agents/tasks/XT-082-future-tdd-acceptance.md",
+        ".agents/handoffs/XT-082.md",
+        "docs/testing.md"
+      ],
+      "delivery_plan": "DP-FUTURE-TDD",
+      "requirement_ids": [
+        "REQ-FUTURE-TDD-CONTRACT",
+        "REQ-FUTURE-TDD-PROOF",
+        "REQ-FUTURE-TDD-EVIDENCE",
+        "REQ-FUTURE-TDD-ADOPTION"
+      ],
+      "delivery_role": "acceptance"
     }
   ]
 }

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "DP-FUTURE-TDD",
   "title": "Future task TDD governance",
-  "status": "draft",
+  "status": "approved",
   "source": {
     "kind": "governance",
     "path": "AGENTS.md"
@@ -82,9 +82,9 @@
     }
   ],
   "approval": {
-    "approved_by": "",
-    "approved_at": "",
-    "content_sha256": ""
+    "approved_by": "integration-owner",
+    "approved_at": "2026-08-10T17:08:15+00:00",
+    "content_sha256": "1e8e9301f40ccad76344ae690e23ee4e7f132f68fed9aab581dafc0a78a6f8d1"
   },
   "superseded_by": ""
 }
