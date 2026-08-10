@@ -81,6 +81,13 @@ struct ParsedTransferFrame {
 [[nodiscard]] bool EncodeErrorFrame(const TransferContext& context,
                                     ConnectionMessageSequence& message_ids,
                                     WireErrorCode code, bool retryable, Bytes& output);
+[[nodiscard]] bool EncodeCancelFrame(const TransferContext& context,
+                                     ConnectionMessageSequence& message_ids,
+                                     const TransferId& transfer_id, Bytes& output);
+[[nodiscard]] bool EncodeCancelAckFrame(const TransferContext& context,
+                                        ConnectionMessageSequence& message_ids,
+                                        const TransferId& transfer_id,
+                                        WireErrorCode terminal_code, Bytes& output);
 
 [[nodiscard]] ParsedTransferFrame ParseInbound(
     const TransferContext& context, ConnectionMessageSequence& message_ids,

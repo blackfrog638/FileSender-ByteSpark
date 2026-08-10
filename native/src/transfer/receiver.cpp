@@ -75,9 +75,29 @@ constexpr std::uint32_t kMaximumChunkBodyOverhead = 132;
 [[nodiscard]] bool AllowedInbound(const TransferState state,
                                   const protocol::v1::MessageType type,
                                   const bool manifest_entry_received,
-                                  const bool file_begin_received) noexcept {
+                                  const bool file_begin_received,
+                                  const TransferState cancel_origin_state) noexcept {
   if (type == protocol::v1::MessageType::kError) {
     return true;
+  }
+  if (type == protocol::v1::MessageType::kCancel) {
+    return state != TransferState::kCreated;
+  }
+  if (type == protocol::v1::MessageType::kCancelAck) {
+    return state == TransferState::kCancelling;
+  }
+  if (state == TransferState::kCancelling) {
+    if (cancel_origin_state == TransferState::kReceivingManifest) {
+      return manifest_entry_received
+                 ? type == protocol::v1::MessageType::kManifestEnd
+                 : type == protocol::v1::MessageType::kManifestEntry;
+    }
+    if (cancel_origin_state == TransferState::kReceivingFile) {
+      return file_begin_received ? type == protocol::v1::MessageType::kFileChunk ||
+                                       type == protocol::v1::MessageType::kFileEnd
+                                 : type == protocol::v1::MessageType::kFileBegin;
+    }
+    return false;
   }
   switch (state) {
     case TransferState::kCreated:
@@ -98,8 +118,10 @@ constexpr std::uint32_t kMaximumChunkBodyOverhead = 132;
     case TransferState::kRejecting:
     case TransferState::kAwaitingFileCommit:
     case TransferState::kCompleting:
+    case TransferState::kCancelling:
     case TransferState::kCommitted:
     case TransferState::kCompleted:
+    case TransferState::kCancelled:
     case TransferState::kRejected:
     case TransferState::kFailed:
       return false;
@@ -164,6 +186,11 @@ struct OneFileReceiver::Implementation {
     }
     ReleaseCredit();
     ReleaseStream();
+    cancel_frame_pending = false;
+    cancel_ack_pending = false;
+    cancel_ack_failure_is_terminal = false;
+    cancel_sent = false;
+    cancel_deadline_ms = 0;
     state = durable_commit ? TransferState::kCommitted : TransferState::kFailed;
     RememberTerminal(error, wire_error, connection_fatal,
                      internal::WireErrorMayRetry(wire_error));
@@ -174,6 +201,26 @@ struct OneFileReceiver::Implementation {
         internal::Authorized(context)) {
       static_cast<void>(internal::EncodeErrorFrame(
           context, *message_ids, wire_error, update.retryable, update.outbound_frame));
+    }
+    return update;
+  }
+
+  [[nodiscard]] TransferUpdate CancelTimeout() {
+    AbortTransaction();
+    ReleaseCredit();
+    ReleaseStream();
+    cancel_frame_pending = false;
+    cancel_ack_pending = false;
+    cancel_sent = false;
+    cancel_deadline_ms = 0;
+    state = TransferState::kFailed;
+    RememberTerminal(TransferError::kTimeout, WireErrorCode::kTimeout);
+    TransferUpdate update = internal::FailureUpdate(state, TransferError::kTimeout,
+                                                    WireErrorCode::kTimeout);
+    if (internal::Authorized(context)) {
+      static_cast<void>(internal::EncodeErrorFrame(context, *message_ids,
+                                                   WireErrorCode::kTimeout, false,
+                                                   update.outbound_frame));
     }
     return update;
   }
@@ -196,6 +243,10 @@ struct OneFileReceiver::Implementation {
          state == TransferState::kAwaitingCompletion) &&
         internal::DeadlineReached(now_ms, data_deadline_ms)) {
       return Fail(TransferError::kTimeout, WireErrorCode::kTimeout);
+    }
+    if (state == TransferState::kCancelling && cancel_sent &&
+        internal::DeadlineReached(now_ms, cancel_deadline_ms)) {
+      return CancelTimeout();
     }
     return Update();
   }
@@ -245,6 +296,162 @@ struct OneFileReceiver::Implementation {
     return internal::EncodeFrame(context,
                                  protocol::v1::MessageType::kTransferCompleteAck,
                                  *message_ids, body, output);
+  }
+
+  [[nodiscard]] WireErrorCode CachedTerminalCode() const noexcept {
+    if (state == TransferState::kCommitted || state == TransferState::kCompleted) {
+      return WireErrorCode::kCompleted;
+    }
+    if (state == TransferState::kCancelled) {
+      return WireErrorCode::kCancelled;
+    }
+    return terminal_wire_error == WireErrorCode::kNone ? WireErrorCode::kCancelled
+                                                       : terminal_wire_error;
+  }
+
+  [[nodiscard]] TransferUpdate CancellationEncodingFailure() {
+    if (message_ids->OutboundExhausted()) {
+      cancel_frame_pending = false;
+      cancel_ack_pending = false;
+      cancel_sent = false;
+      ReleaseCredit();
+      ReleaseStream();
+      state = TransferState::kCancelled;
+      RememberTerminal(TransferError::kMessageIdViolation,
+                       WireErrorCode::kMessageIdViolation, true);
+      return Update();
+    }
+    TransferUpdate update = Update();
+    update.error = TransferError::kInternalFailure;
+    update.wire_error = WireErrorCode::kBusy;
+    update.retryable = true;
+    return update;
+  }
+
+  [[nodiscard]] TransferUpdate CancelAckEncodingFailure() {
+    TransferUpdate update = Update();
+    if (message_ids->OutboundExhausted()) {
+      cancel_ack_pending = false;
+      if (cancel_ack_failure_is_terminal) {
+        RememberTerminal(TransferError::kMessageIdViolation,
+                         WireErrorCode::kMessageIdViolation, true);
+        return Update();
+      }
+      update.error = TransferError::kMessageIdViolation;
+      update.wire_error = WireErrorCode::kMessageIdViolation;
+      update.connection_fatal = true;
+      return update;
+    }
+    update.error = TransferError::kInternalFailure;
+    update.wire_error = WireErrorCode::kBusy;
+    update.retryable = true;
+    return update;
+  }
+
+  [[nodiscard]] TransferUpdate EmitCancel() {
+    TransferUpdate update = Update();
+    if (!internal::EncodeCancelFrame(context, *message_ids, manifest.transfer_id,
+                                     update.outbound_frame)) {
+      return CancellationEncodingFailure();
+    }
+    cancel_frame_pending = false;
+    cancel_sent = true;
+    cancel_deadline_ms =
+        internal::CheckedDeadline(last_now_ms, kCancelAcknowledgementTimeoutMs);
+    return update;
+  }
+
+  [[nodiscard]] TransferUpdate EmitCancelAck() {
+    TransferUpdate update = Update();
+    if (!internal::EncodeCancelAckFrame(context, *message_ids, manifest.transfer_id,
+                                        pending_cancel_ack_code,
+                                        update.outbound_frame)) {
+      return CancelAckEncodingFailure();
+    }
+    cancel_ack_pending = false;
+    cancel_ack_failure_is_terminal = false;
+    return update;
+  }
+
+  [[nodiscard]] bool DurableCommit() const noexcept {
+    return transaction != nullptr &&
+           transaction->state() == storage::TransactionState::kCommitted;
+  }
+
+  [[nodiscard]] TransferUpdate FinishCancelled() {
+    cancel_frame_pending = false;
+    cancel_ack_pending = false;
+    cancel_ack_failure_is_terminal = false;
+    cancel_sent = false;
+    cancel_deadline_ms = 0;
+    AbortTransaction();
+    ReleaseCredit();
+    ReleaseStream();
+    state = TransferState::kCancelled;
+    RememberTerminal(TransferError::kCancelled, WireErrorCode::kCancelled);
+    return Update();
+  }
+
+  [[nodiscard]] TransferUpdate FinishCommitted() {
+    cancel_frame_pending = false;
+    cancel_ack_pending = false;
+    cancel_ack_failure_is_terminal = false;
+    cancel_sent = false;
+    cancel_deadline_ms = 0;
+    ReleaseCredit();
+    ReleaseStream();
+    state = TransferState::kCommitted;
+    RememberTerminal(TransferError::kNone, WireErrorCode::kNone);
+    return Update();
+  }
+
+  [[nodiscard]] TransferUpdate BeginRemoteCancel() {
+    const bool local_cancel_was_sent = cancel_sent;
+    const bool committed = DurableCommit();
+    TransferUpdate update = committed ? FinishCommitted() : FinishCancelled();
+    cancel_sent = local_cancel_was_sent;
+    cancel_ack_pending = true;
+    cancel_ack_failure_is_terminal = true;
+    pending_cancel_ack_code =
+        committed ? WireErrorCode::kCompleted : WireErrorCode::kCancelled;
+    return EmitCancelAck();
+  }
+
+  [[nodiscard]] TransferUpdate ApplyCancelAck(const WireErrorCode code) {
+    cancel_frame_pending = false;
+    cancel_ack_pending = false;
+    cancel_ack_failure_is_terminal = false;
+    cancel_sent = false;
+    cancel_deadline_ms = 0;
+    ReleaseCredit();
+    ReleaseStream();
+    if (code == WireErrorCode::kCompleted) {
+      if (!DurableCommit()) {
+        AbortTransaction();
+        state = TransferState::kFailed;
+        RememberTerminal(TransferError::kStateViolation,
+                         WireErrorCode::kStateViolation);
+        return Update();
+      }
+      state = TransferState::kCompleted;
+      RememberTerminal(TransferError::kNone, WireErrorCode::kNone);
+    } else if (code == WireErrorCode::kCancelled) {
+      AbortTransaction();
+      state = TransferState::kCancelled;
+      RememberTerminal(TransferError::kCancelled, WireErrorCode::kCancelled);
+    } else if (internal::WireErrorIsRejectReason(code)) {
+      AbortTransaction();
+      state = TransferState::kRejected;
+      RememberTerminal(internal::TransferErrorForWire(code), code, false,
+                       internal::WireErrorMayRetry(code));
+    } else {
+      AbortTransaction();
+      state = TransferState::kFailed;
+      RememberTerminal(internal::TransferErrorForWire(code), code,
+                       internal::WireErrorIsConnectionFatal(code),
+                       internal::WireErrorMayRetry(code));
+    }
+    return Update();
   }
 
   [[nodiscard]] TransferUpdate PendingEncodingFailure() {
@@ -338,6 +545,7 @@ struct OneFileReceiver::Implementation {
   ConnectionCreditBudget* connection_credit{};
   storage::PlatformBackend* platform{};
   TransferState state{TransferState::kCreated};
+  TransferState cancel_origin_state{TransferState::kCreated};
   OneFileManifest manifest{};
   std::optional<storage::ValidatedReceiveRequest> request{};
   std::unique_ptr<storage::ReceiveTransaction> transaction{};
@@ -356,6 +564,7 @@ struct OneFileReceiver::Implementation {
   std::uint64_t manifest_progress_deadline_ms{};
   std::uint64_t decision_deadline_ms{};
   std::uint64_t data_deadline_ms{};
+  std::uint64_t cancel_deadline_ms{};
   bool manifest_entry_received{};
   bool file_begin_received{};
   bool file_commit_sent{};
@@ -363,6 +572,12 @@ struct OneFileReceiver::Implementation {
   bool pending_reject{};
   bool stream_reserved{};
   bool credit_reserved{};
+  bool cancel_frame_pending{};
+  bool cancel_sent{};
+  bool cancel_ack_pending{};
+  bool cancel_ack_failure_is_terminal{};
+  bool shutdown{};
+  WireErrorCode pending_cancel_ack_code{WireErrorCode::kNone};
   TransferError pending_reject_error{TransferError::kNone};
   WireErrorCode pending_reject_code{WireErrorCode::kNone};
   bool pending_reject_retryable{};
@@ -417,6 +632,9 @@ TransferUpdate OneFileReceiver::Create(
 TransferUpdate OneFileReceiver::ReceiveFrame(
     const std::span<const std::uint8_t> encoded, const std::uint64_t now_ms) {
   const std::lock_guard lock(implementation_->mutex);
+  if (implementation_->shutdown) {
+    return implementation_->Update();
+  }
   if (internal::IsTerminal(implementation_->state)) {
     internal::ParsedTransferFrame parsed = internal::ParseInbound(
         implementation_->context, *implementation_->message_ids, encoded);
@@ -432,8 +650,31 @@ TransferUpdate OneFileReceiver::ReceiveFrame(
       update.wire_error = parsed.wire_error;
       update.connection_fatal = parsed.connection_fatal;
     } else {
-      update.error = TransferError::kStateViolation;
-      update.wire_error = WireErrorCode::kStateViolation;
+      TransferId transfer_id{};
+      const protocol::v1::MessageType type = parsed.frame.header.message_type;
+      WireErrorCode code = WireErrorCode::kNone;
+      if (!internal::ReadTransferId(parsed.frame, transfer_id) ||
+          transfer_id != implementation_->manifest.transfer_id) {
+        update.error = TransferError::kIdempotencyConflict;
+        update.wire_error = WireErrorCode::kIdempotencyConflict;
+      } else if (type == protocol::v1::MessageType::kCancel &&
+                 internal::DecodeWireError(internal::Unsigned(parsed.frame, 2), code) &&
+                 code == WireErrorCode::kCancelled) {
+        if (!implementation_->cancel_ack_pending) {
+          implementation_->cancel_ack_failure_is_terminal = false;
+        }
+        implementation_->cancel_ack_pending = true;
+        implementation_->pending_cancel_ack_code =
+            implementation_->CachedTerminalCode();
+        return implementation_->EmitCancelAck();
+      } else if (type == protocol::v1::MessageType::kCancelAck &&
+                 implementation_->cancel_sent &&
+                 internal::DecodeWireError(internal::Unsigned(parsed.frame, 2), code)) {
+        return implementation_->ApplyCancelAck(code);
+      } else {
+        update.error = TransferError::kStateViolation;
+        update.wire_error = WireErrorCode::kStateViolation;
+      }
     }
     return update;
   }
@@ -447,7 +688,8 @@ TransferUpdate OneFileReceiver::ReceiveFrame(
     return implementation_->Fail(parsed.error, parsed.wire_error,
                                  parsed.connection_fatal);
   }
-  if (!implementation_->stream_reserved) {
+  if (!implementation_->stream_reserved &&
+      implementation_->state == TransferState::kCreated) {
     const StreamOpenResult opened = implementation_->connection_credit->OpenStream(
         implementation_->context.stream_id, false, implementation_->context.local_role);
     if (opened != StreamOpenResult::kOpened) {
@@ -465,9 +707,9 @@ TransferUpdate OneFileReceiver::ReceiveFrame(
     return timeout;
   }
   const protocol::v1::MessageType type = parsed.frame.header.message_type;
-  if (!AllowedInbound(implementation_->state, type,
-                      implementation_->manifest_entry_received,
-                      implementation_->file_begin_received)) {
+  if (!AllowedInbound(
+          implementation_->state, type, implementation_->manifest_entry_received,
+          implementation_->file_begin_received, implementation_->cancel_origin_state)) {
     return implementation_->Fail(TransferError::kStateViolation,
                                  WireErrorCode::kStateViolation);
   }
@@ -545,6 +787,30 @@ TransferUpdate OneFileReceiver::ReceiveFrame(
     if (transfer_id != implementation_->manifest.transfer_id) {
       return implementation_->Fail(TransferError::kIdempotencyConflict,
                                    WireErrorCode::kIdempotencyConflict);
+    }
+
+    if (type == protocol::v1::MessageType::kCancel) {
+      WireErrorCode code = WireErrorCode::kNone;
+      if (!internal::DecodeWireError(internal::Unsigned(parsed.frame, 2), code) ||
+          code != WireErrorCode::kCancelled) {
+        return implementation_->Fail(TransferError::kMalformedMessage,
+                                     WireErrorCode::kMalformedMessage);
+      }
+      return implementation_->BeginRemoteCancel();
+    }
+
+    if (type == protocol::v1::MessageType::kCancelAck) {
+      WireErrorCode code = WireErrorCode::kNone;
+      if (!implementation_->cancel_sent ||
+          !internal::DecodeWireError(internal::Unsigned(parsed.frame, 2), code)) {
+        return implementation_->Fail(TransferError::kMalformedMessage,
+                                     WireErrorCode::kMalformedMessage);
+      }
+      return implementation_->ApplyCancelAck(code);
+    }
+
+    if (implementation_->state == TransferState::kCancelling) {
+      return implementation_->Update();
     }
 
     if (implementation_->state == TransferState::kReceivingManifest) {
@@ -725,24 +991,53 @@ TransferUpdate OneFileReceiver::ReceiveFrame(
 
 TransferUpdate OneFileReceiver::NextOutbound(const std::uint64_t now_ms) {
   const std::lock_guard lock(implementation_->mutex);
-  if (internal::IsTerminal(implementation_->state)) {
+  if (implementation_->shutdown) {
+    return implementation_->Update();
+  }
+  if (internal::IsTerminal(implementation_->state) &&
+      !implementation_->cancel_ack_pending) {
     return implementation_->Update();
   }
   if (implementation_->state != TransferState::kRejecting &&
-      implementation_->state != TransferState::kAwaitingCompletion) {
+      implementation_->state != TransferState::kAwaitingCompletion &&
+      implementation_->state != TransferState::kCancelling &&
+      !implementation_->cancel_ack_pending) {
     return implementation_->Update();
   }
   if (!implementation_->Observe(now_ms)) {
+    if (internal::IsTerminal(implementation_->state)) {
+      TransferUpdate update = implementation_->Update();
+      update.error = TransferError::kStateViolation;
+      update.wire_error = WireErrorCode::kStateViolation;
+      return update;
+    }
     return implementation_->Fail(TransferError::kStateViolation,
                                  WireErrorCode::kStateViolation);
+  }
+  if (!internal::Authorized(implementation_->context)) {
+    if (internal::IsTerminal(implementation_->state)) {
+      implementation_->cancel_ack_pending = false;
+      TransferUpdate update = implementation_->Update();
+      update.error = TransferError::kUnauthenticated;
+      update.connection_fatal = true;
+      return update;
+    }
+    return implementation_->Fail(TransferError::kUnauthenticated, WireErrorCode::kNone,
+                                 true);
+  }
+  if (implementation_->cancel_ack_pending) {
+    return implementation_->EmitCancelAck();
+  }
+  if (internal::IsTerminal(implementation_->state)) {
+    return implementation_->Update();
   }
   TransferUpdate timeout = implementation_->CheckTimeout(now_ms);
   if (timeout.error != TransferError::kNone) {
     return timeout;
   }
-  if (!internal::Authorized(implementation_->context)) {
-    return implementation_->Fail(TransferError::kUnauthenticated, WireErrorCode::kNone,
-                                 true);
+  if (implementation_->state == TransferState::kCancelling) {
+    return implementation_->cancel_frame_pending ? implementation_->EmitCancel()
+                                                 : implementation_->Update();
   }
   if (implementation_->state == TransferState::kRejecting) {
     return implementation_->EmitPendingReject();
@@ -939,22 +1234,48 @@ TransferUpdate OneFileReceiver::Advance(const std::uint64_t now_ms) {
   return implementation_->CheckTimeout(now_ms);
 }
 
-TransferUpdate OneFileReceiver::Shutdown() {
+TransferUpdate OneFileReceiver::Cancel(const std::uint64_t now_ms) {
   const std::lock_guard lock(implementation_->mutex);
   if (internal::IsTerminal(implementation_->state)) {
     return implementation_->Update();
   }
-  const bool durable_commit =
-      implementation_->transaction != nullptr &&
-      implementation_->transaction->state() == storage::TransactionState::kCommitted;
-  if (!durable_commit) {
-    implementation_->AbortTransaction();
+  if (implementation_->state == TransferState::kCancelling) {
+    return implementation_->Update();
   }
-  implementation_->ReleaseCredit();
-  implementation_->ReleaseStream();
-  implementation_->state =
-      durable_commit ? TransferState::kCommitted : TransferState::kFailed;
-  return implementation_->Update();
+  if (!implementation_->Observe(now_ms)) {
+    return implementation_->Fail(TransferError::kStateViolation,
+                                 WireErrorCode::kStateViolation);
+  }
+  if (implementation_->DurableCommit()) {
+    return implementation_->FinishCommitted();
+  }
+
+  implementation_->AbortTransaction();
+  if (implementation_->state == TransferState::kCreated ||
+      !internal::Authorized(implementation_->context)) {
+    return implementation_->FinishCancelled();
+  }
+  implementation_->cancel_origin_state = implementation_->state;
+  implementation_->state = TransferState::kCancelling;
+  implementation_->RememberTerminal(TransferError::kNone, WireErrorCode::kNone);
+  implementation_->cancel_frame_pending = true;
+  implementation_->cancel_ack_pending = false;
+  return implementation_->EmitCancel();
+}
+
+TransferUpdate OneFileReceiver::Shutdown() {
+  const std::lock_guard lock(implementation_->mutex);
+  implementation_->shutdown = true;
+  implementation_->cancel_frame_pending = false;
+  implementation_->cancel_ack_pending = false;
+  implementation_->cancel_ack_failure_is_terminal = false;
+  implementation_->cancel_sent = false;
+  implementation_->cancel_deadline_ms = 0;
+  if (internal::IsTerminal(implementation_->state)) {
+    return implementation_->Update();
+  }
+  return implementation_->DurableCommit() ? implementation_->FinishCommitted()
+                                          : implementation_->FinishCancelled();
 }
 
 TransferState OneFileReceiver::state() const {

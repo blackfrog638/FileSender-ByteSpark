@@ -2,46 +2,66 @@
   "schema_version": 2,
   "id": "XT-029",
   "task_type": "implementation",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "cancellation-cleanup-agent",
+  "base_sha": "8b048e8e6199af5808e02876d6e42285041305c2",
+  "head_sha": "57bfbb287dd8e582d2d0a649d1f49689a8c00457",
   "handoff": ".agents/handoffs/XT-029.md",
   "risks": {
     "functionality": {
       "level": "high",
       "rationale": "Cancellation must reach one deterministic terminal result from every transfer phase.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "security": {
       "level": "critical",
       "rationale": "Cleanup must not leave attacker-controlled partial files or delete committed or unrelated data.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "performance": {
       "level": "medium",
       "rationale": "Cancellation latency and already queued work must remain bounded under load.",
-      "gates": ["make native-test"]
+      "gates": [
+        "make native-test"
+      ]
     },
     "compatibility": {
       "level": "high",
       "rationale": "Local and remote cancellation must preserve v1 CANCEL and terminal-state semantics.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "concurrency": {
       "level": "critical",
       "rationale": "Cancel, commit, network completion, file writes, and engine stop can race from both peers.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     },
     "platform": {
       "level": "high",
       "rationale": "Socket, descriptor, worker, and temporary-file cleanup differ across desktop platforms.",
-      "gates": ["make native-test", "make verify"]
+      "gates": [
+        "make native-test",
+        "make verify"
+      ]
     },
     "persistence": {
       "level": "critical",
       "rationale": "Failure cleanup must remove only the current transfer's temporary and resumable state.",
-      "gates": ["make native-test", "make security-test"]
+      "gates": [
+        "make native-test",
+        "make security-test"
+      ]
     }
   },
   "impacts": {
@@ -63,18 +83,29 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "8b048e8e6199af5808e02876d6e42285041305c2",
+    "source_head": "761b863d48675586d607b15fbae88afaa63d5bf3",
+    "source_commits": [
+      "22f54caa857678f93a5ccf8418d7f3fd3125d9d8",
+      "df6f30276601efe306f23b02e48893b30ec16a66",
+      "57bfbb287dd8e582d2d0a649d1f49689a8c00457",
+      "761b863d48675586d607b15fbae88afaa63d5bf3"
+    ],
+    "source_commits_sha256": "147e4cf887e4af2e9bf83686010c657800b9150c7c060a7c8b61bb2643e6fa8c",
+    "source_patch_id": "b52fbd8c02b31bf3ca8389b30d56ffb983dd74d0",
+    "result": "",
+    "result_patch_id": "b52fbd8c02b31bf3ca8389b30d56ffb983dd74d0",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "commands": [
       "make native-test",
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:57bfbb287dd8e582d2d0a649d1f49689a8c00457:2026-08-10T00:15:54Z"
   },
   "acceptance": {
     "accepted_by": "",

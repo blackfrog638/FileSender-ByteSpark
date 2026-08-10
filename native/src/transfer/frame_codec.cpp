@@ -126,6 +126,8 @@ std::string_view TransferErrorName(const TransferError error) noexcept {
       return "INTEGRITY_FAILED";
     case TransferError::kTimeout:
       return "TIMEOUT";
+    case TransferError::kCancelled:
+      return "CANCELLED";
     case TransferError::kIdempotencyConflict:
       return "IDEMPOTENCY_CONFLICT";
     case TransferError::kSourceFailure:
@@ -479,7 +481,8 @@ bool DeadlineReached(const std::uint64_t now_ms,
 
 bool IsTerminal(const TransferState state) noexcept {
   return state == TransferState::kCommitted || state == TransferState::kCompleted ||
-         state == TransferState::kRejected || state == TransferState::kFailed;
+         state == TransferState::kCancelled || state == TransferState::kRejected ||
+         state == TransferState::kFailed;
 }
 
 bool DecodeWireError(const std::uint64_t encoded, WireErrorCode& output) noexcept {
@@ -541,11 +544,13 @@ TransferError TransferErrorForWire(const WireErrorCode error) noexcept {
     case WireErrorCode::kInvalidManifest:
       return TransferError::kInvalidManifest;
     case WireErrorCode::kPolicyRejected:
-    case WireErrorCode::kCancelled:
     case WireErrorCode::kResumeUnavailable:
     case WireErrorCode::kExpired:
-    case WireErrorCode::kCompleted:
       return TransferError::kPolicyRejected;
+    case WireErrorCode::kCancelled:
+      return TransferError::kCancelled;
+    case WireErrorCode::kCompleted:
+      return TransferError::kNone;
     case WireErrorCode::kNoSpace:
       return TransferError::kNoSpace;
     case WireErrorCode::kBusy:
@@ -750,6 +755,31 @@ bool EncodeErrorFrame(const TransferContext& context,
     static_cast<void>(body.AddBool(3, true, false));
   }
   return EncodeFrame(context, protocol::v1::MessageType::kError, message_ids, body,
+                     output);
+}
+
+bool EncodeCancelFrame(const TransferContext& context,
+                       ConnectionMessageSequence& message_ids,
+                       const TransferId& transfer_id, Bytes& output) {
+  BodyBuilder body;
+  static_cast<void>(body.AddBytes(1, transfer_id));
+  static_cast<void>(
+      body.AddU16(2, static_cast<std::uint16_t>(WireErrorCode::kCancelled)));
+  return EncodeFrame(context, protocol::v1::MessageType::kCancel, message_ids, body,
+                     output);
+}
+
+bool EncodeCancelAckFrame(const TransferContext& context,
+                          ConnectionMessageSequence& message_ids,
+                          const TransferId& transfer_id,
+                          const WireErrorCode terminal_code, Bytes& output) {
+  if (terminal_code == WireErrorCode::kNone) {
+    return false;
+  }
+  BodyBuilder body;
+  static_cast<void>(body.AddBytes(1, transfer_id));
+  static_cast<void>(body.AddU16(2, static_cast<std::uint16_t>(terminal_code)));
+  return EncodeFrame(context, protocol::v1::MessageType::kCancelAck, message_ids, body,
                      output);
 }
 

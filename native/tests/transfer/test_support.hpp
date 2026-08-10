@@ -5,9 +5,12 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <optional>
 #include <span>
 #include <string>
@@ -216,6 +219,12 @@ class SessionFixture final {
     if (responder_handle_.has_value()) {
       static_cast<void>(responder_authority_.Deactivate(*responder_handle_));
     }
+  }
+
+  void ShutdownInitiator() noexcept { initiator_authority_.Shutdown(); }
+
+  [[nodiscard]] std::size_t InitiatorActiveSessions() const noexcept {
+    return initiator_authority_.active_sessions();
   }
 
  private:
@@ -439,6 +448,12 @@ class MemoryPlatform final : public storage::PlatformBackend {
       const storage::TemporaryFileHandle,
       const storage::ValidatedReceivePath& path) override {
     ++commit_calls;
+    {
+      std::unique_lock lock(commit_mutex);
+      commit_entered = true;
+      commit_changed.notify_all();
+      commit_changed.wait(lock, [this] { return !block_commit; });
+    }
     committed_path = path.utf8();
     observed_sealed_before_commit = verifier_state != nullptr && verifier_state->sealed;
     if (commit_disposition == storage::PlatformCommitDisposition::kCommitted) {
@@ -459,6 +474,24 @@ class MemoryPlatform final : public storage::PlatformBackend {
     return {.error = cleanup_error};
   }
 
+  void BlockCommit() {
+    const std::lock_guard lock(commit_mutex);
+    block_commit = true;
+    commit_entered = false;
+  }
+
+  [[nodiscard]] bool WaitForCommit() {
+    std::unique_lock lock(commit_mutex);
+    return commit_changed.wait_for(lock, std::chrono::seconds(5),
+                                   [this] { return commit_entered; });
+  }
+
+  void ReleaseCommit() {
+    const std::lock_guard lock(commit_mutex);
+    block_commit = false;
+    commit_changed.notify_all();
+  }
+
   std::shared_ptr<VerifierState> verifier_state{};
   storage::PlatformError create_error{storage::PlatformError::kNone};
   storage::PlatformError write_error{storage::PlatformError::kNone};
@@ -476,6 +509,10 @@ class MemoryPlatform final : public storage::PlatformBackend {
   std::uint64_t created_size{};
   bool open{};
   bool observed_sealed_before_commit{};
+  std::mutex commit_mutex{};
+  std::condition_variable commit_changed{};
+  bool block_commit{};
+  bool commit_entered{};
   std::string created_path{};
   std::string committed_path{};
   transfer::Bytes temporary{};

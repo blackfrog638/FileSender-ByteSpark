@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <mutex>
 #include <new>
 #include <utility>
 #include <vector>
@@ -52,6 +53,7 @@ struct SessionAuthority::Implementation {
 
   security::identity::IdentityRepository* repository{};
   SessionEntropy* entropy{};
+  mutable std::mutex mutex{};
   std::vector<Entry> entries{};
   bool shutdown{};
 };
@@ -67,6 +69,7 @@ SessionAuthority::~SessionAuthority() = default;
 
 AuthorizationResult SessionAuthority::Activate(
     std::unique_ptr<EstablishedTlsChannel> channel) {
+  const std::lock_guard lock(implementation_->mutex);
   if (implementation_->shutdown || channel == nullptr) {
     return {.error = AuthorizationError::kInvalidArgument};
   }
@@ -126,11 +129,13 @@ AuthorizationResult SessionAuthority::Activate(
 }
 
 bool SessionAuthority::IsAuthorized(const SessionHandle& handle) const noexcept {
+  const std::lock_guard lock(implementation_->mutex);
   const Implementation::Entry* const entry = implementation_->Find(handle);
   return entry != nullptr && implementation_->Current(*entry);
 }
 
 AuthorizationError SessionAuthority::Deactivate(const SessionHandle& handle) noexcept {
+  const std::lock_guard lock(implementation_->mutex);
   const std::size_t previous_size = implementation_->entries.size();
   implementation_->entries.erase(
       std::remove_if(implementation_->entries.begin(), implementation_->entries.end(),
@@ -144,6 +149,7 @@ AuthorizationError SessionAuthority::Deactivate(const SessionHandle& handle) noe
 }
 
 AuthorizationError SessionAuthority::Revoke(const SessionHandle& handle) {
+  const std::lock_guard lock(implementation_->mutex);
   const Implementation::Entry* const entry = implementation_->Find(handle);
   if (entry == nullptr || !implementation_->Current(*entry)) {
     return AuthorizationError::kUnauthenticated;
@@ -163,6 +169,7 @@ AuthorizationError SessionAuthority::Revoke(const SessionHandle& handle) {
 }
 
 void SessionAuthority::InvalidateStale() noexcept {
+  const std::lock_guard lock(implementation_->mutex);
   implementation_->entries.erase(
       std::remove_if(implementation_->entries.begin(), implementation_->entries.end(),
                      [this](const Implementation::Entry& entry) {
@@ -172,11 +179,13 @@ void SessionAuthority::InvalidateStale() noexcept {
 }
 
 void SessionAuthority::Shutdown() noexcept {
+  const std::lock_guard lock(implementation_->mutex);
   implementation_->shutdown = true;
   implementation_->entries.clear();
 }
 
 std::size_t SessionAuthority::active_sessions() const noexcept {
+  const std::lock_guard lock(implementation_->mutex);
   return implementation_->entries.size();
 }
 

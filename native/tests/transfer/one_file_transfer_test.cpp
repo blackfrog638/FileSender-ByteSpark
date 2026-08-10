@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
@@ -58,6 +59,14 @@ void AddU32(transfer::Bytes& body, const std::uint16_t id, const std::uint32_t v
   AddField(body, id, protocol::WireType::kU32, encoded);
 }
 
+void AddU16(transfer::Bytes& body, const std::uint16_t id, const std::uint16_t value) {
+  const std::array<std::uint8_t, 2> encoded{
+      static_cast<std::uint8_t>(value >> 8U),
+      static_cast<std::uint8_t>(value),
+  };
+  AddField(body, id, protocol::WireType::kU16, encoded);
+}
+
 void AddU64(transfer::Bytes& body, const std::uint16_t id, const std::uint64_t value) {
   std::array<std::uint8_t, 8> encoded{};
   for (std::size_t index = 0; index < encoded.size(); ++index) {
@@ -98,6 +107,47 @@ transfer::Bytes FileChunkFrame(const transfer::OneFileManifest& manifest,
       ChunkCommitment(manifest.transfer_id, offset, data);
   AddField(body, 5, protocol::WireType::kBytes, commitment);
   return Frame(protocol::MessageType::kFileChunk, stream_id, message_id, body);
+}
+
+transfer::Bytes CancelFrame(const transfer::OneFileManifest& manifest,
+                            const std::uint32_t stream_id,
+                            const std::uint64_t message_id,
+                            const transfer::WireErrorCode code) {
+  transfer::Bytes body;
+  AddField(body, 1, protocol::WireType::kBytes, manifest.transfer_id);
+  AddU16(body, 2, static_cast<std::uint16_t>(code));
+  return Frame(protocol::MessageType::kCancel, stream_id, message_id, body);
+}
+
+transfer::Bytes CancelAckFrame(const transfer::OneFileManifest& manifest,
+                               const std::uint32_t stream_id,
+                               const std::uint64_t message_id,
+                               const transfer::WireErrorCode code) {
+  transfer::Bytes body;
+  AddField(body, 1, protocol::WireType::kBytes, manifest.transfer_id);
+  AddU16(body, 2, static_cast<std::uint16_t>(code));
+  return Frame(protocol::MessageType::kCancelAck, stream_id, message_id, body);
+}
+
+std::optional<protocol::MessageType> FrameType(
+    const std::span<const std::uint8_t> encoded) {
+  const protocol::ParseResult parsed = protocol::ParseFrame(encoded);
+  return parsed.ok() ? std::optional(parsed.frame.header.message_type) : std::nullopt;
+}
+
+std::optional<transfer::WireErrorCode> CancelAckCode(
+    const std::span<const std::uint8_t> encoded) {
+  const protocol::ParseResult parsed = protocol::ParseFrame(encoded);
+  if (!parsed.ok() ||
+      parsed.frame.header.message_type != protocol::MessageType::kCancelAck) {
+    return std::nullopt;
+  }
+  const protocol::FieldView* const field = parsed.frame.body_fields.FindFirst(2);
+  if (field == nullptr || field->value.size() != 2) {
+    return std::nullopt;
+  }
+  return static_cast<transfer::WireErrorCode>(static_cast<std::uint16_t>(
+      (static_cast<std::uint16_t>(field->value[0]) << 8U) | field->value[1]));
 }
 
 bool MutateFieldByte(transfer::Bytes& encoded, const std::uint16_t id,
@@ -216,6 +266,33 @@ struct EnginePair {
   std::unique_ptr<transfer::OneFileSender> sender;
   std::unique_ptr<transfer::OneFileReceiver> receiver;
   std::uint32_t stream{};
+};
+
+class TrackingSource final : public transfer::FileSource {
+ public:
+  TrackingSource(transfer::Bytes bytes,
+                 std::shared_ptr<std::atomic<std::size_t>> destructions)
+      : bytes_(std::move(bytes)), destructions_(std::move(destructions)) {}
+
+  ~TrackingSource() override { destructions_->fetch_add(1, std::memory_order_relaxed); }
+
+  [[nodiscard]] std::uint64_t size() const noexcept override { return bytes_.size(); }
+
+  [[nodiscard]] transfer::FileReadResult Read(
+      const std::uint64_t offset, const std::size_t maximum_bytes) override {
+    if (offset > bytes_.size() || maximum_bytes > bytes_.size() - offset) {
+      return {.error = transfer::FileSourceError::kOutOfRange};
+    }
+    const auto begin = bytes_.begin() + static_cast<std::ptrdiff_t>(offset);
+    return {
+        .data =
+            transfer::Bytes(begin, begin + static_cast<std::ptrdiff_t>(maximum_bytes)),
+    };
+  }
+
+ private:
+  transfer::Bytes bytes_;
+  std::shared_ptr<std::atomic<std::size_t>> destructions_;
 };
 
 transfer::TransferUpdate DeliverFailure(EnginePair& pair,
@@ -1014,6 +1091,552 @@ void TestStreamZeroFatality() {
          "transfer message on stream zero is connection-fatal");
 }
 
+void TestCancellationLifecycle() {
+  SessionFixture sessions;
+  Expect(sessions.Open(), "cancellation fixture opens");
+  MessageIds initiator_ids;
+  MessageIds responder_ids;
+  transfer::Bytes data(4'096, 0x5c);
+  std::uint64_t now_ms = 10'000;
+
+  {
+    EnginePair before_accept(Manifest(0xb0, "incoming/cancel-before-accept.bin", data),
+                             data);
+    Expect(before_accept.Create(sessions, 1, initiator_ids, responder_ids) &&
+               before_accept.ExchangeManifest(now_ms).offer.has_value(),
+           "cancel-before-accept reaches receiver decision");
+    const transfer::TransferUpdate cancel = before_accept.sender->Cancel(++now_ms);
+    Expect(cancel.state == transfer::TransferState::kCancelling &&
+               FrameType(cancel.outbound_frame) == protocol::MessageType::kCancel &&
+               before_accept.sender_credit->active_streams() == 1,
+           "sender emits CANCEL before acceptance");
+    const transfer::TransferUpdate ack =
+        before_accept.receiver->ReceiveFrame(cancel.outbound_frame, ++now_ms);
+    Expect(ack.state == transfer::TransferState::kCancelled && ack.terminal &&
+               CancelAckCode(ack.outbound_frame) == transfer::WireErrorCode::kCancelled,
+           "receiver cleans up and acknowledges cancellation");
+    const transfer::TransferUpdate terminal =
+        before_accept.sender->ReceiveFrame(ack.outbound_frame, ++now_ms);
+    Expect(terminal.state == transfer::TransferState::kCancelled &&
+               terminal.error == transfer::TransferError::kCancelled &&
+               terminal.terminal && !terminal.retryable,
+           "sender caches authenticated cancelled terminal result");
+    Expect(before_accept.platform.create_calls == 0 &&
+               before_accept.platform.cleanup_calls == 0,
+           "cancellation before acceptance has no storage side effects");
+
+    std::uint64_t repeated_id = 0;
+    Expect(initiator_ids.NextOutbound(repeated_id),
+           "repeated cancellation allocates the next connection message ID");
+    const transfer::TransferUpdate repeated_ack = before_accept.receiver->ReceiveFrame(
+        CancelFrame(before_accept.manifest, before_accept.stream, repeated_id,
+                    transfer::WireErrorCode::kCancelled),
+        ++now_ms);
+    Expect(CancelAckCode(repeated_ack.outbound_frame) ==
+                   transfer::WireErrorCode::kCancelled &&
+               before_accept.receiver->state() == transfer::TransferState::kCancelled,
+           "terminal receiver replays its cached cancellation fact");
+    const transfer::TransferUpdate repeated_terminal =
+        before_accept.sender->ReceiveFrame(repeated_ack.outbound_frame, ++now_ms);
+    Expect(repeated_terminal.state == transfer::TransferState::kCancelled &&
+               before_accept.sender->Cancel(++now_ms).outbound_frame.empty(),
+           "repeated local and remote cancellation are idempotent");
+  }
+
+  {
+    EnginePair during_file(Manifest(0xc0, "incoming/cancel-during-file.bin", data),
+                           data);
+    Expect(during_file.Create(sessions, 3, initiator_ids, responder_ids) &&
+               during_file.ExchangeManifest(now_ms).offer.has_value() &&
+               during_file.Accept(now_ms) && during_file.BeginFile(now_ms),
+           "during-file cancellation reaches the receiving phase");
+    const transfer::TransferUpdate chunk = during_file.sender->NextOutbound(++now_ms);
+    transfer::TransferUpdate chunk_ack =
+        during_file.receiver->ReceiveFrame(chunk.outbound_frame, ++now_ms);
+    const std::optional<std::uint64_t> ack_offset =
+        ChunkAckOffset(chunk_ack.outbound_frame);
+    Expect(ack_offset.has_value(), "during-file fixture writes one chunk");
+    static_cast<void>(
+        during_file.sender->ReceiveFrame(chunk_ack.outbound_frame, ++now_ms));
+    if (ack_offset.has_value()) {
+      static_cast<void>(
+          during_file.receiver->ConfirmChunkAckWritten(*ack_offset, ++now_ms));
+    }
+
+    const transfer::TransferUpdate cancel = during_file.receiver->Cancel(++now_ms);
+    Expect(
+        FrameType(cancel.outbound_frame) == protocol::MessageType::kCancel &&
+            !during_file.platform.open && during_file.platform.cleanup_calls == 1 &&
+            during_file.credit->active_streams() == 1 &&
+            during_file.credit->reserved_bytes(transfer::CreditDirection::kInbound) ==
+                8'192,
+        "receiver cancellation cleans storage but retains transport budget until ACK");
+    const transfer::TransferUpdate ack =
+        during_file.sender->ReceiveFrame(cancel.outbound_frame, ++now_ms);
+    const transfer::TransferUpdate terminal =
+        during_file.receiver->ReceiveFrame(ack.outbound_frame, ++now_ms);
+    Expect(terminal.state == transfer::TransferState::kCancelled &&
+               during_file.sender->state() == transfer::TransferState::kCancelled &&
+               during_file.temporary_budget->reserved_bytes() == 0,
+           "mid-file cancellation releases temporary and both terminal states");
+    static_cast<void>(during_file.receiver->Shutdown());
+    static_cast<void>(during_file.receiver->Cancel(++now_ms));
+    Expect(during_file.platform.cleanup_calls == 1 &&
+               during_file.credit->reserved_bytes(
+                   transfer::CreditDirection::kInbound) == 0 &&
+               during_file.sender_credit->reserved_bytes(
+                   transfer::CreditDirection::kOutbound) == 0,
+           "repeated stop and cancel cannot double-clean resources");
+  }
+
+  {
+    EnginePair simultaneous(Manifest(0xd0, "incoming/cancel-simultaneous.bin", data),
+                            data);
+    Expect(simultaneous.Create(sessions, 5, initiator_ids, responder_ids) &&
+               simultaneous.ExchangeManifest(now_ms).offer.has_value(),
+           "simultaneous cancellation reaches the decision phase");
+    transfer::TransferUpdate sender_cancel;
+    transfer::TransferUpdate receiver_cancel;
+    std::atomic<bool> start{false};
+    std::thread sender_thread([&] {
+      while (!start.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+      }
+      sender_cancel = simultaneous.sender->Cancel(now_ms + 1);
+    });
+    std::thread receiver_thread([&] {
+      while (!start.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+      }
+      receiver_cancel = simultaneous.receiver->Cancel(now_ms + 1);
+    });
+    start.store(true, std::memory_order_release);
+    sender_thread.join();
+    receiver_thread.join();
+    now_ms += 2;
+
+    const transfer::TransferUpdate sender_ack =
+        simultaneous.sender->ReceiveFrame(receiver_cancel.outbound_frame, ++now_ms);
+    const transfer::TransferUpdate receiver_ack =
+        simultaneous.receiver->ReceiveFrame(sender_cancel.outbound_frame, ++now_ms);
+    static_cast<void>(
+        simultaneous.receiver->ReceiveFrame(sender_ack.outbound_frame, ++now_ms));
+    static_cast<void>(
+        simultaneous.sender->ReceiveFrame(receiver_ack.outbound_frame, ++now_ms));
+    Expect(simultaneous.sender->state() == transfer::TransferState::kCancelled &&
+               simultaneous.receiver->state() == transfer::TransferState::kCancelled &&
+               simultaneous.sender_credit->active_streams() == 0 &&
+               simultaneous.credit->active_streams() == 0,
+           "simultaneous peer cancellation converges and closes each stream once");
+  }
+
+  {
+    EnginePair invalid(Manifest(0xe0, "incoming/cancel-invalid.bin", data), data);
+    Expect(invalid.Create(sessions, 7, initiator_ids, responder_ids) &&
+               invalid.ExchangeManifest(now_ms).offer.has_value(),
+           "invalid cancellation fixture reaches decision");
+    std::uint64_t invalid_id = 0;
+    Expect(initiator_ids.NextOutbound(invalid_id),
+           "invalid cancellation allocates the next message ID");
+    const transfer::TransferUpdate rejected = invalid.receiver->ReceiveFrame(
+        CancelFrame(invalid.manifest, invalid.stream, invalid_id,
+                    transfer::WireErrorCode::kBusy),
+        ++now_ms);
+    Expect(rejected.error == transfer::TransferError::kMalformedMessage &&
+               rejected.state == transfer::TransferState::kFailed,
+           "CANCEL rejects a non-cancellation wire code");
+  }
+}
+
+void TestCancellationPhaseBoundaries() {
+  SessionFixture sessions;
+  Expect(sessions.Open(), "cancellation phase-boundary fixture opens");
+  MessageIds initiator_ids;
+  MessageIds responder_ids;
+  transfer::Bytes data(4'096, 0xa4);
+  std::uint64_t now_ms = 15'000;
+
+  {
+    EnginePair manifest_phase(
+        Manifest(0x41, "incoming/cancel-during-manifest.bin", data), data);
+    Expect(manifest_phase.Create(sessions, 1, initiator_ids, responder_ids),
+           "manifest cancellation engines create");
+    const transfer::TransferUpdate offer = manifest_phase.sender->Start(++now_ms);
+    const transfer::TransferUpdate observed =
+        manifest_phase.receiver->ReceiveFrame(offer.outbound_frame, ++now_ms);
+    const transfer::TransferUpdate cancel = manifest_phase.sender->Cancel(++now_ms);
+    const transfer::TransferUpdate ack =
+        manifest_phase.receiver->ReceiveFrame(cancel.outbound_frame, ++now_ms);
+    const transfer::TransferUpdate terminal =
+        manifest_phase.sender->ReceiveFrame(ack.outbound_frame, ++now_ms);
+    Expect(observed.state == transfer::TransferState::kReceivingManifest &&
+               terminal.state == transfer::TransferState::kCancelled &&
+               manifest_phase.platform.create_calls == 0,
+           "cancellation during manifest stops remaining manifest frames");
+  }
+
+  {
+    EnginePair cleanup_failure(
+        Manifest(0x51, "incoming/cancel-cleanup-failure.bin", data), data);
+    Expect(cleanup_failure.Create(sessions, 3, initiator_ids, responder_ids) &&
+               cleanup_failure.ExchangeManifest(now_ms).offer.has_value() &&
+               cleanup_failure.Accept(now_ms),
+           "cleanup-failure cancellation opens one temporary");
+    cleanup_failure.platform.cleanup_error = storage::PlatformError::kIoFailure;
+    const transfer::TransferUpdate cancel = cleanup_failure.receiver->Cancel(++now_ms);
+    const transfer::TransferUpdate ack =
+        cleanup_failure.sender->ReceiveFrame(cancel.outbound_frame, ++now_ms);
+    const transfer::TransferUpdate terminal =
+        cleanup_failure.receiver->ReceiveFrame(ack.outbound_frame, ++now_ms);
+    Expect(terminal.state == transfer::TransferState::kCancelled &&
+               cleanup_failure.platform.cleanup_calls == 1 &&
+               cleanup_failure.temporary_budget->unresolved_files() == 1 &&
+               cleanup_failure.temporary_budget->unresolved_bytes() == data.size() &&
+               cleanup_failure.temporary_budget->reserved_bytes() == data.size() &&
+               cleanup_failure.platform.destination.empty(),
+           "cleanup failure is consumed once and retained in fail-closed accounting");
+    static_cast<void>(cleanup_failure.receiver->Shutdown());
+    Expect(cleanup_failure.platform.cleanup_calls == 1,
+           "shutdown cannot retry or delete an inaccessible cleanup orphan");
+  }
+
+  {
+    EnginePair completed(Manifest(0x61, "incoming/cancel-after-complete.bin", data),
+                         data);
+    Expect(completed.Create(sessions, 5, initiator_ids, responder_ids) &&
+               completed.ExchangeManifest(now_ms).offer.has_value() &&
+               completed.Accept(now_ms),
+           "post-completion cancellation fixture starts");
+    for (std::size_t iteration = 0; iteration < 16; ++iteration) {
+      const transfer::TransferUpdate outbound =
+          completed.sender->NextOutbound(++now_ms);
+      if (outbound.outbound_frame.empty()) {
+        break;
+      }
+      transfer::TransferUpdate receiver_update =
+          completed.receiver->ReceiveFrame(outbound.outbound_frame, ++now_ms);
+      if (!receiver_update.outbound_frame.empty()) {
+        const std::optional<std::uint64_t> offset =
+            ChunkAckOffset(receiver_update.outbound_frame);
+        transfer::TransferUpdate sender_update =
+            completed.sender->ReceiveFrame(receiver_update.outbound_frame, ++now_ms);
+        if (offset.has_value()) {
+          static_cast<void>(
+              completed.receiver->ConfirmChunkAckWritten(*offset, ++now_ms));
+        }
+        if (!sender_update.outbound_frame.empty()) {
+          receiver_update =
+              completed.receiver->ReceiveFrame(sender_update.outbound_frame, ++now_ms);
+          static_cast<void>(
+              completed.sender->ReceiveFrame(receiver_update.outbound_frame, ++now_ms));
+        }
+      }
+      if (completed.sender->state() == transfer::TransferState::kCompleted &&
+          completed.receiver->state() == transfer::TransferState::kCompleted) {
+        break;
+      }
+    }
+    std::uint64_t cancel_id = 0;
+    Expect(initiator_ids.NextOutbound(cancel_id),
+           "post-completion cancellation allocates a new message ID");
+    const transfer::TransferUpdate completed_ack = completed.receiver->ReceiveFrame(
+        CancelFrame(completed.manifest, completed.stream, cancel_id,
+                    transfer::WireErrorCode::kCancelled),
+        ++now_ms);
+    Expect(completed.sender->state() == transfer::TransferState::kCompleted &&
+               completed.receiver->state() == transfer::TransferState::kCompleted &&
+               CancelAckCode(completed_ack.outbound_frame) ==
+                   transfer::WireErrorCode::kCompleted &&
+               completed.platform.destination == data &&
+               completed.platform.cleanup_calls == 0,
+           "cancellation after completion replays COMPLETED and preserves destination");
+  }
+}
+
+void TestCancellationMessageIdExhaustion() {
+  SessionFixture sessions;
+  Expect(sessions.Open(), "cancel message-ID exhaustion fixture opens");
+  MessageIds initiator_ids;
+  MessageIds exhausted_responder_ids(0, 1);
+  TestIntegrityProvider integrity;
+  transfer::ConnectionCreditBudget sender_credit(transfer::kMaximumConnectionWindow);
+  transfer::ConnectionCreditBudget receiver_credit(transfer::kMaximumConnectionWindow);
+  auto temporary_budget =
+      std::make_shared<storage::TemporaryBudget>(transfer::kMaximumTransferWindow);
+  MemoryPlatform platform;
+  transfer::Bytes data(4'096, 0xb5);
+  const transfer::OneFileManifest manifest =
+      Manifest(0x71, "incoming/cancel-id-exhaustion.bin", data);
+  std::unique_ptr<transfer::OneFileSender> sender;
+  std::unique_ptr<transfer::OneFileReceiver> receiver;
+  Expect(
+      transfer::OneFileSender::Create(sessions.InitiatorContext(1), manifest,
+                                      std::make_unique<MemorySource>(data),
+                                      initiator_ids, integrity, sender_credit, sender)
+                  .error == transfer::TransferError::kNone &&
+          transfer::OneFileReceiver::Create(
+              sessions.ResponderContext(1), exhausted_responder_ids, integrity,
+              temporary_budget, receiver_credit, platform, receiver)
+                  .error == transfer::TransferError::kNone,
+      "cancel message-ID exhaustion engines create");
+  const transfer::TransferUpdate offer = sender->Start(1);
+  static_cast<void>(receiver->ReceiveFrame(offer.outbound_frame, 2));
+  const transfer::TransferUpdate cancel = sender->Cancel(3);
+  const transfer::TransferUpdate exhausted =
+      receiver->ReceiveFrame(cancel.outbound_frame, 4);
+  const transfer::TransferUpdate stable = receiver->Advance(5);
+  static_cast<void>(receiver->Shutdown());
+  std::uint64_t post_shutdown_id = 0;
+  Expect(initiator_ids.NextOutbound(post_shutdown_id),
+         "post-shutdown cancellation allocates a test message ID");
+  const transfer::TransferUpdate post_shutdown = receiver->ReceiveFrame(
+      CancelFrame(manifest, 1, post_shutdown_id, transfer::WireErrorCode::kCancelled),
+      6);
+  Expect(
+      exhausted.state == transfer::TransferState::kCancelled &&
+          exhausted.error == transfer::TransferError::kMessageIdViolation &&
+          stable.error == transfer::TransferError::kMessageIdViolation &&
+          stable.connection_fatal && exhausted.connection_fatal &&
+          exhausted.outbound_frame.empty() && post_shutdown.outbound_frame.empty() &&
+          receiver_credit.active_streams() == 0,
+      "CANCEL_ACK message-ID exhaustion preserves cancellation and closes connection");
+}
+
+void TestCancelAcknowledgementTimeout() {
+  SessionFixture sessions;
+  Expect(sessions.Open(), "cancel timeout fixture opens");
+  MessageIds initiator_ids;
+  TestIntegrityProvider integrity;
+  transfer::ConnectionCreditBudget credit(transfer::kMaximumConnectionWindow);
+  transfer::Bytes data(4'096, 0x71);
+  const transfer::OneFileManifest manifest =
+      Manifest(0xf0, "incoming/cancel-timeout.bin", data);
+  auto destructions = std::make_shared<std::atomic<std::size_t>>(0);
+  std::unique_ptr<transfer::OneFileSender> sender;
+  Expect(transfer::OneFileSender::Create(
+             sessions.InitiatorContext(1), manifest,
+             std::make_unique<TrackingSource>(data, destructions), initiator_ids,
+             integrity, credit, sender)
+                 .error == transfer::TransferError::kNone,
+         "cancel timeout sender creates");
+  static_cast<void>(sender->Start(1));
+  const transfer::TransferUpdate cancel = sender->Cancel(2);
+  const transfer::TransferUpdate timeout =
+      sender->Advance(2 + transfer::kCancelAcknowledgementTimeoutMs);
+  Expect(FrameType(cancel.outbound_frame) == protocol::MessageType::kCancel &&
+             timeout.state == transfer::TransferState::kFailed &&
+             timeout.error == transfer::TransferError::kTimeout && !timeout.retryable &&
+             destructions->load(std::memory_order_relaxed) == 1 &&
+             credit.active_streams() == 0,
+         "missing CANCEL_ACK times out after cleanup and source release");
+  const transfer::TransferUpdate stable =
+      sender->Cancel(3 + transfer::kCancelAcknowledgementTimeoutMs);
+  const transfer::TransferUpdate late_ack = sender->ReceiveFrame(
+      CancelAckFrame(manifest, 1, 1, transfer::WireErrorCode::kCancelled),
+      4 + transfer::kCancelAcknowledgementTimeoutMs);
+  const transfer::TransferUpdate after_late_ack =
+      sender->Advance(5 + transfer::kCancelAcknowledgementTimeoutMs);
+  Expect(stable.state == transfer::TransferState::kFailed &&
+             stable.error == transfer::TransferError::kTimeout &&
+             late_ack.state == transfer::TransferState::kFailed &&
+             late_ack.error == transfer::TransferError::kStateViolation &&
+             after_late_ack.error == transfer::TransferError::kTimeout,
+         "late CANCEL_ACK cannot rewrite a cached timeout result");
+}
+
+void TestCommitCancelRace() {
+  SessionFixture sessions;
+  Expect(sessions.Open(), "commit-cancel fixture opens");
+  MessageIds initiator_ids;
+  MessageIds responder_ids;
+  transfer::Bytes data(4'096, 0x82);
+  EnginePair pair(Manifest(0x21, "incoming/commit-cancel.bin", data), data);
+  std::uint64_t now_ms = 20'000;
+  Expect(pair.Create(sessions, 1, initiator_ids, responder_ids) &&
+             pair.ExchangeManifest(now_ms).offer.has_value() && pair.Accept(now_ms) &&
+             pair.BeginFile(now_ms),
+         "commit-cancel fixture reaches file transfer");
+
+  const transfer::TransferUpdate chunk = pair.sender->NextOutbound(++now_ms);
+  const transfer::TransferUpdate chunk_ack =
+      pair.receiver->ReceiveFrame(chunk.outbound_frame, ++now_ms);
+  const std::optional<std::uint64_t> ack_offset =
+      ChunkAckOffset(chunk_ack.outbound_frame);
+  static_cast<void>(pair.sender->ReceiveFrame(chunk_ack.outbound_frame, ++now_ms));
+  if (ack_offset.has_value()) {
+    static_cast<void>(pair.receiver->ConfirmChunkAckWritten(*ack_offset, ++now_ms));
+  }
+  const transfer::TransferUpdate file_end = pair.sender->NextOutbound(++now_ms);
+  Expect(file_end.state == transfer::TransferState::kAwaitingFileCommit &&
+             FrameType(file_end.outbound_frame) == protocol::MessageType::kFileEnd,
+         "commit-cancel fixture queues FILE_END");
+
+  pair.platform.BlockCommit();
+  transfer::TransferUpdate committed;
+  transfer::TransferUpdate cancelled;
+  std::thread commit_thread([&] {
+    committed = pair.receiver->ReceiveFrame(file_end.outbound_frame, now_ms + 1);
+  });
+  Expect(pair.platform.WaitForCommit(), "commit fault point becomes observable");
+  std::atomic<bool> cancel_started{false};
+  std::thread cancel_thread([&] {
+    cancel_started.store(true, std::memory_order_release);
+    cancelled = pair.receiver->Cancel(now_ms + 2);
+  });
+  while (!cancel_started.load(std::memory_order_acquire)) {
+    std::this_thread::yield();
+  }
+  pair.platform.ReleaseCommit();
+  commit_thread.join();
+  cancel_thread.join();
+  now_ms += 3;
+
+  Expect(FrameType(committed.outbound_frame) == protocol::MessageType::kFileCommit &&
+             cancelled.state == transfer::TransferState::kCommitted &&
+             cancelled.outbound_frame.empty() && pair.platform.commit_calls == 1 &&
+             pair.platform.cleanup_calls == 0 && pair.platform.destination == data,
+         "commit that linearizes first survives concurrent local cancellation");
+
+  const transfer::TransferUpdate completing =
+      pair.sender->ReceiveFrame(committed.outbound_frame, ++now_ms);
+  const transfer::TransferUpdate sender_cancel = pair.sender->Cancel(++now_ms);
+  Expect(FrameType(completing.outbound_frame) ==
+                 protocol::MessageType::kTransferComplete &&
+             FrameType(sender_cancel.outbound_frame) == protocol::MessageType::kCancel,
+         "sender cancellation remains ordered after queued completion");
+  const transfer::TransferUpdate queued_completion =
+      pair.receiver->ReceiveFrame(completing.outbound_frame, ++now_ms);
+  const transfer::TransferUpdate completed_ack =
+      pair.receiver->ReceiveFrame(sender_cancel.outbound_frame, ++now_ms);
+  const transfer::TransferUpdate sender_terminal =
+      pair.sender->ReceiveFrame(completed_ack.outbound_frame, ++now_ms);
+  Expect(queued_completion.error == transfer::TransferError::kStateViolation &&
+             CancelAckCode(completed_ack.outbound_frame) ==
+                 transfer::WireErrorCode::kCompleted &&
+             sender_terminal.state == transfer::TransferState::kCompleted &&
+             pair.receiver->state() == transfer::TransferState::kCommitted &&
+             pair.platform.cleanup_calls == 0 && pair.platform.destination == data,
+         "remote cancellation after durable commit reports COMPLETED without cleanup");
+}
+
+void TestQueuedCompletionWinsCancellation() {
+  SessionFixture sessions;
+  Expect(sessions.Open(), "queued completion cancellation fixture opens");
+  MessageIds initiator_ids;
+  MessageIds responder_ids;
+  transfer::Bytes data(4'096, 0x8f);
+  EnginePair pair(Manifest(0x2a, "incoming/queued-completion.bin", data), data);
+  std::uint64_t now_ms = 25'000;
+  Expect(pair.Create(sessions, 1, initiator_ids, responder_ids) &&
+             pair.ExchangeManifest(now_ms).offer.has_value() && pair.Accept(now_ms) &&
+             pair.BeginFile(now_ms),
+         "queued completion fixture reaches file transfer");
+
+  const transfer::TransferUpdate chunk = pair.sender->NextOutbound(++now_ms);
+  const transfer::TransferUpdate chunk_ack =
+      pair.receiver->ReceiveFrame(chunk.outbound_frame, ++now_ms);
+  const std::optional<std::uint64_t> ack_offset =
+      ChunkAckOffset(chunk_ack.outbound_frame);
+  static_cast<void>(pair.sender->ReceiveFrame(chunk_ack.outbound_frame, ++now_ms));
+  if (ack_offset.has_value()) {
+    static_cast<void>(pair.receiver->ConfirmChunkAckWritten(*ack_offset, ++now_ms));
+  }
+  const transfer::TransferUpdate file_end = pair.sender->NextOutbound(++now_ms);
+  const transfer::TransferUpdate file_commit =
+      pair.receiver->ReceiveFrame(file_end.outbound_frame, ++now_ms);
+  const transfer::TransferUpdate completing =
+      pair.sender->ReceiveFrame(file_commit.outbound_frame, ++now_ms);
+  const transfer::TransferUpdate cancel = pair.sender->Cancel(++now_ms);
+
+  const transfer::TransferUpdate completion_ack =
+      pair.receiver->ReceiveFrame(completing.outbound_frame, ++now_ms);
+  const transfer::TransferUpdate completed =
+      pair.sender->ReceiveFrame(completion_ack.outbound_frame, ++now_ms);
+  const transfer::TransferUpdate cancel_ack =
+      pair.receiver->ReceiveFrame(cancel.outbound_frame, ++now_ms);
+  const transfer::TransferUpdate late_cancel_ack =
+      pair.sender->ReceiveFrame(cancel_ack.outbound_frame, ++now_ms);
+
+  Expect(FrameType(completing.outbound_frame) ==
+                 protocol::MessageType::kTransferComplete &&
+             FrameType(cancel.outbound_frame) == protocol::MessageType::kCancel &&
+             completed.state == transfer::TransferState::kCompleted &&
+             late_cancel_ack.state == transfer::TransferState::kCompleted &&
+             late_cancel_ack.error == transfer::TransferError::kStateViolation &&
+             pair.sender_credit->reserved_bytes(transfer::CreditDirection::kOutbound) ==
+                 0 &&
+             pair.sender_credit->active_streams() == 0 &&
+             pair.credit->active_streams() == 0 && pair.platform.destination == data,
+         "queued completion ACK wins cancellation and releases all stream credit");
+}
+
+void TestShutdownBarrierAndSourceRelease() {
+  SessionFixture sessions;
+  Expect(sessions.Open(), "shutdown barrier fixture opens");
+  MessageIds initiator_ids;
+  TestIntegrityProvider integrity;
+  transfer::ConnectionCreditBudget credit(transfer::kMaximumConnectionWindow);
+  transfer::Bytes data(8'192, 0x93);
+  const transfer::OneFileManifest manifest =
+      Manifest(0x31, "incoming/shutdown.bin", data);
+  auto destructions = std::make_shared<std::atomic<std::size_t>>(0);
+  std::unique_ptr<transfer::OneFileSender> sender;
+  Expect(transfer::OneFileSender::Create(
+             sessions.InitiatorContext(1), manifest,
+             std::make_unique<TrackingSource>(data, destructions), initiator_ids,
+             integrity, credit, sender)
+                 .error == transfer::TransferError::kNone,
+         "shutdown barrier sender creates");
+  static_cast<void>(sender->Start(1));
+
+  std::atomic<bool> start{false};
+  transfer::TransferUpdate queued;
+  transfer::TransferUpdate cancelled;
+  transfer::TransferUpdate stopped;
+  std::thread outbound_thread([&] {
+    while (!start.load(std::memory_order_acquire)) {
+      std::this_thread::yield();
+    }
+    queued = sender->NextOutbound(2);
+  });
+  std::thread cancel_thread([&] {
+    while (!start.load(std::memory_order_acquire)) {
+      std::this_thread::yield();
+    }
+    cancelled = sender->Cancel(2);
+  });
+  std::thread stop_thread([&] {
+    while (!start.load(std::memory_order_acquire)) {
+      std::this_thread::yield();
+    }
+    stopped = sender->Shutdown();
+  });
+  start.store(true, std::memory_order_release);
+  outbound_thread.join();
+  cancel_thread.join();
+  stop_thread.join();
+
+  const transfer::TransferUpdate after_stop = sender->NextOutbound(3);
+  const transfer::TransferUpdate inbound_after_stop = sender->ReceiveFrame(
+      CancelFrame(manifest, 1, 1, transfer::WireErrorCode::kCancelled), 4);
+  Expect(
+      sender->state() == transfer::TransferState::kCancelled &&
+          after_stop.outbound_frame.empty() &&
+          inbound_after_stop.outbound_frame.empty() &&
+          destructions->load(std::memory_order_relaxed) == 1 &&
+          credit.active_streams() == 0 &&
+          (queued.outbound_frame.empty() ||
+           FrameType(queued.outbound_frame) == protocol::MessageType::kManifestEntry) &&
+          (cancelled.outbound_frame.empty() ||
+           FrameType(cancelled.outbound_frame) == protocol::MessageType::kCancel) &&
+          stopped.terminal,
+      "shutdown is a barrier and releases source, buffers, and stream once");
+  sessions.ShutdownInitiator();
+  Expect(sessions.InitiatorActiveSessions() == 0 &&
+             sender->NextOutbound(4).outbound_frame.empty(),
+         "session shutdown leaves no authorized callback path after transfer stop");
+}
+
 }  // namespace
 
 int main() {
@@ -1041,6 +1664,13 @@ int main() {
   TestInvalidRejectionReason();
   TestRetryDelayLimit();
   TestStreamZeroFatality();
+  TestCancellationLifecycle();
+  TestCancellationPhaseBoundaries();
+  TestCancellationMessageIdExhaustion();
+  TestCancelAcknowledgementTimeout();
+  TestCommitCancelRace();
+  TestQueuedCompletionWinsCancellation();
+  TestShutdownBarrierAndSourceRelease();
 
   if (failures != 0) {
     std::cerr << failures << " transfer test(s) failed\n";

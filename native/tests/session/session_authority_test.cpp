@@ -1,12 +1,14 @@
 #include <openssl/ssl.h>
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <thread>
 #include <utility>
 
 #include "pairing_vectors.hpp"
@@ -479,10 +481,29 @@ void TestRotationResetAndShutdownInvalidate() {
   const session::AuthorizationResult before_shutdown =
       shutdown_authority.Activate(std::move(shutdown_channel));
   Expect(before_shutdown.ok(), "pre-shutdown session activates");
+  std::atomic<bool> start{false};
+  std::atomic<bool> stop{false};
+  std::array<std::thread, 4> readers;
+  for (std::thread& reader : readers) {
+    reader = std::thread([&] {
+      while (!start.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+      }
+      while (!stop.load(std::memory_order_acquire)) {
+        static_cast<void>(shutdown_authority.IsAuthorized(*before_shutdown.handle));
+        static_cast<void>(shutdown_authority.active_sessions());
+      }
+    });
+  }
+  start.store(true, std::memory_order_release);
   shutdown_authority.Shutdown();
+  stop.store(true, std::memory_order_release);
+  for (std::thread& reader : readers) {
+    reader.join();
+  }
   Expect(!shutdown_authority.IsAuthorized(*before_shutdown.handle) &&
              shutdown_authority.active_sessions() == 0,
-         "shutdown invalidates every live session");
+         "shutdown is a barrier for concurrent authorization readers");
 }
 
 void TestPairingChannelRejectsSameKeyReuse() {

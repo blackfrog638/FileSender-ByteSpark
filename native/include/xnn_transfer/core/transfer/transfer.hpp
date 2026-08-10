@@ -29,6 +29,7 @@ inline constexpr std::uint64_t kManifestTimeoutMs = 300'000;
 inline constexpr std::uint64_t kDecisionTimeoutMs = 300'000;
 inline constexpr std::uint64_t kDataProgressTimeoutMs = 60'000;
 inline constexpr std::uint64_t kAcknowledgementTimeoutMs = 30'000;
+inline constexpr std::uint64_t kCancelAcknowledgementTimeoutMs = 10'000;
 
 using Bytes = std::vector<std::uint8_t>;
 using TransferId = std::array<std::uint8_t, kTransferIdSize>;
@@ -44,8 +45,10 @@ enum class TransferState : std::uint8_t {
   kAwaitingFileCommit,
   kAwaitingCompletion,
   kCompleting,
+  kCancelling,
   kCommitted,
   kCompleted,
+  kCancelled,
   kRejected,
   kFailed,
 };
@@ -67,6 +70,7 @@ enum class TransferError : std::uint16_t {
   kIoFailure,
   kIntegrityFailed,
   kTimeout,
+  kCancelled,
   kIdempotencyConflict,
   kSourceFailure,
   kInternalFailure,
@@ -286,6 +290,7 @@ class OneFileSender final {
   [[nodiscard]] TransferUpdate ReceiveFrame(std::span<const std::uint8_t> encoded,
                                             std::uint64_t now_ms);
   [[nodiscard]] TransferUpdate Advance(std::uint64_t now_ms);
+  [[nodiscard]] TransferUpdate Cancel(std::uint64_t now_ms);
   [[nodiscard]] TransferUpdate Shutdown();
   [[nodiscard]] TransferState state() const;
 
@@ -323,6 +328,7 @@ class OneFileReceiver final {
   [[nodiscard]] TransferUpdate Reject(WireErrorCode code, bool retryable,
                                       std::uint64_t now_ms);
   [[nodiscard]] TransferUpdate Advance(std::uint64_t now_ms);
+  [[nodiscard]] TransferUpdate Cancel(std::uint64_t now_ms);
   [[nodiscard]] TransferUpdate Shutdown();
   [[nodiscard]] TransferState state() const;
 
