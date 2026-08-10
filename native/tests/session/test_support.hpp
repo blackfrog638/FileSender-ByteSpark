@@ -1,6 +1,18 @@
 #ifndef XNN_TRANSFER_TESTS_SESSION_TEST_SUPPORT_HPP_
 #define XNN_TRANSFER_TESTS_SESSION_TEST_SUPPORT_HPP_
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+// OpenSSL may expose Windows SDK macros before this shared test helper.
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
+
 #include <algorithm>
 #include <array>
 #include <chrono>

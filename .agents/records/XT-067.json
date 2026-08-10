@@ -18,11 +18,8 @@
     "summary": "isolate Windows test macros"
   },
   "architecture_change": {
-    "mode": "refactor",
-    "modules": [
-      "session",
-      "transfer"
-    ],
+    "mode": "none",
+    "modules": [],
     "supersedes": {
       "paths": [],
       "symbols": [],
@@ -123,7 +120,7 @@
     "trigger": "Compile integrated delivery 549fd420bf6bc01168314ca8a58a0f720aa98638 with MSVC 14.44 in GitHub Actions run 31350356920.",
     "affected_since": "600c7b0b0a3478b89189af3d3bd1db211f59eb06",
     "proof_mode": "deterministic",
-    "reproduction_commit": "",
+    "reproduction_commit": "65f0f60466f8d8249b0342f876b120e00d19af52",
     "regression_gate": "native_test",
     "contract_disposition": "restore",
     "failure_fingerprint": "FAILED: Windows native test support must isolate min and max macros"
