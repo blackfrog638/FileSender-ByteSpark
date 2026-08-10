@@ -23,6 +23,7 @@ if str(HARNESS_DIR) not in sys.path:
 import architecture_change
 import defect_proof as defect_proof_runner
 import delivery_plan as delivery_plan_contract
+import tdd_contract
 from trusted_gates import GateRegistryError, load_gate_registry
 
 
@@ -1199,11 +1200,14 @@ def validate_record(
     task_id = task["id"]
     task_number = int(task_id.removeprefix("XT-"))
     schema_version = record.get("schema_version")
-    if schema_version not in {1, 2, 3}:
-        errors.append(f"{task_id}.schema_version must be 1, 2, or 3")
-    if task.get("risk_profile_required") is True and schema_version not in {2, 3}:
+    if schema_version not in {1, 2, 3, 4}:
+        errors.append(f"{task_id}.schema_version must be 1, 2, 3, or 4")
+    if (
+        task.get("risk_profile_required") is True
+        and schema_version not in {2, 3, 4}
+    ):
         errors.append(
-            f"{task_id}.schema_version must be 2 or 3 when "
+            f"{task_id}.schema_version must be 2, 3, or 4 when "
             "risk_profile_required=true"
         )
     if record.get("id") != task_id:
@@ -1350,9 +1354,10 @@ def validate_record(
 
     gate_ids = verification.get("gates")
     if gate_ids is None:
-        if schema_version == 3:
+        if schema_version in {3, 4}:
             errors.append(
-                f"{task_id}.verification.gates is required by schema version 3"
+                f"{task_id}.verification.gates is required by schema version "
+                f"{schema_version}"
             )
         verification_evidence = commands
         registered_commands = set(gate_registry.values())
@@ -1393,14 +1398,14 @@ def validate_record(
             errors.append(f"{task_id}.verification.gates must include verify")
         verification_evidence = gate_ids
 
-    if schema_version in {2, 3}:
+    if schema_version in {2, 3, 4}:
         validate_risks(
             errors,
             task_id,
             record.get("risks"),
             verification_evidence,
         )
-    if schema_version == 3:
+    if schema_version in {3, 4}:
         validate_schema_v3(
             errors,
             task_id,
@@ -1409,6 +1414,15 @@ def validate_record(
             gate_registry,
             gate_ids if isinstance(gate_ids, list) else [],
             verify_git=verify_git,
+        )
+    if schema_version == 4:
+        errors.extend(
+            tdd_contract.validate_test_contract(
+                ROOT,
+                task,
+                record,
+                gate_registry,
+            )
         )
 
     if state == "done":

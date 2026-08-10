@@ -19,9 +19,16 @@ from typing import Any
 
 sys.dont_write_bytecode = True
 
+from trusted_gates import GateRegistryError, load_gate_registry
+
 PLAN_ID_PATTERN = re.compile(r"^DP-[A-Z0-9]+(?:-[A-Z0-9]+)*$")
 REQUIREMENT_ID_PATTERN = re.compile(r"^REQ-[A-Z0-9]+(?:-[A-Z0-9]+)*$")
 SOURCE_REF_PATTERN = re.compile(r"^[A-Z][A-Z0-9]+(?:-[A-Z0-9]+)*$")
+CRITERION_ID_PATTERN = re.compile(r"^CRIT-[A-Z0-9]+(?:-[A-Z0-9]+)*$")
+EVIDENCE_ID_PATTERN = re.compile(r"^EVD-[A-Z0-9]+(?:-[A-Z0-9]+)*$")
+SCENARIO_ID_PATTERN = re.compile(
+    r"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"
+)
 TASK_ID_PATTERN = re.compile(r"^XT-[0-9]{3,}$")
 OWNER_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$")
 PLAN_STATUSES = {"draft", "approved", "superseded"}
@@ -43,13 +50,58 @@ PLAN_FIELDS = {
     "superseded_by",
 }
 SOURCE_FIELDS = {"kind", "path"}
-REQUIREMENT_FIELDS = {
+REQUIREMENT_V1_FIELDS = {
     "id",
     "source_ref",
     "statement",
     "acceptance_criteria",
     "implementation_tasks",
     "acceptance_task",
+}
+REQUIREMENT_V2_FIELDS = {
+    "id",
+    "source_ref",
+    "statement",
+    "criteria",
+    "acceptance_task",
+}
+CRITERION_FIELDS = {
+    "id",
+    "statement",
+    "negative_definitions",
+    "implementation_tasks",
+    "evidence",
+}
+EVIDENCE_FIELDS = {
+    "id",
+    "producer_task",
+    "gate",
+    "level",
+    "required_scenarios",
+    "required_assertions",
+    "required_platforms",
+    "required_roles",
+    "topology",
+    "allow_skipped",
+}
+EVIDENCE_LEVELS = {
+    "unit",
+    "integration",
+    "contract",
+    "snapshot",
+    "smoke",
+    "e2e",
+    "security",
+    "reliability",
+    "performance",
+    "manual",
+}
+EVIDENCE_TOPOLOGIES = {
+    "in_process",
+    "real_process",
+    "two_process",
+    "packaged_e2e",
+    "remote_ci",
 }
 APPROVAL_FIELDS = {"approved_by", "approved_at", "content_sha256"}
 
@@ -357,13 +409,193 @@ def _depends_on(
     return False
 
 
+def _requirement_implementation_tasks(
+    requirement: dict[str, Any],
+    schema_version: int,
+) -> list[str]:
+    if schema_version == 1:
+        value = requirement.get("implementation_tasks")
+        return list(value) if isinstance(value, list) else []
+    tasks: list[str] = []
+    criteria = requirement.get("criteria")
+    if not isinstance(criteria, list):
+        return tasks
+    for criterion in criteria:
+        if not isinstance(criterion, dict):
+            continue
+        implementations = criterion.get("implementation_tasks")
+        if not isinstance(implementations, list):
+            continue
+        for task_id in implementations:
+            if isinstance(task_id, str) and task_id not in tasks:
+                tasks.append(task_id)
+    return tasks
+
+
+def _validate_evidence(
+    errors: list[str],
+    label: str,
+    raw_evidence: Any,
+    implementation_tasks: list[str],
+    gate_registry: dict[str, str],
+    seen_evidence: set[str],
+) -> None:
+    if not isinstance(raw_evidence, dict):
+        errors.append(f"{label} must be an object")
+        return
+    _reject_unknown_fields(errors, label, raw_evidence, EVIDENCE_FIELDS)
+    evidence_id = raw_evidence.get("id")
+    if (
+        not isinstance(evidence_id, str)
+        or not EVIDENCE_ID_PATTERN.fullmatch(evidence_id)
+    ):
+        errors.append(f"{label}.id must match EVD-NAME")
+    elif evidence_id in seen_evidence:
+        errors.append(f"duplicate evidence {evidence_id}")
+    else:
+        seen_evidence.add(evidence_id)
+
+    producer_task = raw_evidence.get("producer_task")
+    if (
+        not isinstance(producer_task, str)
+        or not TASK_ID_PATTERN.fullmatch(producer_task)
+    ):
+        errors.append(f"{label}.producer_task must match XT-NNN")
+    elif producer_task not in implementation_tasks:
+        errors.append(
+            f"{label}.producer_task must appear in implementation_tasks"
+        )
+
+    gate = raw_evidence.get("gate")
+    if not isinstance(gate, str) or not gate:
+        errors.append(f"{label}.gate must be a nonempty string")
+    elif gate not in gate_registry:
+        errors.append(f"{label}.gate references unregistered gate {gate}")
+
+    level = raw_evidence.get("level")
+    if level not in EVIDENCE_LEVELS:
+        errors.append(
+            f"{label}.level must be one of {sorted(EVIDENCE_LEVELS)}"
+        )
+    for field in ("required_scenarios", "required_assertions"):
+        values = _require_string_list(
+            errors,
+            f"{label}.{field}",
+            raw_evidence.get(field),
+            nonempty=True,
+        )
+        for value in values:
+            if not SCENARIO_ID_PATTERN.fullmatch(value):
+                errors.append(
+                    f"{label}.{field} contains invalid id {value}"
+                )
+    for field in ("required_platforms", "required_roles"):
+        _require_string_list(
+            errors,
+            f"{label}.{field}",
+            raw_evidence.get(field),
+            nonempty=False,
+        )
+    topology = raw_evidence.get("topology")
+    if topology not in EVIDENCE_TOPOLOGIES:
+        errors.append(
+            f"{label}.topology must be one of "
+            f"{sorted(EVIDENCE_TOPOLOGIES)}"
+        )
+    if raw_evidence.get("allow_skipped") is not False:
+        errors.append(f"{label}.allow_skipped must be false")
+
+
+def _validate_criteria(
+    errors: list[str],
+    label: str,
+    raw_criteria: Any,
+    gate_registry: dict[str, str],
+    seen_criteria: set[str],
+    seen_evidence: set[str],
+) -> list[str]:
+    if not isinstance(raw_criteria, list):
+        errors.append(f"{label} must be an array")
+        return []
+    if not raw_criteria:
+        errors.append(f"{label} must not be empty")
+    implementation_tasks: list[str] = []
+    for index, raw_criterion in enumerate(raw_criteria):
+        criterion_label = f"{label}[{index}]"
+        if not isinstance(raw_criterion, dict):
+            errors.append(f"{criterion_label} must be an object")
+            continue
+        _reject_unknown_fields(
+            errors,
+            criterion_label,
+            raw_criterion,
+            CRITERION_FIELDS,
+        )
+        criterion_id = raw_criterion.get("id")
+        if (
+            not isinstance(criterion_id, str)
+            or not CRITERION_ID_PATTERN.fullmatch(criterion_id)
+        ):
+            errors.append(f"{criterion_label}.id must match CRIT-NAME")
+        elif criterion_id in seen_criteria:
+            errors.append(f"duplicate criterion {criterion_id}")
+        else:
+            seen_criteria.add(criterion_id)
+        _require_nonempty_string(
+            errors,
+            f"{criterion_label}.statement",
+            raw_criterion.get("statement"),
+        )
+        _require_string_list(
+            errors,
+            f"{criterion_label}.negative_definitions",
+            raw_criterion.get("negative_definitions"),
+            nonempty=True,
+        )
+        implementations = _require_string_list(
+            errors,
+            f"{criterion_label}.implementation_tasks",
+            raw_criterion.get("implementation_tasks"),
+            nonempty=True,
+        )
+        for task_id in implementations:
+            if not TASK_ID_PATTERN.fullmatch(task_id):
+                errors.append(
+                    f"{criterion_label}.implementation_tasks contains "
+                    f"invalid task {task_id}"
+                )
+            elif task_id not in implementation_tasks:
+                implementation_tasks.append(task_id)
+        evidence = raw_criterion.get("evidence")
+        if not isinstance(evidence, list):
+            errors.append(f"{criterion_label}.evidence must be an array")
+            continue
+        if not evidence:
+            errors.append(f"{criterion_label}.evidence must not be empty")
+        for evidence_index, raw_evidence in enumerate(evidence):
+            _validate_evidence(
+                errors,
+                f"{criterion_label}.evidence[{evidence_index}]",
+                raw_evidence,
+                implementations,
+                gate_registry,
+                seen_evidence,
+            )
+    return implementation_tasks
+
+
 def _plan_task_mappings(
     errors: list[str],
     plan_id: str,
     requirements: list[Any],
+    schema_version: int = 1,
+    gate_registry: dict[str, str] | None = None,
 ) -> dict[str, dict[str, set[str]]]:
     mappings: dict[str, dict[str, set[str]]] = {}
     seen_requirements: set[str] = set()
+    seen_criteria: set[str] = set()
+    seen_evidence: set[str] = set()
+    trusted_gates = gate_registry or {}
     for index, raw_requirement in enumerate(requirements):
         label = f"{plan_id}.requirements[{index}]"
         if not isinstance(raw_requirement, dict):
@@ -373,7 +605,11 @@ def _plan_task_mappings(
             errors,
             label,
             raw_requirement,
-            REQUIREMENT_FIELDS,
+            (
+                REQUIREMENT_V1_FIELDS
+                if schema_version == 1
+                else REQUIREMENT_V2_FIELDS
+            ),
         )
         requirement_id = raw_requirement.get("id")
         if not isinstance(requirement_id, str) or not REQUIREMENT_ID_PATTERN.fullmatch(
@@ -393,18 +629,28 @@ def _plan_task_mappings(
         _require_nonempty_string(
             errors, f"{label}.statement", raw_requirement.get("statement")
         )
-        _require_string_list(
-            errors,
-            f"{label}.acceptance_criteria",
-            raw_requirement.get("acceptance_criteria"),
-            nonempty=True,
-        )
-        implementation_tasks = _require_string_list(
-            errors,
-            f"{label}.implementation_tasks",
-            raw_requirement.get("implementation_tasks"),
-            nonempty=True,
-        )
+        if schema_version == 1:
+            _require_string_list(
+                errors,
+                f"{label}.acceptance_criteria",
+                raw_requirement.get("acceptance_criteria"),
+                nonempty=True,
+            )
+            implementation_tasks = _require_string_list(
+                errors,
+                f"{label}.implementation_tasks",
+                raw_requirement.get("implementation_tasks"),
+                nonempty=True,
+            )
+        else:
+            implementation_tasks = _validate_criteria(
+                errors,
+                f"{label}.criteria",
+                raw_requirement.get("criteria"),
+                trusted_gates,
+                seen_criteria,
+                seen_evidence,
+            )
         acceptance_task = raw_requirement.get("acceptance_task")
         if not isinstance(acceptance_task, str) or not TASK_ID_PATTERN.fullmatch(
             acceptance_task
@@ -472,6 +718,14 @@ def validate_repository(
     errors.extend(load_errors)
     if plan_overrides:
         plans.update(copy.deepcopy(plan_overrides))
+    gate_registry: dict[str, str] = {}
+    if any(plan.get("schema_version") == 2 for plan in plans.values()):
+        try:
+            gate_registry = load_gate_registry(
+                root / ".agents" / "manifest.yaml"
+            )
+        except GateRegistryError as error:
+            errors.append(str(error))
 
     cycle = _find_cycle(tasks)
     if cycle:
@@ -496,8 +750,10 @@ def validate_repository(
                 f"{label} must be stored as {plan_id}.json, not "
                 f"{plan_path.name}"
             )
-        if plan.get("schema_version") != 1:
-            errors.append(f"{label}.schema_version must be 1")
+        schema_version = plan.get("schema_version")
+        if schema_version not in {1, 2}:
+            errors.append(f"{label}.schema_version must be 1 or 2")
+            schema_version = 1
         _require_nonempty_string(errors, f"{label}.title", plan.get("title"))
         status = plan.get("status")
         if status not in PLAN_STATUSES:
@@ -547,7 +803,13 @@ def validate_repository(
             requirements = []
         if status == "approved" and not requirements:
             errors.append(f"{label}.requirements must not be empty when approved")
-        mappings = _plan_task_mappings(errors, plan_id, requirements)
+        mappings = _plan_task_mappings(
+            errors,
+            plan_id,
+            requirements,
+            schema_version,
+            gate_registry,
+        )
         plan_mappings[plan_id] = mappings
 
         for requirement in requirements:
@@ -644,7 +906,10 @@ def validate_repository(
                     continue
                 requirement_id = requirement.get("id", "<invalid>")
                 acceptance_task = requirement.get("acceptance_task")
-                implementations = requirement.get("implementation_tasks", [])
+                implementations = _requirement_implementation_tasks(
+                    requirement,
+                    schema_version,
+                )
                 if not isinstance(acceptance_task, str) or acceptance_task not in tasks:
                     continue
                 if not isinstance(implementations, list):
@@ -863,7 +1128,22 @@ def validate_registration(
     if not isinstance(requirements, list):
         return errors + [f"{plan_id}.requirements must be an array"]
     mapping_errors: list[str] = []
-    mappings = _plan_task_mappings(mapping_errors, plan_id, requirements)
+    schema_version = plan.get("schema_version")
+    gate_registry: dict[str, str] = {}
+    if schema_version == 2:
+        try:
+            gate_registry = load_gate_registry(
+                root / ".agents" / "manifest.yaml"
+            )
+        except GateRegistryError as error:
+            errors.append(str(error))
+    mappings = _plan_task_mappings(
+        mapping_errors,
+        plan_id,
+        requirements,
+        schema_version if schema_version in {1, 2} else 1,
+        gate_registry,
+    )
     errors.extend(mapping_errors)
     expected = mappings.get(task_id)
     if expected is None:
@@ -925,11 +1205,15 @@ def _scheduled_state(
 def _requirement_state(
     requirement: dict[str, Any],
     states: dict[str, str],
+    schema_version: int = 1,
 ) -> str:
     acceptance_task = requirement["acceptance_task"]
     if states[acceptance_task] == "done":
         return "accepted"
-    implementations = requirement["implementation_tasks"]
+    implementations = _requirement_implementation_tasks(
+        requirement,
+        schema_version,
+    )
     implementation_states = [states[task_id] for task_id in implementations]
     if all(state == "done" for state in implementation_states):
         return "acceptance-ready"
@@ -960,11 +1244,17 @@ def render_status_view(root: Path, plan_id: str) -> str:
     requirements = plan.get("requirements")
     if not isinstance(requirements, list):
         raise DeliveryPlanError(f"{plan_id}.requirements must be an array")
+    schema_version = plan.get("schema_version")
+    if schema_version not in {1, 2}:
+        raise DeliveryPlanError(f"{plan_id}.schema_version must be 1 or 2")
     mapped_task_ids = {
         task_id
         for requirement in requirements
         for task_id in (
-            list(requirement["implementation_tasks"])
+            _requirement_implementation_tasks(
+                requirement,
+                schema_version,
+            )
             + [requirement["acceptance_task"]]
         )
     }
@@ -977,7 +1267,11 @@ def render_status_view(root: Path, plan_id: str) -> str:
         for task_id in sorted(mapped_task_ids, key=_task_sort_key)
     }
     requirement_states = {
-        requirement["id"]: _requirement_state(requirement, states)
+        requirement["id"]: _requirement_state(
+            requirement,
+            states,
+            schema_version,
+        )
         for requirement in requirements
     }
 
@@ -1012,7 +1306,12 @@ def render_status_view(root: Path, plan_id: str) -> str:
     ]
     for requirement in requirements:
         requirement_id = requirement["id"]
-        implementations = ", ".join(requirement["implementation_tasks"])
+        implementations = ", ".join(
+            _requirement_implementation_tasks(
+                requirement,
+                schema_version,
+            )
+        )
         lines.append(
             "| "
             + " | ".join(
@@ -1145,12 +1444,20 @@ def approve_plan(root: Path, plan_id: str, approved_by: str) -> None:
         "content_sha256": approval_digest(candidate_plan),
     }
     candidate_backlog = copy.deepcopy(backlog_document)
+    schema_version = candidate_plan.get("schema_version")
+    if schema_version not in {1, 2}:
+        raise DeliveryPlanError(
+            f"{plan_id}.schema_version must be 1 or 2"
+        )
     referenced = {
         task_id
         for requirement in candidate_plan.get("requirements", [])
         if isinstance(requirement, dict)
         for task_id in (
-            list(requirement.get("implementation_tasks", []))
+            _requirement_implementation_tasks(
+                requirement,
+                schema_version,
+            )
             + [requirement.get("acceptance_task")]
         )
         if isinstance(task_id, str)

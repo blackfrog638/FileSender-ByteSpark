@@ -37,6 +37,9 @@ class DeliveryPlanTest(unittest.TestCase):
 delivery_plans:
   directory: .agents/plans
   required_from_task: XT-064
+commands:
+  verify: make verify
+  native_test: make native-test
 """,
             encoding="utf-8",
         )
@@ -211,6 +214,41 @@ Exercise one complete planning contract.
             any(text in error for error in errors),
             f"missing {text!r} in {errors!r}",
         )
+
+    def upgrade_plan_to_v2(self) -> None:
+        requirement = self.plan["requirements"][0]
+        assert isinstance(requirement, dict)
+        requirement.pop("acceptance_criteria")
+        requirement.pop("implementation_tasks")
+        requirement["criteria"] = [
+            {
+                "id": "CRIT-P1-TRANSFER-EXACT-BYTES",
+                "statement": "The receiver commits exactly the offered bytes.",
+                "negative_definitions": [
+                    "A transfer that commits before integrity verification fails."
+                ],
+                "implementation_tasks": ["XT-064"],
+                "evidence": [
+                    {
+                        "id": "EVD-P1-TRANSFER-NATIVE",
+                        "producer_task": "XT-064",
+                        "gate": "native_test",
+                        "level": "integration",
+                        "required_scenarios": ["transfer.explicit_accept"],
+                        "required_assertions": ["destination.exact_bytes"],
+                        "required_platforms": [],
+                        "required_roles": ["sender", "receiver"],
+                        "topology": "two_process",
+                        "allow_skipped": False,
+                    }
+                ],
+            }
+        ]
+        self.plan["schema_version"] = 2
+        self.plan["approval"]["content_sha256"] = delivery_plan.approval_digest(
+            self.plan
+        )
+        self.flush()
 
     def test_valid_plan_and_claim_dependency_gate(self) -> None:
         self.assertEqual(delivery_plan.validate_repository(self.root), [])
@@ -433,6 +471,113 @@ Exercise one complete planning contract.
         document = json.loads(destination.read_text(encoding="utf-8"))
         self.assertEqual(document["status"], "draft")
         self.assertEqual(document["requirements"], [])
+
+    def test_schema_v2_criteria_drive_mapping_and_status(self) -> None:
+        self.upgrade_plan_to_v2()
+
+        self.assertEqual(delivery_plan.validate_repository(self.root), [])
+        self.assertEqual(
+            delivery_plan.validate_registration(
+                self.root,
+                "XT-064",
+                "DP-P1-TRANSFER",
+                ["REQ-P1-TRANSFER"],
+                "implementation",
+            ),
+            [],
+        )
+        view = delivery_plan.render_status_view(self.root, "DP-P1-TRANSFER")
+        self.assertIn(
+            "| REQ-P1-TRANSFER | planned | XT-065 | XT-064 |",
+            view,
+        )
+
+    def test_schema_v2_rejects_duplicate_criterion_ids(self) -> None:
+        self.upgrade_plan_to_v2()
+        criterion = self.plan["requirements"][0]["criteria"][0]
+        self.plan["requirements"][0]["criteria"].append(copy.deepcopy(criterion))
+        self.plan["approval"]["content_sha256"] = delivery_plan.approval_digest(
+            self.plan
+        )
+        self.flush()
+
+        self.assert_error("duplicate criterion CRIT-P1-TRANSFER-EXACT-BYTES")
+
+    def test_schema_v2_requires_negative_definitions(self) -> None:
+        self.upgrade_plan_to_v2()
+        self.plan["requirements"][0]["criteria"][0][
+            "negative_definitions"
+        ] = []
+        self.plan["approval"]["content_sha256"] = delivery_plan.approval_digest(
+            self.plan
+        )
+        self.flush()
+
+        self.assert_error("negative_definitions must not be empty")
+
+    def test_schema_v2_rejects_skipped_or_untrusted_evidence(self) -> None:
+        self.upgrade_plan_to_v2()
+        evidence = self.plan["requirements"][0]["criteria"][0]["evidence"][0]
+        evidence["allow_skipped"] = True
+        evidence["gate"] = "task_authored_shell"
+        self.plan["approval"]["content_sha256"] = delivery_plan.approval_digest(
+            self.plan
+        )
+        self.flush()
+
+        errors = delivery_plan.validate_repository(self.root)
+        self.assertTrue(any("allow_skipped must be false" in error for error in errors))
+        self.assertTrue(any("unregistered gate" in error for error in errors))
+
+    def test_schema_v2_evidence_producer_must_implement_criterion(self) -> None:
+        self.upgrade_plan_to_v2()
+        evidence = self.plan["requirements"][0]["criteria"][0]["evidence"][0]
+        evidence["producer_task"] = "XT-065"
+        self.plan["approval"]["content_sha256"] = delivery_plan.approval_digest(
+            self.plan
+        )
+        self.flush()
+
+        self.assert_error("producer_task must appear in implementation_tasks")
+
+    def test_schema_v2_negative_definition_is_approval_semantics(self) -> None:
+        self.upgrade_plan_to_v2()
+        self.plan["requirements"][0]["criteria"][0][
+            "negative_definitions"
+        ][0] = "Changed after approval."
+        self.flush()
+
+        self.assert_error("content_sha256 does not bind plan content")
+
+    def test_schema_v2_approval_updates_criterion_tasks(self) -> None:
+        self.upgrade_plan_to_v2()
+        self.plan["status"] = "draft"
+        self.plan["approval"] = {
+            "approved_by": "",
+            "approved_at": "",
+            "content_sha256": "",
+        }
+        self.tasks[1]["readiness"] = "blocked"
+        self.tasks[2]["readiness"] = "blocked"
+        self.flush()
+
+        delivery_plan.approve_plan(
+            self.root,
+            "DP-P1-TRANSFER",
+            "integration-owner",
+        )
+
+        backlog = json.loads(
+            (self.root / ".agents" / "backlog.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        readiness = {
+            task["id"]: task["readiness"] for task in backlog["tasks"]
+        }
+        self.assertEqual(readiness["XT-064"], "ready")
+        self.assertEqual(readiness["XT-065"], "ready")
+        self.assertEqual(delivery_plan.validate_repository(self.root), [])
 
 
 if __name__ == "__main__":

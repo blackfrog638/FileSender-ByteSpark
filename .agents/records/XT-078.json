@@ -8,10 +8,10 @@
   ],
   "delivery_role": "implementation",
   "task_type": "governance",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "tdd-contract-agent",
+  "base_sha": "80f6b4accffafaa61a1fd19c632ade6961f913d2",
+  "head_sha": "d49973c7df60c4d8caedfeddb5862e127eeff83a",
   "handoff": ".agents/handoffs/XT-078.md",
   "commit": {
     "type": "ci",
@@ -106,12 +106,31 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "80f6b4accffafaa61a1fd19c632ade6961f913d2",
+    "source_head": "c3225c70bd9d22c2fbaac83283c992d06553180f",
+    "source_commits": [
+      "24927f71e0da81fb459ade16de27858389f61acb",
+      "6ff7f6646e5972e640ad7ac7c54e0abe84d17de5",
+      "9edf2a70af57419cead49767dc7d26c5dfddb5bb",
+      "6063e6460a43bfde935ea9b05e088e576d8cd1c7",
+      "a2cebf24aa39537bcf93736a0937c4c68241dc2e",
+      "8ad628683e3bb8a44b197110b1e1c240b6913de9",
+      "5b3a20d2ec33aba6b06a18d42b54a3269f9c0d02",
+      "472b333d9525b42178cd9ff3e8894ffda9c6667f",
+      "d37c349fa1cf553ca383681f3943b26f10ce9b93",
+      "2e7d7433fb89e37c6a090a88b160412ddcd1c574",
+      "d49973c7df60c4d8caedfeddb5862e127eeff83a",
+      "c3225c70bd9d22c2fbaac83283c992d06553180f"
+    ],
+    "source_commits_sha256": "d399445b2573f712c8cf1b3fb3c495422e031afec47b17bfd4339159c3d0448f",
+    "source_patch_id": "aa9bd4329f1ad7eb2cee2af7521cdcc0f015c54c",
+    "result": "",
+    "result_patch_id": "aa9bd4329f1ad7eb2cee2af7521cdcc0f015c54c",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "delivery_plan_test",
       "governance_test",
@@ -122,7 +141,7 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:d49973c7df60c4d8caedfeddb5862e127eeff83a:2026-08-10T19:14:34Z"
   },
   "acceptance": {
     "accepted_by": "",
