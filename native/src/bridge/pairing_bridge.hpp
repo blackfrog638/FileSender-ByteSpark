@@ -127,6 +127,22 @@ class PairingBridge final {
     return XNN_TRANSFER_STATUS_OK;
   }
 
+  [[nodiscard]] xnn_transfer_status ResolveActiveTrust(
+      const std::uint64_t trust_id,
+      core::security::identity::DeviceId* const out_device_id) const {
+    if (trust_id == 0 || out_device_id == nullptr) {
+      return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+    }
+
+    const std::scoped_lock lock(mutex_);
+    const TrustEntry* const entry = FindTrust(trust_id);
+    if (entry == nullptr || entry->state != XNN_TRANSFER_TRUST_STATE_ACTIVE) {
+      return XNN_TRANSFER_STATUS_STALE_HANDLE;
+    }
+    *out_device_id = entry->device_id;
+    return XNN_TRANSFER_STATUS_OK;
+  }
+
   /*
    * The native network/session owner calls Apply after serializing one XT-025
    * update. attempt is cached before XT-025 invalidates its terminal handle.

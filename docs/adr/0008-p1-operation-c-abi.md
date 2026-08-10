@@ -91,10 +91,44 @@ session, SAS, identity, transcript, or trust result. The C ABI remains usable
 by the native session/network owner once that owner supplies the completed
 XT-025 attempt updates.
 
-XT-030 and XT-037 may extend this accepted pattern only with integration-owner
-review and ABI regression tests. They must preserve lifecycle symbols, copied
-payloads, opaque native-selected identifiers, bounded pagination, explicit
-overflow, and shutdown barriers.
+The one-file transfer extension preserves that boundary:
+
+- Outgoing send accepts an active process-local `trust_id` and a nonempty
+  platform path copied from at most 1024 inline bytes. It does not accept a
+  discovery peer, endpoint, identity value, protocol frame, file size, or
+  transfer ID selected by Dart. The path is never included in events.
+- A native-selected nonzero 128-bit transfer ID identifies one bridge record.
+  Unknown, stale, terminal, and reused IDs cannot target another transfer.
+- Incoming offers are created only by the authenticated native transport
+  owner. Their events expose the opaque transfer ID, a bounded authenticated
+  peer label, and validated one-file size; no remote relative path, local
+  destination path, endpoint, key, certificate, or frame crosses the ABI.
+- Progress is a native observation projected as monotonic transferred bytes
+  no greater than the validated total. Completion requires equality. Terminal
+  state is immutable, and public errors collapse native parser, storage,
+  transport, and policy details to a fixed enum.
+- The bridge retains at most 256 transfer records. Transfer snapshots use
+  fixed four-record pages and the common revision/stale-retry protocol. A
+  dropped queue event requires Dart to reconcile transfer state along with
+  discovery, pairing, and trust state.
+- Engine stop first closes the transfer update sink, withdraws pending offers,
+  projects active records as cancelled, invokes the native backend shutdown
+  barrier, and only then continues session and discovery teardown.
+- The Dart adapter copies transfer IDs and labels, maintains opaque-ID
+  command routing, and maps native status values to stable application error
+  codes. Pause and resume return `unsupported_operation` because the native
+  one-file state machine has no such command.
+
+The production transfer backend remains fail-closed until XT-037 provides the
+authenticated transport, frame-publication, and file-I/O owner. Send, accept,
+reject, and cancel return `UNAVAILABLE` when no such owner has supplied the
+corresponding transfer. The bridge does not manufacture progress, completion,
+or network behavior.
+
+XT-037 may extend this accepted pattern only with integration-owner review and
+ABI regression tests. It must preserve lifecycle symbols, copied payloads,
+opaque native-selected identifiers, bounded pagination, explicit overflow,
+and shutdown barriers.
 
 ## Consequences
 
@@ -108,3 +142,6 @@ overflow, and shutdown barriers.
 - Pairing presentation can compare and decide one native ceremony but cannot
   construct one. End-to-end pairing still depends on a production connection
   dispatcher that consumes the XT-025 session API.
+- Transfer presentation can issue one-file commands and recover bounded
+  progress state, while actual authenticated transport and file I/O remain
+  native responsibilities.

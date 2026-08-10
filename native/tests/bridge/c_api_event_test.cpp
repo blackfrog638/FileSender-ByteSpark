@@ -11,6 +11,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -18,9 +19,11 @@
 #include "../../src/bridge/discovery_bridge.hpp"
 #include "../../src/bridge/event_channel.hpp"
 #include "../../src/bridge/pairing_bridge.hpp"
+#include "../../src/bridge/transfer_bridge.hpp"
 #include "xnn_transfer/c_api.h"
 #include "xnn_transfer/core/discovery/discovery.hpp"
 #include "xnn_transfer/core/session/session.hpp"
+#include "xnn_transfer/core/transfer/transfer.hpp"
 
 namespace {
 
@@ -28,6 +31,7 @@ using namespace std::chrono_literals;
 namespace identity = xnn_transfer::core::security::identity;
 namespace session = xnn_transfer::core::session;
 namespace tls = xnn_transfer::core::security::tls;
+namespace transfer = xnn_transfer::core::transfer;
 
 static_assert(sizeof(std::size_t) == 8);
 static_assert(sizeof(xnn_transfer_discovery_config) == 120);
@@ -47,6 +51,12 @@ static_assert(sizeof(xnn_transfer_trust_snapshot_page) == 360);
 static_assert(sizeof(xnn_transfer_pairing_attempt_event_payload) <=
               XNN_TRANSFER_EVENT_PAYLOAD_MAX_SIZE);
 static_assert(sizeof(xnn_transfer_trust_event_payload) <=
+              XNN_TRANSFER_EVENT_PAYLOAD_MAX_SIZE);
+static_assert(sizeof(xnn_transfer_transfer_send_request) == 1'056);
+static_assert(sizeof(xnn_transfer_transfer_ref) == 32);
+static_assert(sizeof(xnn_transfer_transfer_event_payload) == 176);
+static_assert(sizeof(xnn_transfer_transfer_snapshot_page) == 744);
+static_assert(sizeof(xnn_transfer_transfer_event_payload) <=
               XNN_TRANSFER_EVENT_PAYLOAD_MAX_SIZE);
 
 int failures = 0;
@@ -151,6 +161,41 @@ xnn_transfer_trust_snapshot_page EmptyTrustSnapshotPage() {
       .struct_size = sizeof(xnn_transfer_trust_snapshot_page),
       .abi_version = XNN_TRANSFER_ABI_VERSION,
   };
+}
+
+xnn_transfer_transfer_send_request TransferSendRequest(const std::uint64_t trust_id,
+                                                       const std::string_view path) {
+  xnn_transfer_transfer_send_request request{
+      .struct_size = sizeof(xnn_transfer_transfer_send_request),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+      .trust_id = trust_id,
+      .path_size = static_cast<std::uint32_t>(path.size()),
+  };
+  std::copy(path.begin(), path.end(), request.path);
+  return request;
+}
+
+xnn_transfer_transfer_ref TransferRef(const std::uint8_t value) {
+  xnn_transfer_transfer_ref transfer_ref{
+      .struct_size = sizeof(xnn_transfer_transfer_ref),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+  };
+  std::fill(std::begin(transfer_ref.transfer_id), std::end(transfer_ref.transfer_id),
+            value);
+  return transfer_ref;
+}
+
+xnn_transfer_transfer_snapshot_page EmptyTransferSnapshotPage() {
+  return xnn_transfer_transfer_snapshot_page{
+      .struct_size = sizeof(xnn_transfer_transfer_snapshot_page),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+  };
+}
+
+transfer::TransferId TransferId(const std::uint8_t value) {
+  transfer::TransferId transfer_id{};
+  transfer_id.fill(value);
+  return transfer_id;
 }
 
 xnn_transfer::core::discovery::CandidateEvent MakeCandidateEvent(
@@ -595,6 +640,11 @@ struct ReentrantUnregisterContext {
   xnn_transfer_status pairing_revoke_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   xnn_transfer_status pairing_snapshot_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   xnn_transfer_status trust_snapshot_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status transfer_send_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status transfer_accept_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status transfer_reject_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status transfer_cancel_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  xnn_transfer_status transfer_snapshot_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   xnn_transfer_status unregister_status = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   int calls = 0;
 };
@@ -636,6 +686,19 @@ void PollAndUnregister(void* const user_data) {
   xnn_transfer_trust_snapshot_page trust_page = EmptyTrustSnapshotPage();
   context->trust_snapshot_status =
       xnn_transfer_trust_get_snapshot(context->engine, 0, 0, &trust_page);
+  xnn_transfer_transfer_send_request send = TransferSendRequest(1, "/tmp/file");
+  xnn_transfer_transfer_ref transfer_ref = TransferRef(1);
+  context->transfer_send_status =
+      xnn_transfer_transfer_send(context->engine, &send, &transfer_ref);
+  context->transfer_accept_status =
+      xnn_transfer_transfer_accept(context->engine, &transfer_ref);
+  context->transfer_reject_status =
+      xnn_transfer_transfer_reject(context->engine, &transfer_ref);
+  context->transfer_cancel_status =
+      xnn_transfer_transfer_cancel(context->engine, &transfer_ref);
+  xnn_transfer_transfer_snapshot_page transfer_page = EmptyTransferSnapshotPage();
+  context->transfer_snapshot_status =
+      xnn_transfer_transfer_get_snapshot(context->engine, 0, 0, &transfer_page);
   context->unregister_status =
       xnn_transfer_engine_set_event_callback(context->engine, nullptr);
 }
@@ -686,6 +749,16 @@ void TestDocumentedCallbackReentrancy() {
          "callback may not reenter pairing snapshot");
   Expect(context.trust_snapshot_status == XNN_TRANSFER_STATUS_INVALID_STATE,
          "callback may not reenter trust snapshot");
+  Expect(context.transfer_send_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter transfer send");
+  Expect(context.transfer_accept_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter transfer acceptance");
+  Expect(context.transfer_reject_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter transfer rejection");
+  Expect(context.transfer_cancel_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter transfer cancellation");
+  Expect(context.transfer_snapshot_status == XNN_TRANSFER_STATUS_INVALID_STATE,
+         "callback may not reenter transfer snapshot");
   Expect(context.unregister_status == XNN_TRANSFER_STATUS_OK,
          "reentrant unregister does not deadlock");
 
@@ -940,6 +1013,131 @@ void TestPairingAbiValidationAndLifecycle() {
   Expect(xnn_transfer_pairing_confirm(engine, &attempt) ==
              XNN_TRANSFER_STATUS_INVALID_STATE,
          "pairing decisions are closed after shutdown");
+  xnn_transfer_engine_destroy(engine);
+}
+
+void TestTransferAbiValidationAndLifecycle() {
+  xnn_transfer_engine* const engine = CreateEngine();
+  if (engine == nullptr) {
+    return;
+  }
+
+  xnn_transfer_transfer_send_request send = TransferSendRequest(1, "/tmp/file");
+  xnn_transfer_transfer_ref output = TransferRef(0);
+  Expect(xnn_transfer_transfer_send(engine, &send, &output) ==
+             XNN_TRANSFER_STATUS_INVALID_STATE,
+         "transfer send requires a running engine");
+
+  send.struct_size = offsetof(xnn_transfer_transfer_send_request, path);
+  Expect(xnn_transfer_transfer_send(engine, &send, &output) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "transfer send rejects a short request");
+  send = TransferSendRequest(1, "/tmp/file");
+  send.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_transfer_send(engine, &send, &output) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "transfer send rejects an unsupported request ABI");
+  send = TransferSendRequest(1, "/tmp/file");
+  send.reserved = 1;
+  Expect(xnn_transfer_transfer_send(engine, &send, &output) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "transfer send rejects reserved input");
+  send = TransferSendRequest(0, "/tmp/file");
+  Expect(xnn_transfer_transfer_send(engine, &send, &output) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "transfer send rejects a zero trust ID");
+  send = TransferSendRequest(1, "/tmp/file");
+  send.path_size = 0;
+  Expect(xnn_transfer_transfer_send(engine, &send, &output) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "transfer send rejects an empty path");
+  send = TransferSendRequest(1, "/tmp/file");
+  send.path_size = XNN_TRANSFER_TRANSFER_PATH_MAX_SIZE + 1;
+  Expect(xnn_transfer_transfer_send(engine, &send, &output) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "transfer send rejects an oversized path");
+
+  send = TransferSendRequest(1, "/tmp/file");
+  output = TransferRef(0);
+  output.struct_size = offsetof(xnn_transfer_transfer_ref, transfer_id);
+  Expect(xnn_transfer_transfer_send(engine, &send, &output) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "transfer send rejects a short output");
+  output = TransferRef(0);
+  output.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_transfer_send(engine, &send, &output) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "transfer send rejects an unsupported output ABI");
+
+  xnn_transfer_transfer_ref transfer_ref = TransferRef(1);
+  transfer_ref.struct_size = offsetof(xnn_transfer_transfer_ref, transfer_id);
+  Expect(xnn_transfer_transfer_accept(engine, &transfer_ref) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "transfer acceptance rejects a short ref");
+  transfer_ref = TransferRef(1);
+  transfer_ref.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_transfer_reject(engine, &transfer_ref) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "transfer rejection rejects an unsupported ref ABI");
+  transfer_ref = TransferRef(1);
+  transfer_ref.reserved = 1;
+  Expect(xnn_transfer_transfer_cancel(engine, &transfer_ref) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "transfer cancellation rejects reserved input");
+  transfer_ref = TransferRef(0);
+  Expect(xnn_transfer_transfer_accept(engine, &transfer_ref) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "transfer commands reject a zero transfer ID");
+
+  xnn_transfer_transfer_snapshot_page page = EmptyTransferSnapshotPage();
+  page.struct_size = offsetof(xnn_transfer_transfer_snapshot_page, records);
+  Expect(xnn_transfer_transfer_get_snapshot(engine, 0, 0, &page) ==
+             XNN_TRANSFER_STATUS_INVALID_ARGUMENT,
+         "transfer snapshot rejects a short output");
+  page = EmptyTransferSnapshotPage();
+  page.abi_version = XNN_TRANSFER_ABI_VERSION + 1;
+  Expect(xnn_transfer_transfer_get_snapshot(engine, 0, 0, &page) ==
+             XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI,
+         "transfer snapshot rejects an unsupported ABI");
+  page = EmptyTransferSnapshotPage();
+  Expect(xnn_transfer_transfer_get_snapshot(engine, 0, 0, &page) ==
+             XNN_TRANSFER_STATUS_INVALID_STATE,
+         "transfer snapshot is unavailable before engine start");
+
+  Expect(xnn_transfer_engine_start(engine) == XNN_TRANSFER_STATUS_OK,
+         "engine starts before transfer commands");
+  send = TransferSendRequest(1, "/tmp/file");
+  output = TransferRef(0);
+  Expect(xnn_transfer_transfer_send(engine, &send, &output) ==
+             XNN_TRANSFER_STATUS_STALE_HANDLE,
+         "transfer send requires an active opaque trust ID");
+  transfer_ref = TransferRef(1);
+  Expect(xnn_transfer_transfer_accept(engine, &transfer_ref) ==
+             XNN_TRANSFER_STATUS_STALE_HANDLE,
+         "transfer acceptance rejects a stale ID");
+  Expect(xnn_transfer_transfer_reject(engine, &transfer_ref) ==
+             XNN_TRANSFER_STATUS_STALE_HANDLE,
+         "transfer rejection rejects a stale ID");
+  Expect(xnn_transfer_transfer_cancel(engine, &transfer_ref) ==
+             XNN_TRANSFER_STATUS_STALE_HANDLE,
+         "transfer cancellation rejects a stale ID");
+
+  page = EmptyTransferSnapshotPage();
+  Expect(
+      xnn_transfer_transfer_get_snapshot(engine, 0, 0, &page) == XNN_TRANSFER_STATUS_OK,
+      "transfer snapshot returns a bounded empty page");
+  Expect(page.snapshot_revision != 0 && page.count == 0 && page.total_count == 0,
+         "transfer snapshot starts without records");
+
+  Expect(xnn_transfer_engine_stop(engine) == XNN_TRANSFER_STATUS_OK,
+         "engine shutdown closes transfer commands");
+  Expect(xnn_transfer_transfer_cancel(engine, &transfer_ref) ==
+             XNN_TRANSFER_STATUS_INVALID_STATE,
+         "transfer commands stay closed after shutdown");
+  page = EmptyTransferSnapshotPage();
+  Expect(
+      xnn_transfer_transfer_get_snapshot(engine, 0, 0, &page) == XNN_TRANSFER_STATUS_OK,
+      "stopped engine retains transfer snapshot recovery");
   xnn_transfer_engine_destroy(engine);
 }
 
@@ -1286,6 +1484,565 @@ void TestPairingTrustPaginationAndOverflow() {
          "pairing overflow drops oldest and requires snapshot recovery");
 }
 
+class FakeTransferBackend final : public xnn_transfer::bridge::TransferBackend {
+ public:
+  xnn_transfer::bridge::TransferStartResult Send(
+      const identity::DeviceId& device_id, const std::span<const std::uint8_t> path,
+      const std::uint64_t now_ms) override {
+    sent_device = device_id;
+    sent_path.assign(path.begin(), path.end());
+    sent_at_ms = now_ms;
+    ++send_calls;
+    return send_result;
+  }
+
+  xnn_transfer_status Accept(const transfer::TransferId& transfer_id,
+                             const std::uint64_t now_ms) override {
+    accepted_id = transfer_id;
+    accepted_at_ms = now_ms;
+    ++accept_calls;
+    return accept_status;
+  }
+
+  xnn_transfer_status Reject(const transfer::TransferId& transfer_id,
+                             const std::uint64_t now_ms) override {
+    rejected_id = transfer_id;
+    rejected_at_ms = now_ms;
+    ++reject_calls;
+    return reject_status;
+  }
+
+  xnn_transfer_status Cancel(const transfer::TransferId& transfer_id,
+                             const std::uint64_t now_ms) override {
+    cancelled_id = transfer_id;
+    cancelled_at_ms = now_ms;
+    ++cancel_calls;
+    return cancel_status;
+  }
+
+  void Shutdown() override { ++shutdown_calls; }
+
+  xnn_transfer::bridge::TransferStartResult send_result{};
+  xnn_transfer_status accept_status{XNN_TRANSFER_STATUS_OK};
+  xnn_transfer_status reject_status{XNN_TRANSFER_STATUS_OK};
+  xnn_transfer_status cancel_status{XNN_TRANSFER_STATUS_OK};
+  identity::DeviceId sent_device{};
+  std::vector<std::uint8_t> sent_path;
+  transfer::TransferId accepted_id{};
+  transfer::TransferId rejected_id{};
+  transfer::TransferId cancelled_id{};
+  std::uint64_t sent_at_ms{};
+  std::uint64_t accepted_at_ms{};
+  std::uint64_t rejected_at_ms{};
+  std::uint64_t cancelled_at_ms{};
+  int send_calls{};
+  int accept_calls{};
+  int reject_calls{};
+  int cancel_calls{};
+  int shutdown_calls{};
+};
+
+std::optional<xnn_transfer_transfer_event_payload> ReadTransferEvent(
+    const xnn_transfer_event& event) {
+  if (event.type != XNN_TRANSFER_EVENT_TYPE_TRANSFER_CHANGED ||
+      event.payload_version != XNN_TRANSFER_TRANSFER_EVENT_PAYLOAD_VERSION ||
+      event.payload_size != sizeof(xnn_transfer_transfer_event_payload)) {
+    return std::nullopt;
+  }
+  xnn_transfer_transfer_event_payload payload{};
+  std::memcpy(&payload, event.payload, sizeof(payload));
+  if (payload.struct_size != sizeof(payload) ||
+      payload.abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return std::nullopt;
+  }
+  return payload;
+}
+
+struct TransferCallbackContext {
+  xnn_transfer::bridge::EventChannel* channel{};
+  std::vector<xnn_transfer_transfer_event_payload> payloads;
+  int calls{};
+};
+
+void DrainTransferOnWakeup(void* const user_data) {
+  auto* const context = static_cast<TransferCallbackContext*>(user_data);
+  ++context->calls;
+  for (;;) {
+    xnn_transfer_event event = EmptyEvent();
+    const xnn_transfer_status status = context->channel->Poll(&event);
+    if (status == XNN_TRANSFER_STATUS_EVENT_QUEUE_EMPTY) {
+      return;
+    }
+    if (status != XNN_TRANSFER_STATUS_OK) {
+      ++failures;
+      return;
+    }
+    const auto payload = ReadTransferEvent(event);
+    if (!payload.has_value()) {
+      ++failures;
+      return;
+    }
+    context->payloads.push_back(*payload);
+  }
+}
+
+void TestTransferCallbackDrainsCopiedEvent() {
+  using xnn_transfer::bridge::EventChannel;
+  using xnn_transfer::bridge::TransferBridge;
+
+  FakeTransferBackend backend;
+  TransferBridge bridge(backend);
+  EventChannel events;
+  TransferCallbackContext context{.channel = &events};
+  xnn_transfer_event_callback_config callback{
+      .struct_size = sizeof(xnn_transfer_event_callback_config),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+      .callback = DrainTransferOnWakeup,
+      .user_data = &context,
+  };
+  Expect(events.SetCallback(&callback) == XNN_TRANSFER_STATUS_OK,
+         "transfer callback registration succeeds");
+  const transfer::TransferId offered = TransferId(0x10);
+  Expect(bridge.ApplyIncomingOffer("peer-callback",
+                                   transfer::IncomingOffer{
+                                       .transfer_id = offered,
+                                       .file_size = 10,
+                                   },
+                                   events),
+         "incoming offer reaches the packaged callback path");
+  Expect(context.calls == 1 && context.payloads.size() == 1 &&
+             context.payloads[0].state == XNN_TRANSFER_TRANSFER_STATE_OFFERED &&
+             context.payloads[0].total_bytes == 10 &&
+             std::equal(std::begin(context.payloads[0].transfer_id),
+                        std::end(context.payloads[0].transfer_id), offered.begin()),
+         "callback drains a copied bounded transfer payload");
+  Expect(events.SetCallback(nullptr) == XNN_TRANSFER_STATUS_OK,
+         "transfer callback clears after draining");
+}
+
+void TestTransferBridgeCommandsProgressAndRecovery() {
+  using xnn_transfer::bridge::EventChannel;
+  using xnn_transfer::bridge::TransferBridge;
+  using xnn_transfer::bridge::TransferStartResult;
+
+  FakeTransferBackend backend;
+  TransferBridge bridge(backend);
+  EventChannel events;
+  const transfer::TransferId outgoing = TransferId(0x11);
+  backend.send_result = TransferStartResult{
+      .status = XNN_TRANSFER_STATUS_OK,
+      .transfer_id = outgoing,
+      .total_bytes = 1'000,
+      .peer_label = "peer-a",
+  };
+  identity::DeviceId device_id{};
+  device_id.fill(0x5a);
+  const std::vector<std::uint8_t> path{'/', 't', 'm', 'p', '/', 'f', 'i', 'l', 'e'};
+  xnn_transfer_transfer_ref output{
+      .struct_size = sizeof(xnn_transfer_transfer_ref),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+  };
+  Expect(bridge.Send(device_id, path, 100, &output, events) == XNN_TRANSFER_STATUS_OK,
+         "transfer bridge starts an outgoing file through the backend");
+  Expect(backend.send_calls == 1 && backend.sent_device == device_id &&
+             backend.sent_path == path && backend.sent_at_ms == 100 &&
+             std::equal(std::begin(output.transfer_id), std::end(output.transfer_id),
+                        outgoing.begin()),
+         "transfer send copies the path and returns the native ID");
+
+  std::vector<xnn_transfer_event> queued_events = DrainEvents(events);
+  Expect(queued_events.size() == 1,
+         "outgoing send publishes one queued transfer event");
+  if (queued_events.size() == 1) {
+    const auto payload = ReadTransferEvent(queued_events.front());
+    Expect(payload.has_value() &&
+               payload->direction == XNN_TRANSFER_TRANSFER_DIRECTION_OUTGOING &&
+               payload->state == XNN_TRANSFER_TRANSFER_STATE_QUEUED &&
+               payload->total_bytes == 1'000 && payload->transferred_bytes == 0 &&
+               payload->peer_label_size == 6,
+           "outgoing event contains bounded public metadata");
+  }
+
+  Expect(bridge.Apply(outgoing,
+                      transfer::TransferUpdate{
+                          .state = transfer::TransferState::kSendingFile,
+                      },
+                      400, events),
+         "transfer bridge accepts monotonic native progress");
+  Expect(!bridge.Apply(outgoing,
+                       transfer::TransferUpdate{
+                           .state = transfer::TransferState::kSendingFile,
+                       },
+                       399, events),
+         "transfer bridge rejects regressing progress");
+  Expect(!bridge.Apply(outgoing,
+                       transfer::TransferUpdate{
+                           .state = transfer::TransferState::kCompleted,
+                           .terminal = true,
+                       },
+                       999, events),
+         "transfer bridge rejects incomplete completion");
+  Expect(bridge.Apply(outgoing,
+                      transfer::TransferUpdate{
+                          .state = transfer::TransferState::kCompleted,
+                          .terminal = true,
+                      },
+                      1'000, events),
+         "transfer bridge accepts exact terminal completion");
+  Expect(bridge.Cancel(outgoing, 101, events) == XNN_TRANSFER_STATUS_STALE_HANDLE,
+         "terminal outgoing transfer IDs are stale");
+  Expect(!bridge.Apply(outgoing,
+                       transfer::TransferUpdate{
+                           .state = transfer::TransferState::kFailed,
+                           .error = transfer::TransferError::kInternalFailure,
+                           .terminal = true,
+                       },
+                       1'000, events),
+         "terminal transfer state is immutable");
+
+  const std::vector<xnn_transfer_event> progress_events = DrainEvents(events);
+  Expect(progress_events.size() == 2,
+         "only valid progress and completion updates are published");
+  if (progress_events.size() == 2) {
+    const auto progress = ReadTransferEvent(progress_events[0]);
+    const auto completed = ReadTransferEvent(progress_events[1]);
+    Expect(progress.has_value() && completed.has_value() &&
+               progress->state == XNN_TRANSFER_TRANSFER_STATE_RUNNING &&
+               progress->transferred_bytes == 400 &&
+               completed->state == XNN_TRANSFER_TRANSFER_STATE_COMPLETED &&
+               completed->transferred_bytes == 1'000 &&
+               progress->snapshot_revision < completed->snapshot_revision,
+           "progress events preserve state, bytes, and revision order");
+  }
+
+  backend.send_result.transfer_id = outgoing;
+  xnn_transfer_transfer_ref duplicate_output{
+      .struct_size = sizeof(xnn_transfer_transfer_ref),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+  };
+  Expect(bridge.Send(device_id, path, 102, &duplicate_output, events) ==
+                 XNN_TRANSFER_STATUS_INTERNAL_ERROR &&
+             backend.cancel_calls == 1,
+         "a reused backend transfer ID is cancelled and rejected");
+  const std::vector<std::uint8_t> nul_path{'a', 0, 'b'};
+  Expect(bridge.Send(device_id, nul_path, 103, &duplicate_output, events) ==
+                 XNN_TRANSFER_STATUS_INVALID_ARGUMENT &&
+             backend.send_calls == 2,
+         "transfer bridge rejects a path containing NUL before backend use");
+
+  const transfer::TransferId incoming = TransferId(0x22);
+  const transfer::IncomingOffer incoming_offer{
+      .transfer_id = incoming,
+      .relative_path = "remote-private-name",
+      .file_size = 200,
+      .display_name = "remote-private-name",
+  };
+  Expect(bridge.ApplyIncomingOffer("peer-b", incoming_offer, events),
+         "authenticated incoming offer becomes visible");
+  Expect(bridge.ApplyIncomingOffer("peer-b", incoming_offer, events) &&
+             DrainEvents(events).size() == 1,
+         "duplicate identical offer is idempotent");
+  Expect(bridge.Accept(incoming, 200, events) == XNN_TRANSFER_STATUS_OK &&
+             backend.accept_calls == 1 && backend.accepted_id == incoming,
+         "incoming acceptance routes only the opaque ID");
+  Expect(bridge.Accept(incoming, 201, events) == XNN_TRANSFER_STATUS_STALE_HANDLE,
+         "accepted offer ID cannot be accepted twice");
+  Expect(bridge.Apply(incoming,
+                      transfer::TransferUpdate{
+                          .state = transfer::TransferState::kReceivingFile,
+                      },
+                      50, events),
+         "accepted incoming transfer publishes receive progress");
+  Expect(bridge.Cancel(incoming, 202, events) == XNN_TRANSFER_STATUS_OK &&
+             bridge.Cancel(incoming, 203, events) == XNN_TRANSFER_STATUS_OK &&
+             backend.cancel_calls == 2,
+         "duplicate cancellation is idempotent at the bridge");
+  Expect(bridge.Apply(incoming,
+                      transfer::TransferUpdate{
+                          .state = transfer::TransferState::kCancelled,
+                          .error = transfer::TransferError::kCancelled,
+                          .terminal = true,
+                      },
+                      50, events),
+         "native cancellation acknowledgement becomes terminal");
+  Expect(bridge.Cancel(incoming, 204, events) == XNN_TRANSFER_STATUS_STALE_HANDLE,
+         "cancelled transfer ID becomes stale");
+
+  const std::vector<xnn_transfer_event> incoming_events = DrainEvents(events);
+  Expect(incoming_events.size() == 4,
+         "accepted transfer publishes queued, running, cancelling, and cancelled");
+  if (incoming_events.size() == 4) {
+    const auto cancelled = ReadTransferEvent(incoming_events.back());
+    Expect(cancelled.has_value() &&
+               cancelled->state == XNN_TRANSFER_TRANSFER_STATE_CANCELLED &&
+               cancelled->error == XNN_TRANSFER_TRANSFER_ERROR_CANCELLED &&
+               cancelled->transferred_bytes == 50,
+           "cancelled event exposes stable public cancellation");
+  }
+
+  const transfer::TransferId rejected = TransferId(0x33);
+  const transfer::IncomingOffer rejected_offer{
+      .transfer_id = rejected,
+      .relative_path = "ignored",
+      .file_size = 300,
+      .display_name = "ignored",
+  };
+  Expect(bridge.ApplyIncomingOffer("peer-c", rejected_offer, events) &&
+             bridge.Reject(rejected, 300, events) == XNN_TRANSFER_STATUS_OK &&
+             backend.reject_calls == 1 && backend.rejected_id == rejected,
+         "incoming rejection routes the ID and removes the offer");
+  Expect(bridge.Reject(rejected, 301, events) == XNN_TRANSFER_STATUS_STALE_HANDLE,
+         "rejected offer ID becomes stale");
+  const std::vector<xnn_transfer_event> rejected_events = DrainEvents(events);
+  Expect(rejected_events.size() == 2,
+         "incoming rejection publishes offer then removal");
+  if (rejected_events.size() == 2) {
+    const auto removed = ReadTransferEvent(rejected_events.back());
+    Expect(removed.has_value() && removed->change == XNN_TRANSFER_TRANSFER_REMOVED &&
+               removed->direction == XNN_TRANSFER_TRANSFER_DIRECTION_INCOMING &&
+               removed->state == XNN_TRANSFER_TRANSFER_STATE_OFFERED,
+           "offer removal carries no fabricated transfer state");
+  }
+
+  xnn_transfer_transfer_snapshot_page snapshot = EmptyTransferSnapshotPage();
+  Expect(bridge.Snapshot(0, 0, &snapshot) == XNN_TRANSFER_STATUS_OK &&
+             snapshot.count == 2 && snapshot.total_count == 2,
+         "transfer snapshot retains completed and cancelled records");
+
+  for (std::uint8_t value = 0x40; value < 0x45; ++value) {
+    Expect(bridge.ApplyIncomingOffer("peer-page",
+                                     transfer::IncomingOffer{
+                                         .transfer_id = TransferId(value),
+                                         .file_size = static_cast<std::uint64_t>(value),
+                                     },
+                                     events),
+           "transfer pagination fixture accepts a bounded offer");
+  }
+  snapshot = EmptyTransferSnapshotPage();
+  Expect(bridge.Snapshot(0, 0, &snapshot) == XNN_TRANSFER_STATUS_OK &&
+             snapshot.count == XNN_TRANSFER_TRANSFER_SNAPSHOT_PAGE_CAPACITY &&
+             snapshot.total_count == 7,
+         "transfer snapshot first page is fixed and bounded");
+  const std::uint64_t stale_revision = snapshot.snapshot_revision;
+  Expect(bridge.ApplyIncomingOffer("peer-page",
+                                   transfer::IncomingOffer{
+                                       .transfer_id = TransferId(0x45),
+                                       .file_size = 0x45,
+                                   },
+                                   events),
+         "transfer pagination fixture mutates after the first page");
+  xnn_transfer_transfer_snapshot_page stale_page = EmptyTransferSnapshotPage();
+  Expect(bridge.Snapshot(stale_revision, XNN_TRANSFER_TRANSFER_SNAPSHOT_PAGE_CAPACITY,
+                         &stale_page) == XNN_TRANSFER_STATUS_STALE_SNAPSHOT,
+         "transfer pagination rejects a stale continuation");
+
+  EventChannel overflow;
+  xnn_transfer_transfer_event_payload overflow_payload = snapshot.records[0];
+  for (std::size_t index = 0; index < XNN_TRANSFER_EVENT_QUEUE_CAPACITY + 1; ++index) {
+    overflow.EnqueueTransfer(overflow_payload);
+  }
+  const std::vector<xnn_transfer_event> retained = DrainEvents(overflow);
+  const bool observed_drop = std::any_of(
+      retained.begin(), retained.end(), [](const xnn_transfer_event& event) {
+        return (event.flags & XNN_TRANSFER_EVENT_FLAG_EVENTS_DROPPED_BEFORE) != 0;
+      });
+  Expect(retained.size() == XNN_TRANSFER_EVENT_QUEUE_CAPACITY &&
+             retained.front().sequence == 2 && observed_drop,
+         "transfer overflow is explicit and snapshot recoverable");
+}
+
+void TestTransferBridgeShutdownBarrier() {
+  using xnn_transfer::bridge::EventChannel;
+  using xnn_transfer::bridge::TransferBridge;
+  using xnn_transfer::bridge::TransferStartResult;
+
+  FakeTransferBackend backend;
+  TransferBridge bridge(backend);
+  EventChannel events;
+  const transfer::TransferId active = TransferId(0x60);
+  backend.send_result = TransferStartResult{
+      .status = XNN_TRANSFER_STATUS_OK,
+      .transfer_id = active,
+      .total_bytes = 600,
+      .peer_label = "peer-active",
+  };
+  identity::DeviceId device_id{};
+  device_id.fill(0x60);
+  const std::vector<std::uint8_t> path{'f'};
+  xnn_transfer_transfer_ref output{
+      .struct_size = sizeof(xnn_transfer_transfer_ref),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+  };
+  Expect(bridge.Send(device_id, path, 400, &output, events) == XNN_TRANSFER_STATUS_OK,
+         "shutdown fixture starts an active transfer");
+  const transfer::TransferId offered = TransferId(0x61);
+  Expect(bridge.ApplyIncomingOffer("peer-offer",
+                                   transfer::IncomingOffer{
+                                       .transfer_id = offered,
+                                       .file_size = 601,
+                                   },
+                                   events),
+         "shutdown fixture adds an incoming offer");
+  static_cast<void>(DrainEvents(events));
+
+  bridge.Shutdown(events);
+  Expect(backend.shutdown_calls == 1,
+         "transfer shutdown reaches the native backend once");
+  const std::vector<xnn_transfer_event> shutdown_events = DrainEvents(events);
+  Expect(shutdown_events.size() == 2,
+         "shutdown cancels active work and withdraws pending offers");
+  bool saw_cancelled = false;
+  bool saw_removed = false;
+  for (const xnn_transfer_event& event : shutdown_events) {
+    const auto payload = ReadTransferEvent(event);
+    if (!payload.has_value()) {
+      continue;
+    }
+    saw_cancelled =
+        saw_cancelled || (payload->state == XNN_TRANSFER_TRANSFER_STATE_CANCELLED &&
+                          payload->error == XNN_TRANSFER_TRANSFER_ERROR_CANCELLED);
+    saw_removed = saw_removed || payload->change == XNN_TRANSFER_TRANSFER_REMOVED;
+  }
+  Expect(saw_cancelled && saw_removed,
+         "shutdown events expose cancellation and offer removal");
+
+  xnn_transfer_transfer_snapshot_page snapshot = EmptyTransferSnapshotPage();
+  Expect(bridge.Snapshot(0, 0, &snapshot) == XNN_TRANSFER_STATUS_OK &&
+             snapshot.count == 1 &&
+             snapshot.records[0].state == XNN_TRANSFER_TRANSFER_STATE_CANCELLED,
+         "shutdown snapshot retains only terminal transfer state");
+  Expect(!bridge.Apply(active,
+                       transfer::TransferUpdate{
+                           .state = transfer::TransferState::kCompleted,
+                           .terminal = true,
+                       },
+                       600, events) &&
+             !bridge.ApplyIncomingOffer("late",
+                                        transfer::IncomingOffer{
+                                            .transfer_id = TransferId(0x62),
+                                            .file_size = 1,
+                                        },
+                                        events) &&
+             bridge.Send(device_id, path, 401, &output, events) ==
+                 XNN_TRANSFER_STATUS_INVALID_STATE &&
+             DrainEvents(events).empty(),
+         "shutdown rejects late offers, progress, and sends");
+  bridge.Shutdown(events);
+  Expect(backend.shutdown_calls == 1, "transfer shutdown is idempotent");
+}
+
+class BlockingTransferBackend final : public xnn_transfer::bridge::TransferBackend {
+ public:
+  xnn_transfer::bridge::TransferStartResult Send(
+      const identity::DeviceId& device_id, const std::span<const std::uint8_t> path,
+      const std::uint64_t now_ms) override {
+    static_cast<void>(device_id);
+    static_cast<void>(path);
+    static_cast<void>(now_ms);
+    std::unique_lock lock(mutex);
+    send_entered = true;
+    condition.notify_all();
+    condition.wait(lock, [this] { return release_send; });
+    send_finished = true;
+    return xnn_transfer::bridge::TransferStartResult{
+        .status = XNN_TRANSFER_STATUS_OK,
+        .transfer_id = TransferId(0x70),
+        .total_bytes = 700,
+        .peer_label = "peer-race",
+    };
+  }
+
+  xnn_transfer_status Accept(const transfer::TransferId& transfer_id,
+                             const std::uint64_t now_ms) override {
+    static_cast<void>(transfer_id);
+    static_cast<void>(now_ms);
+    return XNN_TRANSFER_STATUS_OK;
+  }
+
+  xnn_transfer_status Reject(const transfer::TransferId& transfer_id,
+                             const std::uint64_t now_ms) override {
+    static_cast<void>(transfer_id);
+    static_cast<void>(now_ms);
+    return XNN_TRANSFER_STATUS_OK;
+  }
+
+  xnn_transfer_status Cancel(const transfer::TransferId& transfer_id,
+                             const std::uint64_t now_ms) override {
+    static_cast<void>(transfer_id);
+    static_cast<void>(now_ms);
+    return XNN_TRANSFER_STATUS_OK;
+  }
+
+  void Shutdown() override {
+    const std::scoped_lock lock(mutex);
+    shutdown_after_send = send_finished;
+    ++shutdown_calls;
+  }
+
+  std::mutex mutex;
+  std::condition_variable condition;
+  bool send_entered{};
+  bool release_send{};
+  bool send_finished{};
+  bool shutdown_after_send{};
+  int shutdown_calls{};
+};
+
+void TestTransferShutdownWaitsForBackendCommand() {
+  using xnn_transfer::bridge::EventChannel;
+  using xnn_transfer::bridge::TransferBridge;
+
+  BlockingTransferBackend backend;
+  TransferBridge bridge(backend);
+  EventChannel events;
+  identity::DeviceId device_id{};
+  device_id.fill(0x70);
+  const std::vector<std::uint8_t> path{'f'};
+  xnn_transfer_transfer_ref output{
+      .struct_size = sizeof(xnn_transfer_transfer_ref),
+      .abi_version = XNN_TRANSFER_ABI_VERSION,
+  };
+  std::atomic<xnn_transfer_status> send_status{XNN_TRANSFER_STATUS_INTERNAL_ERROR};
+  std::thread send_thread(
+      [&] { send_status.store(bridge.Send(device_id, path, 500, &output, events)); });
+
+  {
+    std::unique_lock lock(backend.mutex);
+    backend.condition.wait(lock, [&backend] { return backend.send_entered; });
+  }
+  std::atomic<bool> shutdown_returned{false};
+  std::thread shutdown_thread([&] {
+    bridge.Shutdown(events);
+    shutdown_returned.store(true);
+  });
+  std::this_thread::sleep_for(20ms);
+  Expect(!shutdown_returned.load(),
+         "transfer shutdown waits for an in-flight backend command");
+
+  {
+    const std::scoped_lock lock(backend.mutex);
+    backend.release_send = true;
+  }
+  backend.condition.notify_all();
+  send_thread.join();
+  shutdown_thread.join();
+
+  Expect(send_status.load() == XNN_TRANSFER_STATUS_OK && shutdown_returned.load() &&
+             backend.shutdown_calls == 1 && backend.shutdown_after_send,
+         "backend command completes before the shutdown barrier");
+  const std::vector<xnn_transfer_event> ordered = DrainEvents(events);
+  Expect(ordered.size() == 2, "racing send and shutdown publish queued then cancelled");
+  if (ordered.size() == 2) {
+    const auto queued = ReadTransferEvent(ordered[0]);
+    const auto cancelled = ReadTransferEvent(ordered[1]);
+    Expect(queued.has_value() && cancelled.has_value() &&
+               queued->state == XNN_TRANSFER_TRANSFER_STATE_QUEUED &&
+               cancelled->state == XNN_TRANSFER_TRANSFER_STATE_CANCELLED &&
+               queued->snapshot_revision < cancelled->snapshot_revision,
+           "shutdown preserves transfer mutation publication order");
+  }
+}
+
 void TestDiscoveryRegistryPaginationAndStaleRevision() {
   using xnn_transfer::bridge::DiscoveryPeerRegistry;
   using xnn_transfer::core::discovery::EventKind;
@@ -1438,8 +2195,13 @@ int main() {
   TestDocumentedCallbackReentrancy();
   TestDiscoveryStructsAndLifecycleStates();
   TestPairingAbiValidationAndLifecycle();
+  TestTransferAbiValidationAndLifecycle();
   TestPairingBridgeDecisionsTrustAndShutdown();
   TestPairingTrustPaginationAndOverflow();
+  TestTransferCallbackDrainsCopiedEvent();
+  TestTransferBridgeCommandsProgressAndRecovery();
+  TestTransferBridgeShutdownBarrier();
+  TestTransferShutdownWaitsForBackendCommand();
   TestDiscoveryRegistryPaginationAndStaleRevision();
   TestDiscoveryQueueOverflowIsObservable();
   TestDiscoveryShutdownRaceIsBounded();

@@ -87,6 +87,18 @@ class EventChannel final {
     Enqueue(event);
   }
 
+  void EnqueueTransfer(const xnn_transfer_transfer_event_payload& payload) {
+    static_assert(sizeof(payload) <= XNN_TRANSFER_EVENT_PAYLOAD_MAX_SIZE);
+
+    QueuedEvent event{
+        .type = XNN_TRANSFER_EVENT_TYPE_TRANSFER_CHANGED,
+        .payload_version = XNN_TRANSFER_TRANSFER_EVENT_PAYLOAD_VERSION,
+        .payload_size = static_cast<std::uint32_t>(sizeof(payload)),
+    };
+    std::memcpy(event.payload.data(), &payload, sizeof(payload));
+    Enqueue(event);
+  }
+
   xnn_transfer_status SetCallback(
       const xnn_transfer_event_callback_config* const config) {
     CallbackTarget target;

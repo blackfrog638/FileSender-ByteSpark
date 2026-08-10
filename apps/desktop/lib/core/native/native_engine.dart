@@ -12,6 +12,7 @@ const int _eventTypeEngineStateChanged = 1;
 const int _eventTypeDiscoveryPeerChanged = 2;
 const int _eventTypePairingAttemptChanged = 3;
 const int _eventTypeTrustChanged = 4;
+const int _eventTypeTransferChanged = 5;
 const int _engineStatePayloadVersion = 1;
 const int _eventFlagEventsDroppedBefore = 1;
 const int _discoveryDisplayLabelMaxSize = 96;
@@ -22,6 +23,11 @@ const int _pairingAttemptIdSize = 16;
 const int _pairingSasWordCount = 5;
 const int _trustSnapshotPageCapacity = 8;
 const int _trustMaxRecords = 256;
+const int _transferPathMaxSize = 1024;
+const int _transferIdSize = 16;
+const int _transferPeerLabelMaxSize = 96;
+const int _transferSnapshotPageCapacity = 4;
+const int _transferMaxRecords = 256;
 
 final class _NativeEngineHandle extends Opaque {}
 
@@ -339,6 +345,116 @@ final class _NativeTrustSnapshotPage extends Struct {
   external Array<_NativeTrustEventPayload> records;
 }
 
+final class _NativeTransferSendRequest extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int reserved;
+
+  @Uint64()
+  external int trustId;
+
+  @Uint32()
+  external int pathSize;
+
+  @Uint32()
+  external int reserved2;
+
+  @Array(_transferPathMaxSize)
+  external Array<Uint8> path;
+}
+
+final class _NativeTransferRef extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int reserved;
+
+  @Array(_transferIdSize)
+  external Array<Uint8> transferId;
+}
+
+final class _NativeTransferEventPayload extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int change;
+
+  @Uint64()
+  external int snapshotRevision;
+
+  @Uint32()
+  external int direction;
+
+  @Uint32()
+  external int state;
+
+  @Uint32()
+  external int error;
+
+  @Uint32()
+  external int peerLabelSize;
+
+  @Uint32()
+  external int reserved;
+
+  @Uint32()
+  external int reserved2;
+
+  @Uint64()
+  external int totalBytes;
+
+  @Uint64()
+  external int transferredBytes;
+
+  @Array(_transferIdSize)
+  external Array<Uint8> transferId;
+
+  @Array(_transferPeerLabelMaxSize)
+  external Array<Uint8> peerLabel;
+}
+
+final class _NativeTransferSnapshotPage extends Struct {
+  @UintPtr()
+  external int structSize;
+
+  @Uint32()
+  external int abiVersion;
+
+  @Uint32()
+  external int reserved;
+
+  @Uint64()
+  external int snapshotRevision;
+
+  @Uint32()
+  external int offset;
+
+  @Uint32()
+  external int count;
+
+  @Uint32()
+  external int totalCount;
+
+  @Uint32()
+  external int reserved2;
+
+  @Array(_transferSnapshotPageCapacity)
+  external Array<_NativeTransferEventPayload> records;
+}
+
 typedef _AbiVersionNative = Uint32 Function();
 typedef _AbiVersionDart = int Function();
 typedef _CreateNative = Int32 Function(
@@ -429,6 +545,36 @@ typedef _TrustSnapshotDart = int Function(
   int,
   Pointer<_NativeTrustSnapshotPage>,
 );
+typedef _TransferSendNative = Int32 Function(
+  Pointer<_NativeEngineHandle>,
+  Pointer<_NativeTransferSendRequest>,
+  Pointer<_NativeTransferRef>,
+);
+typedef _TransferSendDart = int Function(
+  Pointer<_NativeEngineHandle>,
+  Pointer<_NativeTransferSendRequest>,
+  Pointer<_NativeTransferRef>,
+);
+typedef _TransferCommandNative = Int32 Function(
+  Pointer<_NativeEngineHandle>,
+  Pointer<_NativeTransferRef>,
+);
+typedef _TransferCommandDart = int Function(
+  Pointer<_NativeEngineHandle>,
+  Pointer<_NativeTransferRef>,
+);
+typedef _TransferSnapshotNative = Int32 Function(
+  Pointer<_NativeEngineHandle>,
+  Uint64,
+  Uint32,
+  Pointer<_NativeTransferSnapshotPage>,
+);
+typedef _TransferSnapshotDart = int Function(
+  Pointer<_NativeEngineHandle>,
+  int,
+  int,
+  Pointer<_NativeTransferSnapshotPage>,
+);
 
 enum NativeEngineState { created, running, stopped, stopping }
 
@@ -442,6 +588,32 @@ final class NativeEngineEvent {
   final int sequence;
   final NativeEngineState state;
   final bool eventsDroppedBefore;
+}
+
+final class NativeEngineOperationException implements Exception {
+  const NativeEngineOperationException({
+    required this.operation,
+    required this.status,
+  });
+
+  final String operation;
+  final int status;
+
+  String get code => switch (status) {
+        1 => 'invalid_argument',
+        2 => 'incompatible_abi',
+        3 => 'invalid_state',
+        4 => 'internal_error',
+        5 => 'event_queue_empty',
+        6 => 'stale_snapshot',
+        7 => 'unavailable',
+        8 => 'stale_handle',
+        _ => 'unknown',
+      };
+
+  @override
+  String toString() =>
+      'NativeEngineOperationException($operation, $code, status=$status)';
 }
 
 class NativeEngine {
@@ -473,7 +645,12 @@ class NativeEngine {
         !library.providesSymbol('xnn_transfer_pairing_reject') ||
         !library.providesSymbol('xnn_transfer_pairing_revoke') ||
         !library.providesSymbol('xnn_transfer_pairing_get_snapshot') ||
-        !library.providesSymbol('xnn_transfer_trust_get_snapshot')) {
+        !library.providesSymbol('xnn_transfer_trust_get_snapshot') ||
+        !library.providesSymbol('xnn_transfer_transfer_send') ||
+        !library.providesSymbol('xnn_transfer_transfer_accept') ||
+        !library.providesSymbol('xnn_transfer_transfer_reject') ||
+        !library.providesSymbol('xnn_transfer_transfer_cancel') ||
+        !library.providesSymbol('xnn_transfer_transfer_get_snapshot')) {
       throw StateError(
         'The native library does not provide the operation event ABI',
       );
@@ -524,6 +701,26 @@ class NativeEngine {
         library.lookupFunction<_TrustSnapshotNative, _TrustSnapshotDart>(
       'xnn_transfer_trust_get_snapshot',
     );
+    _transferSend =
+        library.lookupFunction<_TransferSendNative, _TransferSendDart>(
+      'xnn_transfer_transfer_send',
+    );
+    _transferAccept =
+        library.lookupFunction<_TransferCommandNative, _TransferCommandDart>(
+      'xnn_transfer_transfer_accept',
+    );
+    _transferReject =
+        library.lookupFunction<_TransferCommandNative, _TransferCommandDart>(
+      'xnn_transfer_transfer_reject',
+    );
+    _transferCancel =
+        library.lookupFunction<_TransferCommandNative, _TransferCommandDart>(
+      'xnn_transfer_transfer_cancel',
+    );
+    _transferSnapshot =
+        library.lookupFunction<_TransferSnapshotNative, _TransferSnapshotDart>(
+      'xnn_transfer_transfer_get_snapshot',
+    );
   }
 
   static const int expectedAbiVersion = 1;
@@ -549,6 +746,11 @@ class NativeEngine {
   late final _PairingRevokeDart _pairingRevoke;
   late final _PairingSnapshotDart _pairingSnapshot;
   late final _TrustSnapshotDart _trustSnapshot;
+  late final _TransferSendDart _transferSend;
+  late final _TransferCommandDart _transferAccept;
+  late final _TransferCommandDart _transferReject;
+  late final _TransferCommandDart _transferCancel;
+  late final _TransferSnapshotDart _transferSnapshot;
 
   final StreamController<NativeEngineEvent> _events =
       StreamController<NativeEngineEvent>.broadcast();
@@ -564,6 +766,10 @@ class NativeEngine {
       StreamController<NativePairingSnapshot>.broadcast();
   final StreamController<NativeTrustSnapshot> _trustSnapshots =
       StreamController<NativeTrustSnapshot>.broadcast();
+  final StreamController<NativeTransferEvent> _transferEvents =
+      StreamController<NativeTransferEvent>.broadcast();
+  final StreamController<NativeTransferSnapshot> _transferSnapshots =
+      StreamController<NativeTransferSnapshot>.broadcast();
 
   Pointer<_NativeEngineHandle>? _handle;
   NativeCallable<_EventWakeupNative>? _eventWakeup;
@@ -579,6 +785,9 @@ class NativeEngine {
   Stream<NativePairingSnapshot> get pairingSnapshots =>
       _pairingSnapshots.stream;
   Stream<NativeTrustSnapshot> get trustSnapshots => _trustSnapshots.stream;
+  Stream<NativeTransferEvent> get transferEvents => _transferEvents.stream;
+  Stream<NativeTransferSnapshot> get transferSnapshots =>
+      _transferSnapshots.stream;
 
   static NativeEngine open() {
     final String? configuredPath =
@@ -770,6 +979,67 @@ class NativeEngine {
     return _readTrustSnapshot();
   }
 
+  List<int> sendFile({required int trustId, required String path}) {
+    final List<int> pathBytes = utf8.encode(path);
+    if (trustId <= 0 ||
+        pathBytes.isEmpty ||
+        pathBytes.length > _transferPathMaxSize ||
+        pathBytes.contains(0)) {
+      throw ArgumentError('Transfer send request is invalid');
+    }
+
+    final Pointer<_NativeTransferSendRequest> request =
+        calloc<_NativeTransferSendRequest>();
+    final Pointer<_NativeTransferRef> transfer = calloc<_NativeTransferRef>();
+    try {
+      request.ref
+        ..structSize = sizeOf<_NativeTransferSendRequest>()
+        ..abiVersion = expectedAbiVersion
+        ..reserved = 0
+        ..trustId = trustId
+        ..pathSize = pathBytes.length
+        ..reserved2 = 0;
+      for (int index = 0; index < pathBytes.length; index += 1) {
+        request.ref.path[index] = pathBytes[index];
+      }
+      transfer.ref
+        ..structSize = sizeOf<_NativeTransferRef>()
+        ..abiVersion = expectedAbiVersion
+        ..reserved = 0;
+      _requireTransferSuccess(
+        _transferSend(_requireHandle(), request, transfer),
+        'transfer send',
+      );
+      return List<int>.unmodifiable(<int>[
+        for (int index = 0; index < _transferIdSize; index += 1)
+          transfer.ref.transferId[index],
+      ]);
+    } finally {
+      calloc.free(transfer);
+      calloc.free(request);
+    }
+  }
+
+  void acceptTransfer(List<int> transferId) {
+    _runTransferCommand(
+      transferId,
+      _transferAccept,
+      'transfer acceptance',
+    );
+  }
+
+  void rejectTransfer(List<int> transferId) {
+    _runTransferCommand(transferId, _transferReject, 'transfer rejection');
+  }
+
+  void cancelTransfer(List<int> transferId) {
+    _runTransferCommand(transferId, _transferCancel, 'transfer cancellation');
+  }
+
+  NativeTransferSnapshot transferSnapshot() {
+    return _readTransferSnapshot();
+  }
+
   void stop() {
     final Pointer<_NativeEngineHandle>? handle = _handle;
     if (handle == null) {
@@ -803,6 +1073,8 @@ class NativeEngine {
     unawaited(_trustEvents.close());
     unawaited(_pairingSnapshots.close());
     unawaited(_trustSnapshots.close());
+    unawaited(_transferEvents.close());
+    unawaited(_transferSnapshots.close());
   }
 
   Pointer<_NativeEngineHandle> _requireHandle() {
@@ -816,6 +1088,15 @@ class NativeEngine {
   void _requireSuccess(int status, String operation) {
     if (status != statusOk) {
       throw StateError('Native engine $operation failed with status $status');
+    }
+  }
+
+  void _requireTransferSuccess(int status, String operation) {
+    if (status != statusOk) {
+      throw NativeEngineOperationException(
+        operation: operation,
+        status: status,
+      );
     }
   }
 
@@ -842,6 +1123,31 @@ class NativeEngine {
       _requireSuccess(command(_requireHandle(), attempt), operation);
     } finally {
       calloc.free(attempt);
+    }
+  }
+
+  void _runTransferCommand(
+    List<int> transferId,
+    _TransferCommandDart command,
+    String operation,
+  ) {
+    if (transferId.length != _transferIdSize ||
+        transferId.every((int value) => value == 0) ||
+        transferId.any((int value) => value < 0 || value > 0xff)) {
+      throw ArgumentError('Transfer ID is invalid');
+    }
+    final Pointer<_NativeTransferRef> transfer = calloc<_NativeTransferRef>();
+    try {
+      transfer.ref
+        ..structSize = sizeOf<_NativeTransferRef>()
+        ..abiVersion = expectedAbiVersion
+        ..reserved = 0;
+      for (int index = 0; index < transferId.length; index += 1) {
+        transfer.ref.transferId[index] = transferId[index];
+      }
+      _requireTransferSuccess(command(_requireHandle(), transfer), operation);
+    } finally {
+      calloc.free(transfer);
     }
   }
 
@@ -941,6 +1247,17 @@ class NativeEngine {
               ),
             );
             break;
+          case _eventTypeTransferChanged:
+            _transferEvents.add(
+              decodeNativeTransferEventPayload(
+                sequence: event.ref.sequence,
+                payloadVersion: event.ref.payloadVersion,
+                flags: event.ref.flags,
+                payload: _copyEventPayload(event.ref),
+                pointerSize: sizeOf<UintPtr>(),
+              ),
+            );
+            break;
           default:
             throw StateError('Native event type is unsupported');
         }
@@ -956,6 +1273,8 @@ class NativeEngine {
       _trustEvents.addError(error, stackTrace);
       _pairingSnapshots.addError(error, stackTrace);
       _trustSnapshots.addError(error, stackTrace);
+      _transferEvents.addError(error, stackTrace);
+      _transferSnapshots.addError(error, stackTrace);
     } finally {
       calloc.free(event);
     }
@@ -976,6 +1295,7 @@ class NativeEngine {
     _discoverySnapshots.add(_readDiscoverySnapshot());
     _pairingSnapshots.add(_readPairingSnapshot());
     _trustSnapshots.add(_readTrustSnapshot());
+    _transferSnapshots.add(_readTransferSnapshot());
   }
 
   NativeDiscoverySnapshot _readDiscoverySnapshot() {
@@ -1140,6 +1460,70 @@ class NativeEngine {
     }
   }
 
+  NativeTransferSnapshot _readTransferSnapshot() {
+    final Pointer<_NativeTransferSnapshotPage> page =
+        calloc<_NativeTransferSnapshotPage>();
+    try {
+      for (int attempt = 0; attempt < 3; attempt += 1) {
+        final List<NativeTransferRecord> records = <NativeTransferRecord>[];
+        int revision = 0;
+        int offset = 0;
+        for (;;) {
+          page.ref
+            ..structSize = sizeOf<_NativeTransferSnapshotPage>()
+            ..abiVersion = expectedAbiVersion;
+          final int status = _transferSnapshot(
+            _requireHandle(),
+            revision,
+            offset,
+            page,
+          );
+          if (status == statusStaleSnapshot) {
+            break;
+          }
+          _requireTransferSuccess(status, 'transfer snapshot');
+          if (page.ref.structSize < sizeOf<_NativeTransferSnapshotPage>() ||
+              page.ref.abiVersion != expectedAbiVersion ||
+              page.ref.reserved != 0 ||
+              page.ref.reserved2 != 0 ||
+              page.ref.snapshotRevision == 0 ||
+              page.ref.offset != offset ||
+              page.ref.count > _transferSnapshotPageCapacity ||
+              page.ref.totalCount > _transferMaxRecords ||
+              offset + page.ref.count > page.ref.totalCount) {
+            throw StateError('Native transfer snapshot page is invalid');
+          }
+          if (revision == 0) {
+            revision = page.ref.snapshotRevision;
+          } else if (revision != page.ref.snapshotRevision) {
+            throw StateError('Native transfer snapshot revision changed');
+          }
+          for (int index = 0; index < page.ref.count; index += 1) {
+            final NativeTransferRecord record =
+                _decodeTransferRecord(page.ref.records[index]);
+            if (record.change != NativeTransferChange.upserted) {
+              throw StateError('Native transfer snapshot contains a removal');
+            }
+            records.add(record);
+          }
+          offset += page.ref.count;
+          if (offset == page.ref.totalCount) {
+            return NativeTransferSnapshot(
+              revision: revision,
+              records: records,
+            );
+          }
+          if (page.ref.count == 0) {
+            throw StateError('Native transfer snapshot made no progress');
+          }
+        }
+      }
+      throw StateError('Native transfer snapshot remained stale');
+    } finally {
+      calloc.free(page);
+    }
+  }
+
   NativePairingAttempt _decodePairingAttempt(
     _NativePairingAttemptEventPayload attempt,
   ) {
@@ -1174,6 +1558,35 @@ class NativeEngine {
       reserved: record.reserved,
       reserved2: record.reserved2,
       expectedStructSize: sizeOf<_NativeTrustEventPayload>(),
+    );
+  }
+
+  NativeTransferRecord _decodeTransferRecord(
+    _NativeTransferEventPayload record,
+  ) {
+    final Uint8List peerLabel = Uint8List(_transferPeerLabelMaxSize);
+    for (int index = 0; index < peerLabel.length; index += 1) {
+      peerLabel[index] = record.peerLabel[index];
+    }
+    return decodeNativeTransferFields(
+      structSize: record.structSize,
+      abiVersion: record.abiVersion,
+      rawChange: record.change,
+      revision: record.snapshotRevision,
+      rawDirection: record.direction,
+      rawState: record.state,
+      rawError: record.error,
+      peerLabelSize: record.peerLabelSize,
+      reserved: record.reserved,
+      reserved2: record.reserved2,
+      totalBytes: record.totalBytes,
+      transferredBytes: record.transferredBytes,
+      transferId: <int>[
+        for (int index = 0; index < _transferIdSize; index += 1)
+          record.transferId[index],
+      ],
+      peerLabelBytes: peerLabel,
+      expectedStructSize: sizeOf<_NativeTransferEventPayload>(),
     );
   }
 

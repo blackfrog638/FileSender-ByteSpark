@@ -17,10 +17,12 @@
 #include "discovery_bridge.hpp"
 #include "event_channel.hpp"
 #include "pairing_bridge.hpp"
+#include "transfer_bridge.hpp"
 #include "xnn_transfer/core/discovery/discovery.hpp"
 #include "xnn_transfer/core/engine.hpp"
 #include "xnn_transfer/core/security/tls/security_profile.hpp"
 #include "xnn_transfer/core/session/session.hpp"
+#include "xnn_transfer/core/transfer/transfer.hpp"
 
 namespace {
 
@@ -28,6 +30,9 @@ using xnn_transfer::bridge::DiscoveryPeerRegistry;
 using xnn_transfer::bridge::EventChannel;
 using xnn_transfer::bridge::PairingBackend;
 using xnn_transfer::bridge::PairingBridge;
+using xnn_transfer::bridge::TransferBackend;
+using xnn_transfer::bridge::TransferBridge;
+using xnn_transfer::bridge::TransferStartResult;
 using xnn_transfer::core::discovery::CandidateEvent;
 using xnn_transfer::core::discovery::DiscoveryConfig;
 using xnn_transfer::core::discovery::DisplayLabelValidator;
@@ -35,6 +40,7 @@ using xnn_transfer::core::discovery::MakeUtf8procDisplayLabelValidator;
 using xnn_transfer::core::discovery::SystemDiscoveryRuntime;
 namespace session = xnn_transfer::core::session;
 namespace tls = xnn_transfer::core::security::tls;
+namespace transfer = xnn_transfer::core::transfer;
 
 class DiscoveryController final {
  public:
@@ -138,6 +144,42 @@ class SessionPairingBackend final : public PairingBackend {
   session::PairingAdmissionController admission_;
 };
 
+class SessionTransferBackend final : public TransferBackend {
+ public:
+  [[nodiscard]] TransferStartResult Send(
+      const xnn_transfer::core::security::identity::DeviceId& device_id,
+      const std::span<const std::uint8_t> path, const std::uint64_t now_ms) override {
+    static_cast<void>(device_id);
+    static_cast<void>(path);
+    static_cast<void>(now_ms);
+    // XT-037 owns the production authenticated transport and file adapter.
+    return TransferStartResult{.status = XNN_TRANSFER_STATUS_UNAVAILABLE};
+  }
+
+  [[nodiscard]] xnn_transfer_status Accept(const transfer::TransferId& transfer_id,
+                                           const std::uint64_t now_ms) override {
+    static_cast<void>(transfer_id);
+    static_cast<void>(now_ms);
+    return XNN_TRANSFER_STATUS_UNAVAILABLE;
+  }
+
+  [[nodiscard]] xnn_transfer_status Reject(const transfer::TransferId& transfer_id,
+                                           const std::uint64_t now_ms) override {
+    static_cast<void>(transfer_id);
+    static_cast<void>(now_ms);
+    return XNN_TRANSFER_STATUS_UNAVAILABLE;
+  }
+
+  [[nodiscard]] xnn_transfer_status Cancel(const transfer::TransferId& transfer_id,
+                                           const std::uint64_t now_ms) override {
+    static_cast<void>(transfer_id);
+    static_cast<void>(now_ms);
+    return XNN_TRANSFER_STATUS_UNAVAILABLE;
+  }
+
+  void Shutdown() override {}
+};
+
 [[nodiscard]] std::uint64_t MonotonicMilliseconds() {
   return static_cast<std::uint64_t>(
       std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -149,6 +191,19 @@ class SessionPairingBackend final : public PairingBackend {
     const std::uint8_t (&attempt)[XNN_TRANSFER_PAIRING_ATTEMPT_ID_SIZE]) {
   return std::all_of(std::begin(attempt), std::end(attempt),
                      [](const std::uint8_t value) { return value == 0; });
+}
+
+[[nodiscard]] bool IsZeroTransfer(
+    const std::uint8_t (&transfer_id)[XNN_TRANSFER_TRANSFER_ID_SIZE]) {
+  return std::all_of(std::begin(transfer_id), std::end(transfer_id),
+                     [](const std::uint8_t value) { return value == 0; });
+}
+
+[[nodiscard]] transfer::TransferId CopyTransferId(
+    const std::uint8_t (&transfer_id)[XNN_TRANSFER_TRANSFER_ID_SIZE]) {
+  transfer::TransferId output{};
+  std::copy(std::begin(transfer_id), std::end(transfer_id), output.begin());
+  return output;
 }
 
 [[nodiscard]] bool IsDiscoveryConfigValid(const xnn_transfer_discovery_config& config) {
@@ -185,6 +240,8 @@ struct xnn_transfer_engine {
   DiscoveryController discovery;
   SessionPairingBackend pairing_backend;
   PairingBridge pairing{pairing_backend};
+  SessionTransferBackend transfer_backend;
+  TransferBridge transfer{transfer_backend};
   std::mutex lifecycle_mutex;
   std::atomic<xnn_transfer_engine_state> state{XNN_TRANSFER_ENGINE_STATE_CREATED};
 };
@@ -285,6 +342,11 @@ xnn_transfer_status xnn_transfer_engine_stop(xnn_transfer_engine* const engine) 
     engine->state.store(XNN_TRANSFER_ENGINE_STATE_STOPPING);
     engine->events.EnqueueState(XNN_TRANSFER_ENGINE_STATE_STOPPING);
     xnn_transfer_status result = XNN_TRANSFER_STATUS_OK;
+    try {
+      engine->transfer.Shutdown(engine->events);
+    } catch (...) {
+      result = XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+    }
     try {
       engine->pairing.Shutdown(engine->events);
     } catch (...) {
@@ -644,6 +706,146 @@ xnn_transfer_status xnn_transfer_trust_get_snapshot(
       return XNN_TRANSFER_STATUS_INVALID_STATE;
     }
     return engine->pairing.TrustSnapshot(expected_revision, offset, out_page);
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+xnn_transfer_status xnn_transfer_transfer_send(
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_transfer_send_request* const request,
+    xnn_transfer_transfer_ref* const out_transfer) {
+  if (engine == nullptr || request == nullptr || out_transfer == nullptr ||
+      request->struct_size < sizeof(xnn_transfer_transfer_send_request) ||
+      out_transfer->struct_size < sizeof(xnn_transfer_transfer_ref)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (request->abi_version != XNN_TRANSFER_ABI_VERSION ||
+      out_transfer->abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI;
+  }
+  if (request->reserved != 0 || request->reserved2 != 0 || request->trust_id == 0 ||
+      request->path_size == 0 ||
+      request->path_size > XNN_TRANSFER_TRANSFER_PATH_MAX_SIZE) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  std::fill(std::begin(out_transfer->transfer_id), std::end(out_transfer->transfer_id),
+            std::uint8_t{0});
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    if (engine->state.load() != XNN_TRANSFER_ENGINE_STATE_RUNNING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+
+    xnn_transfer::core::security::identity::DeviceId device_id{};
+    const xnn_transfer_status trust_status =
+        engine->pairing.ResolveActiveTrust(request->trust_id, &device_id);
+    if (trust_status != XNN_TRANSFER_STATUS_OK) {
+      return trust_status;
+    }
+    return engine->transfer.Send(
+        device_id, std::span<const std::uint8_t>(request->path, request->path_size),
+        MonotonicMilliseconds(), out_transfer, engine->events);
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+namespace {
+
+enum class TransferCommand {
+  kAccept,
+  kReject,
+  kCancel,
+};
+
+[[nodiscard]] xnn_transfer_status ExecuteTransferCommand(
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_transfer_ref* const transfer_ref,
+    const TransferCommand command) {
+  if (engine == nullptr || transfer_ref == nullptr ||
+      transfer_ref->struct_size < sizeof(xnn_transfer_transfer_ref)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (transfer_ref->abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI;
+  }
+  if (transfer_ref->reserved != 0 || IsZeroTransfer(transfer_ref->transfer_id)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    if (engine->state.load() != XNN_TRANSFER_ENGINE_STATE_RUNNING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    const transfer::TransferId transfer_id = CopyTransferId(transfer_ref->transfer_id);
+    switch (command) {
+      case TransferCommand::kAccept:
+        return engine->transfer.Accept(transfer_id, MonotonicMilliseconds(),
+                                       engine->events);
+      case TransferCommand::kReject:
+        return engine->transfer.Reject(transfer_id, MonotonicMilliseconds(),
+                                       engine->events);
+      case TransferCommand::kCancel:
+        return engine->transfer.Cancel(transfer_id, MonotonicMilliseconds(),
+                                       engine->events);
+    }
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  } catch (...) {
+    return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
+  }
+}
+
+}  // namespace
+
+xnn_transfer_status xnn_transfer_transfer_accept(
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_transfer_ref* const transfer_ref) {
+  return ExecuteTransferCommand(engine, transfer_ref, TransferCommand::kAccept);
+}
+
+xnn_transfer_status xnn_transfer_transfer_reject(
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_transfer_ref* const transfer_ref) {
+  return ExecuteTransferCommand(engine, transfer_ref, TransferCommand::kReject);
+}
+
+xnn_transfer_status xnn_transfer_transfer_cancel(
+    xnn_transfer_engine* const engine,
+    const xnn_transfer_transfer_ref* const transfer_ref) {
+  return ExecuteTransferCommand(engine, transfer_ref, TransferCommand::kCancel);
+}
+
+xnn_transfer_status xnn_transfer_transfer_get_snapshot(
+    xnn_transfer_engine* const engine, const std::uint64_t expected_revision,
+    const std::uint32_t offset, xnn_transfer_transfer_snapshot_page* const out_page) {
+  if (engine == nullptr || out_page == nullptr ||
+      out_page->struct_size < sizeof(xnn_transfer_transfer_snapshot_page)) {
+    return XNN_TRANSFER_STATUS_INVALID_ARGUMENT;
+  }
+  if (out_page->abi_version != XNN_TRANSFER_ABI_VERSION) {
+    return XNN_TRANSFER_STATUS_INCOMPATIBLE_ABI;
+  }
+  if (engine->events.IsCallbackThread()) {
+    return XNN_TRANSFER_STATUS_INVALID_STATE;
+  }
+
+  try {
+    const std::scoped_lock lock(engine->lifecycle_mutex);
+    const xnn_transfer_engine_state state = engine->state.load();
+    if (state == XNN_TRANSFER_ENGINE_STATE_CREATED ||
+        state == XNN_TRANSFER_ENGINE_STATE_STOPPING) {
+      return XNN_TRANSFER_STATUS_INVALID_STATE;
+    }
+    return engine->transfer.Snapshot(expected_revision, offset, out_page);
   } catch (...) {
     return XNN_TRANSFER_STATUS_INTERNAL_ERROR;
   }

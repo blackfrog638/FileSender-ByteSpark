@@ -458,3 +458,248 @@ NativeTrustEvent decodeNativeTrustEventPayload({
     eventsDroppedBefore: flags & 1 != 0,
   );
 }
+
+const int nativeTransferEventPayloadVersion = 1;
+const int nativeTransferIdSize = 16;
+const int nativeTransferPeerLabelMaxSize = 96;
+const int nativeTransferMaxFileBytes = 17592186044416;
+
+enum NativeTransferChange { upserted, removed }
+
+enum NativeTransferDirection { incoming, outgoing }
+
+enum NativeTransferState {
+  offered,
+  queued,
+  running,
+  cancelling,
+  completed,
+  cancelled,
+  rejected,
+  failed,
+}
+
+enum NativeTransferError {
+  none,
+  rejected,
+  cancelled,
+  timedOut,
+  busy,
+  noSpace,
+  policyRejected,
+  ioFailure,
+  integrityFailed,
+  unavailable,
+  failed,
+}
+
+final class NativeTransferRecord {
+  NativeTransferRecord({
+    required this.change,
+    required this.revision,
+    required this.direction,
+    required this.state,
+    required this.error,
+    required this.totalBytes,
+    required this.transferredBytes,
+    required List<int> transferId,
+    required this.peerLabel,
+  }) : transferId = List<int>.unmodifiable(transferId);
+
+  final NativeTransferChange change;
+  final int revision;
+  final NativeTransferDirection direction;
+  final NativeTransferState state;
+  final NativeTransferError error;
+  final int totalBytes;
+  final int transferredBytes;
+  final List<int> transferId;
+  final String peerLabel;
+}
+
+final class NativeTransferEvent {
+  const NativeTransferEvent({
+    required this.sequence,
+    required this.record,
+    required this.eventsDroppedBefore,
+  });
+
+  final int sequence;
+  final NativeTransferRecord record;
+  final bool eventsDroppedBefore;
+}
+
+final class NativeTransferSnapshot {
+  NativeTransferSnapshot({
+    required this.revision,
+    required List<NativeTransferRecord> records,
+  }) : records = List<NativeTransferRecord>.unmodifiable(records);
+
+  final int revision;
+  final List<NativeTransferRecord> records;
+}
+
+NativeTransferRecord decodeNativeTransferFields({
+  required int structSize,
+  required int abiVersion,
+  required int rawChange,
+  required int revision,
+  required int rawDirection,
+  required int rawState,
+  required int rawError,
+  required int peerLabelSize,
+  required int reserved,
+  required int reserved2,
+  required int totalBytes,
+  required int transferredBytes,
+  required List<int> transferId,
+  required Uint8List peerLabelBytes,
+  required int expectedStructSize,
+}) {
+  if (structSize < expectedStructSize ||
+      abiVersion != 1 ||
+      revision <= 0 ||
+      reserved != 0 ||
+      reserved2 != 0 ||
+      totalBytes < 0 ||
+      totalBytes > nativeTransferMaxFileBytes ||
+      transferredBytes < 0 ||
+      transferredBytes > totalBytes ||
+      transferId.length != nativeTransferIdSize ||
+      transferId.every((int value) => value == 0) ||
+      peerLabelSize < 0 ||
+      peerLabelSize > nativeTransferPeerLabelMaxSize ||
+      peerLabelBytes.length < peerLabelSize) {
+    throw StateError('Native transfer record uses an incompatible struct');
+  }
+
+  final NativeTransferChange change = switch (rawChange) {
+    1 => NativeTransferChange.upserted,
+    2 => NativeTransferChange.removed,
+    _ => throw StateError('Native transfer change is unsupported'),
+  };
+  final NativeTransferDirection direction = switch (rawDirection) {
+    1 => NativeTransferDirection.incoming,
+    2 => NativeTransferDirection.outgoing,
+    _ => throw StateError('Native transfer direction is unsupported'),
+  };
+  final NativeTransferState state = switch (rawState) {
+    1 => NativeTransferState.offered,
+    2 => NativeTransferState.queued,
+    3 => NativeTransferState.running,
+    4 => NativeTransferState.cancelling,
+    5 => NativeTransferState.completed,
+    6 => NativeTransferState.cancelled,
+    7 => NativeTransferState.rejected,
+    8 => NativeTransferState.failed,
+    _ => throw StateError('Native transfer state is unsupported'),
+  };
+  final NativeTransferError error = switch (rawError) {
+    0 => NativeTransferError.none,
+    1 => NativeTransferError.rejected,
+    2 => NativeTransferError.cancelled,
+    3 => NativeTransferError.timedOut,
+    4 => NativeTransferError.busy,
+    5 => NativeTransferError.noSpace,
+    6 => NativeTransferError.policyRejected,
+    7 => NativeTransferError.ioFailure,
+    8 => NativeTransferError.integrityFailed,
+    9 => NativeTransferError.unavailable,
+    10 => NativeTransferError.failed,
+    _ => throw StateError('Native transfer error is unsupported'),
+  };
+
+  if (change == NativeTransferChange.removed &&
+      (direction != NativeTransferDirection.incoming ||
+          state != NativeTransferState.offered ||
+          transferredBytes != 0 ||
+          error != NativeTransferError.none)) {
+    throw StateError('Native transfer removal is invalid');
+  }
+  if (state == NativeTransferState.offered &&
+      (direction != NativeTransferDirection.incoming ||
+          transferredBytes != 0 ||
+          error != NativeTransferError.none)) {
+    throw StateError('Native incoming offer is invalid');
+  }
+  if ((state == NativeTransferState.queued ||
+          state == NativeTransferState.running ||
+          state == NativeTransferState.cancelling) &&
+      error != NativeTransferError.none) {
+    throw StateError('Native active transfer exposes a terminal error');
+  }
+  if (state == NativeTransferState.completed &&
+      (transferredBytes != totalBytes || error != NativeTransferError.none)) {
+    throw StateError('Native completed transfer is invalid');
+  }
+  if (state == NativeTransferState.cancelled &&
+      error != NativeTransferError.cancelled) {
+    throw StateError('Native cancelled transfer is invalid');
+  }
+  if (state == NativeTransferState.rejected &&
+      error != NativeTransferError.rejected) {
+    throw StateError('Native rejected transfer is invalid');
+  }
+  if (state == NativeTransferState.failed &&
+      (error == NativeTransferError.none ||
+          error == NativeTransferError.cancelled ||
+          error == NativeTransferError.rejected)) {
+    throw StateError('Native failed transfer is missing a public error');
+  }
+
+  final String peerLabel = const Utf8Decoder(
+    allowMalformed: false,
+  ).convert(peerLabelBytes.sublist(0, peerLabelSize));
+  return NativeTransferRecord(
+    change: change,
+    revision: revision,
+    direction: direction,
+    state: state,
+    error: error,
+    totalBytes: totalBytes,
+    transferredBytes: transferredBytes,
+    transferId: transferId,
+    peerLabel: peerLabel,
+  );
+}
+
+NativeTransferEvent decodeNativeTransferEventPayload({
+  required int sequence,
+  required int payloadVersion,
+  required int flags,
+  required Uint8List payload,
+  required int pointerSize,
+}) {
+  if (payloadVersion != nativeTransferEventPayloadVersion ||
+      pointerSize != 8 ||
+      payload.length < 176) {
+    throw StateError('Native transfer event payload is incompatible');
+  }
+
+  final ByteData fields = ByteData.sublistView(payload);
+  final int structSize = fields.getUint64(0, Endian.host);
+  if (structSize < 176 || structSize > payload.length) {
+    throw StateError('Native transfer event payload is truncated');
+  }
+  return NativeTransferEvent(
+    sequence: sequence,
+    record: decodeNativeTransferFields(
+      structSize: structSize,
+      abiVersion: fields.getUint32(8, Endian.host),
+      rawChange: fields.getUint32(12, Endian.host),
+      revision: fields.getUint64(16, Endian.host),
+      rawDirection: fields.getUint32(24, Endian.host),
+      rawState: fields.getUint32(28, Endian.host),
+      rawError: fields.getUint32(32, Endian.host),
+      peerLabelSize: fields.getUint32(36, Endian.host),
+      reserved: fields.getUint32(40, Endian.host),
+      reserved2: fields.getUint32(44, Endian.host),
+      totalBytes: fields.getUint64(48, Endian.host),
+      transferredBytes: fields.getUint64(56, Endian.host),
+      transferId: List<int>.from(payload.sublist(64, 80)),
+      peerLabelBytes: Uint8List.fromList(payload.sublist(80, 176)),
+      expectedStructSize: 176,
+    ),
+    eventsDroppedBefore: flags & 1 != 0,
+  );
+}

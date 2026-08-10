@@ -31,6 +31,11 @@ extern "C" {
 #define XNN_TRANSFER_PAIRING_ATTEMPT_ID_SIZE 16u
 #define XNN_TRANSFER_PAIRING_SAS_WORD_COUNT 5u
 #define XNN_TRANSFER_TRUST_SNAPSHOT_PAGE_CAPACITY 8u
+#define XNN_TRANSFER_TRANSFER_EVENT_PAYLOAD_VERSION 1u
+#define XNN_TRANSFER_TRANSFER_ID_SIZE 16u
+#define XNN_TRANSFER_TRANSFER_PATH_MAX_SIZE 1024u
+#define XNN_TRANSFER_TRANSFER_PEER_LABEL_MAX_SIZE 96u
+#define XNN_TRANSFER_TRANSFER_SNAPSHOT_PAGE_CAPACITY 4u
 
 typedef struct xnn_transfer_engine xnn_transfer_engine;
 
@@ -57,7 +62,8 @@ typedef enum xnn_transfer_event_type {
   XNN_TRANSFER_EVENT_TYPE_ENGINE_STATE_CHANGED = 1,
   XNN_TRANSFER_EVENT_TYPE_DISCOVERY_PEER_CHANGED = 2,
   XNN_TRANSFER_EVENT_TYPE_PAIRING_ATTEMPT_CHANGED = 3,
-  XNN_TRANSFER_EVENT_TYPE_TRUST_CHANGED = 4
+  XNN_TRANSFER_EVENT_TYPE_TRUST_CHANGED = 4,
+  XNN_TRANSFER_EVENT_TYPE_TRANSFER_CHANGED = 5
 } xnn_transfer_event_type;
 
 typedef enum xnn_transfer_event_flags {
@@ -311,6 +317,109 @@ typedef struct xnn_transfer_trust_snapshot_page {
   xnn_transfer_trust_event_payload records[XNN_TRANSFER_TRUST_SNAPSHOT_PAGE_CAPACITY];
 } xnn_transfer_trust_snapshot_page;
 
+typedef enum xnn_transfer_transfer_change {
+  XNN_TRANSFER_TRANSFER_UPSERTED = 1,
+  XNN_TRANSFER_TRANSFER_REMOVED = 2
+} xnn_transfer_transfer_change;
+
+typedef enum xnn_transfer_transfer_direction {
+  XNN_TRANSFER_TRANSFER_DIRECTION_INCOMING = 1,
+  XNN_TRANSFER_TRANSFER_DIRECTION_OUTGOING = 2
+} xnn_transfer_transfer_direction;
+
+typedef enum xnn_transfer_transfer_state {
+  XNN_TRANSFER_TRANSFER_STATE_OFFERED = 1,
+  XNN_TRANSFER_TRANSFER_STATE_QUEUED = 2,
+  XNN_TRANSFER_TRANSFER_STATE_RUNNING = 3,
+  XNN_TRANSFER_TRANSFER_STATE_CANCELLING = 4,
+  XNN_TRANSFER_TRANSFER_STATE_COMPLETED = 5,
+  XNN_TRANSFER_TRANSFER_STATE_CANCELLED = 6,
+  XNN_TRANSFER_TRANSFER_STATE_REJECTED = 7,
+  XNN_TRANSFER_TRANSFER_STATE_FAILED = 8
+} xnn_transfer_transfer_state;
+
+/*
+ * Parser, transport, storage, and protocol details are collapsed before
+ * crossing the ABI. These values are stable local UI outcomes and are never
+ * serialized to a peer.
+ */
+typedef enum xnn_transfer_transfer_error {
+  XNN_TRANSFER_TRANSFER_ERROR_NONE = 0,
+  XNN_TRANSFER_TRANSFER_ERROR_REJECTED = 1,
+  XNN_TRANSFER_TRANSFER_ERROR_CANCELLED = 2,
+  XNN_TRANSFER_TRANSFER_ERROR_TIMED_OUT = 3,
+  XNN_TRANSFER_TRANSFER_ERROR_BUSY = 4,
+  XNN_TRANSFER_TRANSFER_ERROR_NO_SPACE = 5,
+  XNN_TRANSFER_TRANSFER_ERROR_POLICY_REJECTED = 6,
+  XNN_TRANSFER_TRANSFER_ERROR_IO_FAILURE = 7,
+  XNN_TRANSFER_TRANSFER_ERROR_INTEGRITY_FAILED = 8,
+  XNN_TRANSFER_TRANSFER_ERROR_UNAVAILABLE = 9,
+  XNN_TRANSFER_TRANSFER_ERROR_FAILED = 10
+} xnn_transfer_transfer_error;
+
+/*
+ * trust_id must name a live native trust record. path is copied before the
+ * command returns and is never retained as caller-owned memory. The native
+ * platform adapter remains responsible for opening and validating the selected
+ * local file without following an untrusted peer path.
+ */
+typedef struct xnn_transfer_transfer_send_request {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t reserved;
+  uint64_t trust_id;
+  uint32_t path_size;
+  uint32_t reserved2;
+  uint8_t path[XNN_TRANSFER_TRANSFER_PATH_MAX_SIZE];
+} xnn_transfer_transfer_send_request;
+
+typedef struct xnn_transfer_transfer_ref {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t reserved;
+  uint8_t transfer_id[XNN_TRANSFER_TRANSFER_ID_SIZE];
+} xnn_transfer_transfer_ref;
+
+/*
+ * transfer_id is a native-selected opaque capability. peer_label is copied,
+ * bounded display data associated with the authenticated native session; no
+ * endpoint, key, certificate, protocol frame, or local path is exposed.
+ */
+typedef struct xnn_transfer_transfer_event_payload {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t change;
+  uint64_t snapshot_revision;
+  uint32_t direction;
+  uint32_t state;
+  uint32_t error;
+  uint32_t peer_label_size;
+  uint32_t reserved;
+  uint32_t reserved2;
+  uint64_t total_bytes;
+  uint64_t transferred_bytes;
+  uint8_t transfer_id[XNN_TRANSFER_TRANSFER_ID_SIZE];
+  uint8_t peer_label[XNN_TRANSFER_TRANSFER_PEER_LABEL_MAX_SIZE];
+} xnn_transfer_transfer_event_payload;
+
+/*
+ * Pass expected_revision=0 to begin a snapshot. Continue with the returned
+ * revision and offset+count. A concurrent transfer change returns
+ * STALE_SNAPSHOT and requires restarting at revision zero.
+ */
+typedef struct xnn_transfer_transfer_snapshot_page {
+  size_t struct_size;
+  uint32_t abi_version;
+  uint32_t reserved;
+  uint64_t snapshot_revision;
+  uint32_t offset;
+  uint32_t count;
+  uint32_t total_count;
+  uint32_t reserved2;
+  xnn_transfer_transfer_event_payload
+      records[XNN_TRANSFER_TRANSFER_SNAPSHOT_PAGE_CAPACITY];
+} xnn_transfer_transfer_snapshot_page;
+
 XNN_TRANSFER_API uint32_t xnn_transfer_abi_version(void);
 
 XNN_TRANSFER_API xnn_transfer_status xnn_transfer_engine_create(
@@ -382,6 +491,23 @@ XNN_TRANSFER_API xnn_transfer_status xnn_transfer_pairing_get_snapshot(
 XNN_TRANSFER_API xnn_transfer_status xnn_transfer_trust_get_snapshot(
     xnn_transfer_engine* engine, uint64_t expected_revision, uint32_t offset,
     xnn_transfer_trust_snapshot_page* out_page);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_transfer_send(
+    xnn_transfer_engine* engine, const xnn_transfer_transfer_send_request* request,
+    xnn_transfer_transfer_ref* out_transfer);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_transfer_accept(
+    xnn_transfer_engine* engine, const xnn_transfer_transfer_ref* transfer);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_transfer_reject(
+    xnn_transfer_engine* engine, const xnn_transfer_transfer_ref* transfer);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_transfer_cancel(
+    xnn_transfer_engine* engine, const xnn_transfer_transfer_ref* transfer);
+
+XNN_TRANSFER_API xnn_transfer_status xnn_transfer_transfer_get_snapshot(
+    xnn_transfer_engine* engine, uint64_t expected_revision, uint32_t offset,
+    xnn_transfer_transfer_snapshot_page* out_page);
 
 #ifdef __cplusplus
 }  // extern "C"
