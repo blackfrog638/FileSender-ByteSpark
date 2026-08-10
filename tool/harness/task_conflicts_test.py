@@ -57,14 +57,17 @@ class RepositoryTest(unittest.TestCase):
             {
                 "id": "XT-100",
                 "owned_paths": ["native/src/foo/**"],
+                "delivery_plan": "DP-FOO",
             },
             {
                 "id": "XT-101",
                 "owned_paths": ["native/src/foo/parser.cpp"],
+                "delivery_plan": "DP-FOO",
             },
             {
                 "id": "XT-102",
                 "owned_paths": ["native/src/bar/**"],
+                "delivery_plan": "DP-BAR",
             },
         ]
         agents = self.root / ".agents"
@@ -76,6 +79,13 @@ class RepositoryTest(unittest.TestCase):
         )
         for task in tasks:
             self.write_record(task["id"], "ready")
+            spec = agents / "tasks" / f"{task['id']}-fixture.md"
+            spec.parent.mkdir(parents=True, exist_ok=True)
+            spec.write_text(f"# {task['id']}\n", encoding="utf-8")
+        plans = agents / "plans"
+        plans.mkdir()
+        (plans / "DP-FOO.json").write_text("{}\n", encoding="utf-8")
+        (plans / "DP-BAR.json").write_text("{}\n", encoding="utf-8")
         owned = self.root / "native" / "src" / "foo" / "old.cpp"
         owned.parent.mkdir(parents=True)
         owned.write_text("old\n", encoding="utf-8")
@@ -205,6 +215,77 @@ class RepositoryTest(unittest.TestCase):
                 self.base,
                 "HEAD",
             )
+
+    def test_delivery_plan_change_rejects_stale_base(self) -> None:
+        self.commit_file(".agents/plans/DP-FOO.json", '{"changed":true}\n')
+
+        with self.assertRaisesRegex(
+            task_conflicts.TaskConflictError,
+            ".agents/plans/DP-FOO.json",
+        ):
+            task_conflicts.check_stale_base(
+                self.root,
+                "XT-100",
+                self.base,
+                "HEAD",
+            )
+
+    def test_task_spec_change_rejects_stale_base(self) -> None:
+        self.commit_file(".agents/tasks/XT-100-fixture.md", "# changed\n")
+
+        with self.assertRaisesRegex(
+            task_conflicts.TaskConflictError,
+            ".agents/tasks/XT-100-fixture.md",
+        ):
+            task_conflicts.check_stale_base(
+                self.root,
+                "XT-100",
+                self.base,
+                "HEAD",
+            )
+
+    def test_only_relevant_backlog_entry_rejects_stale_base(self) -> None:
+        backlog_path = self.root / ".agents" / "backlog.yaml"
+        backlog = json.loads(backlog_path.read_text(encoding="utf-8"))
+        backlog["tasks"][0]["owned_paths"].append("native/src/new/**")
+        backlog_path.write_text(
+            json.dumps(backlog, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        self.git("add", ".agents/backlog.yaml")
+        self.git("commit", "-m", "test: change target task contract")
+
+        with self.assertRaisesRegex(
+            task_conflicts.TaskConflictError,
+            ".agents/backlog.yaml",
+        ):
+            task_conflicts.check_stale_base(
+                self.root,
+                "XT-100",
+                self.base,
+                "HEAD",
+            )
+
+    def test_unrelated_backlog_entry_does_not_reject_stale_base(self) -> None:
+        backlog_path = self.root / ".agents" / "backlog.yaml"
+        backlog = json.loads(backlog_path.read_text(encoding="utf-8"))
+        backlog["tasks"][2]["owned_paths"].append("native/src/bar/new/**")
+        backlog_path.write_text(
+            json.dumps(backlog, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        self.git("add", ".agents/backlog.yaml")
+        self.git("commit", "-m", "test: change unrelated task contract")
+
+        self.assertEqual(
+            task_conflicts.check_stale_base(
+                self.root,
+                "XT-100",
+                self.base,
+                "HEAD",
+            ),
+            [],
+        )
 
     def test_rename_reports_owned_deletion_side(self) -> None:
         destination = self.root / "native" / "src" / "bar" / "moved.cpp"

@@ -219,6 +219,61 @@ def matching_changed_paths(
     )
 
 
+def task_at_commit(
+    root: Path,
+    commit: str,
+    task_id: str,
+) -> dict[str, Any] | None:
+    result = git(
+        root,
+        "show",
+        f"{commit}:.agents/backlog.yaml",
+        check=False,
+    )
+    if result.returncode != 0:
+        raise TaskConflictError(
+            f"cannot read backlog at {commit}: "
+            + (result.stderr or result.stdout)
+        )
+    try:
+        document = json.loads(result.stdout)
+    except json.JSONDecodeError as error:
+        raise TaskConflictError(
+            f"backlog at {commit} is invalid: {error}"
+        ) from error
+    tasks = document.get("tasks") if isinstance(document, dict) else None
+    if not isinstance(tasks, list):
+        raise TaskConflictError(f"backlog at {commit} has no tasks array")
+    matches = [
+        task
+        for task in tasks
+        if isinstance(task, dict) and task.get("id") == task_id
+    ]
+    if len(matches) > 1:
+        raise TaskConflictError(
+            f"backlog at {commit} contains duplicate task {task_id}"
+        )
+    return matches[0] if matches else None
+
+
+def task_stale_patterns(
+    task_id: str,
+    base_task: dict[str, Any],
+    upstream_task: dict[str, Any],
+) -> list[str]:
+    patterns = (
+        owned_paths(base_task, task_id)
+        + owned_paths(upstream_task, task_id)
+        + list(GLOBAL_STALE_PATTERNS)
+        + [f".agents/tasks/{task_id}-*.md"]
+    )
+    for task in (base_task, upstream_task):
+        plan_id = task.get("delivery_plan")
+        if isinstance(plan_id, str) and plan_id:
+            patterns.append(f".agents/plans/{plan_id}.json")
+    return patterns
+
+
 def check_stale_base(
     root: Path,
     task_id: str,
@@ -269,10 +324,22 @@ def check_stale_base(
         f"{base_sha}..{upstream_sha}",
         "--",
     ).splitlines()
+    base_task = task_at_commit(root, base_sha, task_id)
+    upstream_task = task_at_commit(root, upstream_sha, task_id)
+    if base_task is None or upstream_task is None:
+        raise TaskConflictError(
+            f"{task_id} registration changed between base and integration; "
+            "rebase and repeat review"
+        )
     relevant = matching_changed_paths(
         changed,
-        owned_paths(task, task_id) + list(GLOBAL_STALE_PATTERNS),
+        task_stale_patterns(task_id, base_task, upstream_task),
     )
+    if (
+        ".agents/backlog.yaml" in changed
+        and base_task != upstream_task
+    ):
+        relevant = sorted(set(relevant) | {".agents/backlog.yaml"})
     if relevant:
         details = "\n".join(f"- {path}" for path in relevant)
         raise TaskConflictError(

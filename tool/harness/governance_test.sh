@@ -7,6 +7,7 @@ export PYTHONDONTWRITEBYTECODE=1
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 python3 -B "$root/tool/harness/trusted_gates_test.py"
 python3 -B "$root/tool/harness/defect_proof_test.py"
+python3 -B "$root/tool/harness/tdd_proof_test.py"
 python3 -B "$root/tool/harness/task_conflicts_test.py"
 python3 -B "$root/tool/harness/delivery_plan_test.py"
 python3 -B "$root/tool/harness/tdd_contract_test.py"

@@ -20,6 +20,7 @@ Usage:
   tool/harness/agent.sh validate
   tool/harness/agent.sh claim XT-001 owner-slug [worktree-path] [base-ref]
   tool/harness/agent.sh transition XT-001 in_progress|review|blocked
+  tool/harness/agent.sh checkpoint XT-001 red
   tool/harness/agent.sh integrate XT-001 [--strategy squash|cherry-pick]
   tool/harness/agent.sh integrate XT-001 --continue
   tool/harness/agent.sh accept XT-001 reviewer-slug
@@ -130,6 +131,10 @@ task_lifecycle_subject() {
       suffix=" for review"
       ;;
     blocked) verb="block" ;;
+    checkpoint)
+      printf 'chore(%s): record deterministic Red checkpoint\n' "$scope"
+      return
+      ;;
     integration)
       verb="record"
       suffix=" integration"
@@ -545,6 +550,44 @@ transition() {
     "$(task_lifecycle_subject "$task_id" "$lifecycle")"
   git -C "$root" config "branch.$branch.xnnState" "$next"
   printf '%s: %s -> %s\n' "$task_id" "$current" "$next"
+}
+
+checkpoint() {
+  if [[ "$#" -ne 2 || "$2" != "red" ]]; then
+    usage
+    exit 2
+  fi
+
+  local task_id="$1"
+  local kind="$2"
+  local branch worktree state
+  branch="$(task_branch "$task_id")"
+  if ! git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
+    printf '%s is not claimed.\n' "$task_id" >&2
+    exit 1
+  fi
+  worktree="$(task_worktree "$task_id")"
+  if [[ -z "$worktree" ]]; then
+    printf '%s has no task worktree.\n' "$task_id" >&2
+    exit 1
+  fi
+  state="$(
+    "$worktree/tool/harness/governance.py" get "$task_id" state
+  )"
+  if [[ "$state" != "in_progress" ]]; then
+    printf '%s must be in_progress before checkpoint; state=%s\n' \
+      "$task_id" "$state" >&2
+    exit 1
+  fi
+
+  python3 -B "$worktree/tool/harness/tdd_proof.py" \
+    --root "$worktree" checkpoint "$task_id" "$kind" >/dev/null
+  commit_record \
+    "$worktree" \
+    "$task_id" \
+    checkpoint \
+    "$(task_lifecycle_subject "$task_id" checkpoint)"
+  printf '%s: recorded deterministic Red checkpoint\n' "$task_id"
 }
 
 integrate_cherry_pick() {
@@ -1287,6 +1330,7 @@ case "$command" in
   validate) validate "$@" ;;
   claim) claim "$@" ;;
   transition) transition "$@" ;;
+  checkpoint) checkpoint "$@" ;;
   integrate) integrate "$@" ;;
   accept) accept "$@" ;;
   cleanup) cleanup "$@" ;;

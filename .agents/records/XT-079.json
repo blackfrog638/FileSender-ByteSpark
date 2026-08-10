@@ -8,10 +8,10 @@
   ],
   "delivery_role": "implementation",
   "task_type": "governance",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "tdd-checkpoint-agent",
+  "base_sha": "cada8ddf299ef36fa33642342912e58fef35ee97",
+  "head_sha": "dc2f4bbf5698a8fba98fa3417f7759c58c6543ed",
   "handoff": ".agents/handoffs/XT-079.md",
   "commit": {
     "type": "ci",
@@ -106,12 +106,31 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "cada8ddf299ef36fa33642342912e58fef35ee97",
+    "source_head": "e95df82d40263fa3b7386d2c10d89f9ae6994c1f",
+    "source_commits": [
+      "52e467486ba5e07ae2ee43ba0dc3414e3a46e9ee",
+      "a50039012fec8ceb0a0ddf82160df62a1ec4ac67",
+      "3b28d37fb84ea536479d4c7c45e44ef0e4daddd8",
+      "30512896186b01878bb044b1e6eb3e0cea3f36cc",
+      "73e1316f328a644066a9ceba25cd14089c58bb64",
+      "8446f7de1d8f12cad03abdf840c7fea8ecaf16cf",
+      "a2a4c18268313b8a1784d25475f4c5bc095c53be",
+      "acffb8095b033bdfefb91efd7475687937505214",
+      "ef8a30d013dde08a195db2c71d4c8991e904c851",
+      "398bc588b9a4c0b0a794188723c1704445b82a41",
+      "dc2f4bbf5698a8fba98fa3417f7759c58c6543ed",
+      "e95df82d40263fa3b7386d2c10d89f9ae6994c1f"
+    ],
+    "source_commits_sha256": "e5d2df83e2abfafe2ec8618d1fdbb654d492e7dbd0f92eb4ec7fbd21d4d039ab",
+    "source_patch_id": "bec1a39929ca3a4057f7fc8a85ce0eb0a03defdb",
+    "result": "",
+    "result_patch_id": "bec1a39929ca3a4057f7fc8a85ce0eb0a03defdb",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "governance_test",
       "verify"
@@ -120,7 +139,7 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:dc2f4bbf5698a8fba98fa3417f7759c58c6543ed:2026-08-10T21:45:27Z"
   },
   "acceptance": {
     "accepted_by": "",

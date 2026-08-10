@@ -24,6 +24,7 @@ import architecture_change
 import defect_proof as defect_proof_runner
 import delivery_plan as delivery_plan_contract
 import tdd_contract
+import tdd_proof as tdd_proof_runner
 from trusted_gates import GateRegistryError, load_gate_registry
 
 
@@ -499,7 +500,17 @@ def validate_schema_v3(
             if isinstance(verification, dict)
             else None
         )
-        proof_required = state in {"review", "integrated", "done"}
+        schema_v4_tdd = record.get("schema_version") == 4
+        proof_required = (
+            state in {"review", "integrated", "done"}
+            and not schema_v4_tdd
+        )
+        if schema_v4_tdd and proof is not None:
+            errors.append(
+                f"{task_id}.verification.defect_proof is superseded by "
+                "schema-v4 tdd_proof"
+            )
+            proof = None
         if proof_required and proof_mode != "deterministic":
             errors.append(
                 f"{task_id}.defect.proof_mode {proof_mode!r} has no "
@@ -1424,6 +1435,15 @@ def validate_record(
                 gate_registry,
             )
         )
+        errors.extend(
+            tdd_proof_runner.validate_tdd_evidence(
+                ROOT,
+                task,
+                record,
+                gate_registry,
+                verify_git=verify_git,
+            )
+        )
 
     if state == "done":
         if verification.get("status") != "passed":
@@ -1808,6 +1828,7 @@ def update_state(task_id: str, expected: str, target: str) -> None:
         record["head_sha"] = ""
         record["verification"]["status"] = "pending"
         record["verification"]["reference"] = ""
+        record["verification"].pop("tdd_proof", None)
     write_json(record_path(task_id), record)
 
 
@@ -1833,6 +1854,8 @@ def mark_review(task_id: str, head_sha: str, reference: str) -> None:
     path = record_path(task_id)
     try:
         defect_proof_runner.run_proof(ROOT, task_id, head_sha)
+        if original.get("schema_version") == 4:
+            tdd_proof_runner.run_review_proof(ROOT, task_id, head_sha)
         record = load_record(task_id)
         record["state"] = "review"
         record["head_sha"] = head_sha
@@ -1840,7 +1863,11 @@ def mark_review(task_id: str, head_sha: str, reference: str) -> None:
         record["verification"]["reference"] = reference
         write_json(path, record)
         validate_repository()
-    except (GovernanceError, defect_proof_runner.DefectProofError) as error:
+    except (
+        GovernanceError,
+        defect_proof_runner.DefectProofError,
+        tdd_proof_runner.TddProofError,
+    ) as error:
         write_json(path, original)
         if isinstance(error, GovernanceError):
             raise
