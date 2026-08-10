@@ -2,7 +2,7 @@
   "schema_version": 2,
   "id": "XT-029",
   "task_type": "implementation",
-  "state": "integrated",
+  "state": "done",
   "owner": "cancellation-cleanup-agent",
   "base_sha": "8b048e8e6199af5808e02876d6e42285041305c2",
   "head_sha": "57bfbb287dd8e582d2d0a649d1f49689a8c00457",
@@ -94,9 +94,9 @@
     ],
     "source_commits_sha256": "147e4cf887e4af2e9bf83686010c657800b9150c7c060a7c8b61bb2643e6fa8c",
     "source_patch_id": "b52fbd8c02b31bf3ca8389b30d56ffb983dd74d0",
-    "result": "",
+    "result": "08af55b084c25971a37c557ca29f4839c1a5611d",
     "result_patch_id": "b52fbd8c02b31bf3ca8389b30d56ffb983dd74d0",
-    "verified_sha": ""
+    "verified_sha": "08af55b084c25971a37c557ca29f4839c1a5611d"
   },
   "verification": {
     "status": "passed",
@@ -105,11 +105,11 @@
       "make security-test",
       "make verify"
     ],
-    "reference": "local:57bfbb287dd8e582d2d0a649d1f49689a8c00457:2026-08-10T00:15:54Z"
+    "reference": "local:08af55b084c25971a37c557ca29f4839c1a5611d:2026-08-10T00:28:02Z"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-10T08:28:03+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
