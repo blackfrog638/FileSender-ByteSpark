@@ -7,7 +7,7 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "bugfix",
-  "state": "integrated",
+  "state": "done",
   "owner": "windows-iterator-agent",
   "base_sha": "dfd0a9fa980868dd773b5a17b1f529039567c8f0",
   "head_sha": "71fb64996b8aeae5b15fea1cd1dea05b6a981b3e",
@@ -109,7 +109,7 @@
     "source_patch_id": "2a3206d83798df7ac4908eb6270d4b87f61dbe88",
     "result": "549fd420bf6bc01168314ca8a58a0f720aa98638",
     "result_patch_id": "2a3206d83798df7ac4908eb6270d4b87f61dbe88",
-    "verified_sha": ""
+    "verified_sha": "964e93cac8ea31d54d91865b368c8bff71e2d3ca"
   },
   "verification": {
     "status": "passed",
@@ -121,7 +121,7 @@
       "make native-test",
       "make verify"
     ],
-    "reference": "local:71fb64996b8aeae5b15fea1cd1dea05b6a981b3e:2026-08-10T02:35:52Z",
+    "reference": "github-actions:31352750511",
     "defect_proof": {
       "mode": "deterministic",
       "gate": "native_test",
@@ -138,9 +138,9 @@
     }
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-10T11:49:45+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   },
   "defect": {
     "severity": "P1",
