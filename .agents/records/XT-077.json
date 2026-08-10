@@ -7,7 +7,7 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "feature",
-  "state": "integrated",
+  "state": "done",
   "owner": "dashboard-agent",
   "base_sha": "71f1e114d857d4d7f2d485bb262da0bb09e51ab6",
   "head_sha": "9500f3b1662454e2869cf308047d77808d055a72",
@@ -120,9 +120,9 @@
     ],
     "source_commits_sha256": "7eb7059b9aed310d4c8ea129cbc8d4c323c945bcdcd4ecdfbfd88005b6f39e6b",
     "source_patch_id": "9a70bfa2525eaccbca721b9c62048b4c6d59160d",
-    "result": "",
+    "result": "4370112ce9063a606c8874adeac24edbb74d2719",
     "result_patch_id": "9a70bfa2525eaccbca721b9c62048b4c6d59160d",
-    "verified_sha": ""
+    "verified_sha": "4370112ce9063a606c8874adeac24edbb74d2719"
   },
   "verification": {
     "status": "passed",
@@ -136,11 +136,11 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": "local:9500f3b1662454e2869cf308047d77808d055a72:2026-08-10T15:14:25Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31409535484"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-11T00:51:42+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
