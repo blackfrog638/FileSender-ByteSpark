@@ -7,10 +7,10 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "bugfix",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "windows-macro-agent",
+  "base_sha": "964e93cac8ea31d54d91865b368c8bff71e2d3ca",
+  "head_sha": "6bf886f25370ee68b84ffe7937d6219e55b41879",
   "handoff": ".agents/handoffs/XT-067.md",
   "commit": {
     "type": "fix",
@@ -18,11 +18,8 @@
     "summary": "isolate Windows test macros"
   },
   "architecture_change": {
-    "mode": "refactor",
-    "modules": [
-      "session",
-      "transfer"
-    ],
+    "mode": "none",
+    "modules": [],
     "supersedes": {
       "paths": [],
       "symbols": [],
@@ -93,12 +90,24 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "964e93cac8ea31d54d91865b368c8bff71e2d3ca",
+    "source_head": "94591eef21cb67032f40c276e607ef51113a16d0",
+    "source_commits": [
+      "17ef084264de3011608146d25778740e2771ebda",
+      "a1ad944abe6f65b507e749c58ae809e5a95702b9",
+      "65f0f60466f8d8249b0342f876b120e00d19af52",
+      "6bf886f25370ee68b84ffe7937d6219e55b41879",
+      "94591eef21cb67032f40c276e607ef51113a16d0"
+    ],
+    "source_commits_sha256": "c580389f78e0ae7f8a9554385068c0b67394ca3fc72184f89573b5ed98c4adf9",
+    "source_patch_id": "0e52765926f2af580253df02b17fe5cd79097257",
+    "result": "",
+    "result_patch_id": "0e52765926f2af580253df02b17fe5cd79097257",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "native_test",
       "verify"
@@ -107,7 +116,21 @@
       "make native-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:6bf886f25370ee68b84ffe7937d6219e55b41879:2026-08-10T03:24:35Z",
+    "defect_proof": {
+      "mode": "deterministic",
+      "gate": "native_test",
+      "command_sha256": "3de273218e3be98919043b865b023b33ee98345ab3f6b4b1ae24103d0498aef6",
+      "failure_fingerprint_sha256": "245a482dcb95c49c32a889f2cd228aaffcd2a3a932001a2ad61e49dfb0caa4ad",
+      "base_commit": "964e93cac8ea31d54d91865b368c8bff71e2d3ca",
+      "reproduction_commit": "65f0f60466f8d8249b0342f876b120e00d19af52",
+      "head_commit": "6bf886f25370ee68b84ffe7937d6219e55b41879",
+      "base_exit_code": 0,
+      "reproduction_exit_code": 2,
+      "head_exit_code": 0,
+      "reproduction_output_sha256": "e0581d2d5b5ad28098ac2330957a8b831c89eaab152cd9d9936191af6a83b41d",
+      "checked_at": "2026-08-10T03:26:20+00:00"
+    }
   },
   "acceptance": {
     "accepted_by": "",
@@ -123,7 +146,7 @@
     "trigger": "Compile integrated delivery 549fd420bf6bc01168314ca8a58a0f720aa98638 with MSVC 14.44 in GitHub Actions run 31350356920.",
     "affected_since": "600c7b0b0a3478b89189af3d3bd1db211f59eb06",
     "proof_mode": "deterministic",
-    "reproduction_commit": "",
+    "reproduction_commit": "65f0f60466f8d8249b0342f876b120e00d19af52",
     "regression_gate": "native_test",
     "contract_disposition": "restore",
     "failure_fingerprint": "FAILED: Windows native test support must isolate min and max macros"

@@ -1,5 +1,18 @@
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
+add_test(
+  NAME xnn_transfer_windows_macro_policy
+  COMMAND
+    "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/windows_macro_policy_test.py"
+    "${PROJECT_SOURCE_DIR}/native/tests/session/test_support.hpp"
+)
+set_tests_properties(
+  xnn_transfer_windows_macro_policy
+  PROPERTIES
+    TIMEOUT 30
+)
+
 set(
   xnn_transfer_transfer_pairing_vectors
   "${CMAKE_CURRENT_BINARY_DIR}/pairing_vectors.hpp"
