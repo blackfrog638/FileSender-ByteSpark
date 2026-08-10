@@ -4,6 +4,9 @@
 CMakeUserPresets.json
 compile_commands.json
 
+# Generated project dashboard (read-only, purely derived; never committed)
+/build/dashboard/
+
 # Flutter and Dart
 .dart_tool/
 .fvm/

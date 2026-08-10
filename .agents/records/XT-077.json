@@ -7,10 +7,10 @@
   ],
   "delivery_role": "implementation_acceptance",
   "task_type": "feature",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "dashboard-agent",
+  "base_sha": "71f1e114d857d4d7f2d485bb262da0bb09e51ab6",
+  "head_sha": "9500f3b1662454e2869cf308047d77808d055a72",
   "handoff": ".agents/handoffs/XT-077.md",
   "commit": {
     "type": "feat",
@@ -33,6 +33,7 @@
       "level": "medium",
       "rationale": "An aggregation that diverges from agent.sh list or delivery_plan.py status would misrepresent delivery progress and mislead scheduling decisions, so the dashboard must reuse the existing state logic and be verified against it.",
       "gates": [
+        "dashboard_test",
         "governance_test",
         "verify"
       ]
@@ -41,6 +42,7 @@
       "level": "medium",
       "rationale": "Task titles and free-form backlog text are rendered into HTML; without escaping, untrusted content could inject markup into the generated page.",
       "gates": [
+        "dashboard_test",
         "governance_test",
         "verify"
       ]
@@ -102,27 +104,39 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "source_base": "",
-    "source_head": "",
-    "source_commits": [],
-    "source_commits_sha256": "",
-    "source_patch_id": "",
+    "strategy": "squash",
+    "source_base": "71f1e114d857d4d7f2d485bb262da0bb09e51ab6",
+    "source_head": "bf150f09eb3ae62bdfd023c010440664ba45c19a",
+    "source_commits": [
+      "deaac15062191dbd7667d33c2bea22cef0a1a36f",
+      "b3e64de5b3734dba55c7b3bacdb39a2df769b135",
+      "d925b8587b3aaaab69000a5b48bc093cc75e5129",
+      "c946fbd5c439469792d61f2f414887c9ab7b9c67",
+      "18ccadb9718b5bed668818c8cbc73ceda7a0a09d",
+      "a59b0b9c5861ed24be278d22adf02effdef07f60",
+      "7fd4ba630138951c5ead7f8a838e813664dacdac",
+      "9500f3b1662454e2869cf308047d77808d055a72",
+      "bf150f09eb3ae62bdfd023c010440664ba45c19a"
+    ],
+    "source_commits_sha256": "7eb7059b9aed310d4c8ea129cbc8d4c323c945bcdcd4ecdfbfd88005b6f39e6b",
+    "source_patch_id": "9a70bfa2525eaccbca721b9c62048b4c6d59160d",
     "result": "",
-    "result_patch_id": "",
+    "result_patch_id": "9a70bfa2525eaccbca721b9c62048b4c6d59160d",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
+      "dashboard_test",
       "governance_test",
       "verify"
     ],
     "commands": [
+      "make dashboard-test",
       "make governance-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:9500f3b1662454e2869cf308047d77808d055a72:2026-08-10T15:14:25Z"
   },
   "acceptance": {
     "accepted_by": "",

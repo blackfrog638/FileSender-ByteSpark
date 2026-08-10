@@ -16,6 +16,7 @@ usage() {
   cat <<'EOF'
 Usage:
   tool/harness/agent.sh list
+  tool/harness/agent.sh dashboard [--output PATH]
   tool/harness/agent.sh validate
   tool/harness/agent.sh claim XT-001 owner-slug [worktree-path] [base-ref]
   tool/harness/agent.sh transition XT-001 in_progress|review|blocked
@@ -334,6 +335,11 @@ for task in tasks:
         f"{state:<12} {owner:<18} {task['title']}"
     )
 PY
+}
+
+dashboard() {
+  XNN_TRANSFER_ROOT="$root" python3 -B "$root/tool/harness/dashboard.py" \
+    --root "$root" "$@"
 }
 
 validate() {
@@ -1277,6 +1283,7 @@ shift
 
 case "$command" in
   list) list_tasks "$@" ;;
+  dashboard) dashboard "$@" ;;
   validate) validate "$@" ;;
   claim) claim "$@" ;;
   transition) transition "$@" ;;

@@ -47,6 +47,7 @@ commands:
   vcpkg_bootstrap: make vcpkg-bootstrap
   agent_list: tool/harness/agent.sh list
   governance_test: make governance-test
+  dashboard_test: make dashboard-test
 
 workstreams:
   integration:

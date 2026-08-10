@@ -1,4 +1,4 @@
-.PHONY: abi-compat-test architecture-test benchmark bootstrap commit-message-test delivery-plan-test dependency-test doctor flutter-test format governance-test macos-bundle-test native-test security-test vcpkg-bootstrap verify
+.PHONY: abi-compat-test architecture-test benchmark bootstrap commit-message-test dashboard-test delivery-plan-test dependency-test doctor flutter-test format governance-test macos-bundle-test native-test security-test vcpkg-bootstrap verify
 
 abi-compat-test:
 	@tool/harness/abi_compat_test.sh
@@ -23,6 +23,9 @@ bootstrap:
 
 commit-message-test:
 	@tool/harness/commit_message_test.sh
+
+dashboard-test:
+	@python3 -B tool/harness/dashboard_test.py
 
 native-test:
 	@tool/harness/native_test.sh
