@@ -1,0 +1,152 @@
+{
+  "schema_version": 4,
+  "id": "XT-093",
+  "delivery_plan": "DP-P1-TRANSPORT-COMPOSITION",
+  "requirement_ids": [
+    "REQ-P1-TRANSPORT-COMPOSITION-CONTRACT"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "feature",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-093.md",
+  "commit": {
+    "type": "feat",
+    "scope": "protocol",
+    "summary": "bind transport context inputs"
+  },
+  "architecture_change": {
+    "mode": "refactor",
+    "modules": [
+      "protocol"
+    ],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "Incorrect HELLO field validation or transcript assembly would prevent peers from constructing one matching transport context or could admit transfer frames before binding.",
+      "gates": [
+        "native_test",
+        "protocol_vectors",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Missing freshness, role, replay, or exact-transcript checks would weaken ADR 0002 channel binding and permit unauthenticated application dispatch.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Profile-context parsing and raw transcript retention must remain bounded under fragmented hostile input.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "The task changes the proposed v1 HELLO contract and both roles must agree on exact field presence, normalized semantics, and raw transcript bytes.",
+      "gates": [
+        "protocol_vectors",
+        "native_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "This task validates ordered protocol state and does not introduce a new concurrent executor or shared mutable runtime.",
+      "gates": []
+    },
+    "platform": {
+      "level": "medium",
+      "rationale": "Byte-exact integer encoding and parser behavior must remain identical on all supported native toolchains.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "none",
+      "rationale": "Session nonces, transfer session identifiers, and raw transport transcripts are ephemeral and must not be persisted.",
+      "gates": []
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": true,
+      "status": "proposed",
+      "references": [
+        "docs/adr/0002-pairing-and-transport-security.md"
+      ],
+      "rationale": "The accepted security profile requires fresh transport inputs but does not currently define their interoperable v1 source and exchange."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The canonical protocol target and dependency direction remain unchanged while its existing parser is extended in place."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-095 accepts the prerequisite contract and XT-032 remains responsible for closing the one-file vertical-slice milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "native_test",
+      "protocol_vectors",
+      "security_test",
+      "verify"
+    ],
+    "commands": [
+      "make native-test",
+      "python3 protocol/testdata/v1/validate_vectors.py",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  },
+  "test_contract": {
+    "schema_version": 1,
+    "plan_content_sha256": "0745fccd1de83b1336f431bc4d78d965a7102449da25f0d0fef3c21b6d158510",
+    "criterion_ids": [
+      "CRIT-P1-TRANSPORT-CONTEXT-EXCHANGE"
+    ],
+    "proof_mode": "red_green",
+    "executor": "deterministic",
+    "gate": "native_test",
+    "proof_surface": [
+      "native/tests/protocol/**",
+      "protocol/testdata/v1/**"
+    ],
+    "failure_fingerprints": [
+      "FAILED: transport context profile inputs are not enforced"
+    ],
+    "allow_skipped": false
+  }
+}

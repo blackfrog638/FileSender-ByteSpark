@@ -1393,7 +1393,8 @@
       "depends_on": [
         "XT-029",
         "XT-030",
-        "XT-069"
+        "XT-069",
+        "XT-095"
       ],
       "owned_paths": [
         ".agents/records/XT-070.json",
@@ -1776,6 +1777,82 @@
         "REQ-FUTURE-TDD-PROOF",
         "REQ-FUTURE-TDD-EVIDENCE",
         "REQ-FUTURE-TDD-ADOPTION"
+      ],
+      "delivery_role": "acceptance"
+    },
+    {
+      "id": "XT-093",
+      "title": "Transport context wire contract",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "protocol",
+      "depends_on": [
+        "XT-082"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-093.json",
+        ".agents/tasks/XT-093-transport-context-wire-contract.md",
+        ".agents/handoffs/XT-093.md",
+        "protocol/spec/v1.md",
+        "docs/adr/0002-pairing-and-transport-security.md",
+        "native/include/xnn_transfer/protocol/v1_parser.hpp",
+        "native/src/protocol/**",
+        "native/tests/protocol/**",
+        "native/fuzz/protocol/**",
+        "protocol/testdata/v1/**"
+      ],
+      "delivery_plan": "DP-P1-TRANSPORT-COMPOSITION",
+      "requirement_ids": [
+        "REQ-P1-TRANSPORT-COMPOSITION-CONTRACT"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-094",
+      "title": "Established session authority handoff",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "native_core",
+      "depends_on": [
+        "XT-093"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-094.json",
+        ".agents/tasks/XT-094-established-session-authority-handoff.md",
+        ".agents/handoffs/XT-094.md",
+        "native/include/xnn_transfer/core/session/**",
+        "native/src/session/**",
+        "native/tests/session/**"
+      ],
+      "delivery_plan": "DP-P1-TRANSPORT-COMPOSITION",
+      "requirement_ids": [
+        "REQ-P1-TRANSPORT-COMPOSITION-CONTRACT"
+      ],
+      "delivery_role": "implementation"
+    },
+    {
+      "id": "XT-095",
+      "title": "Transport contract acceptance",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [
+        "XT-094"
+      ],
+      "owned_paths": [
+        ".agents/records/XT-095.json",
+        ".agents/tasks/XT-095-transport-contract-acceptance.md",
+        ".agents/handoffs/XT-095.md"
+      ],
+      "delivery_plan": "DP-P1-TRANSPORT-COMPOSITION",
+      "requirement_ids": [
+        "REQ-P1-TRANSPORT-COMPOSITION-CONTRACT"
       ],
       "delivery_role": "acceptance"
     }

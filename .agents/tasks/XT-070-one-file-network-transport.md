@@ -8,6 +8,7 @@ depends_on:
   - XT-029
   - XT-030
   - XT-069
+  - XT-095
 owned_paths:
   - .agents/records/XT-070.json
   - .agents/tasks/XT-070-one-file-network-transport.md

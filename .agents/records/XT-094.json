@@ -1,0 +1,155 @@
+{
+  "schema_version": 4,
+  "id": "XT-094",
+  "delivery_plan": "DP-P1-TRANSPORT-COMPOSITION",
+  "requirement_ids": [
+    "REQ-P1-TRANSPORT-COMPOSITION-CONTRACT"
+  ],
+  "delivery_role": "implementation",
+  "task_type": "feature",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-094.md",
+  "commit": {
+    "type": "feat",
+    "scope": "session",
+    "summary": "authorize established transport ownership"
+  },
+  "architecture_change": {
+    "mode": "refactor",
+    "modules": [
+      "session"
+    ],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "A failed ownership handoff would leave XT-070 unable to create the authorized SessionHandle required by the existing one-file sender and receiver.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "Pre-binding activation, a synthetic handle, stale trust, or deactivation after socket teardown could dispatch file metadata without a current ADR 0002 transport.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "medium",
+      "rationale": "Activation and deactivation execute on serialized connection paths and must not block or grow callback and ownership queues.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    },
+    "compatibility": {
+      "level": "high",
+      "rationale": "The public C++ session capability must remain source compatible while exposing normalized negotiation and one-shot authority activation.",
+      "gates": [
+        "native_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "critical",
+      "rationale": "Network callbacks, authority ownership, explicit close, transport failure, and runtime stop race across executor and callback barriers.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "platform": {
+      "level": "high",
+      "rationale": "TLS stream destruction and executor cancellation order differ across epoll, kqueue, and IOCP and require the same bounded ownership semantics.",
+      "gates": [
+        "native_test",
+        "security_test",
+        "verify"
+      ]
+    },
+    "persistence": {
+      "level": "medium",
+      "rationale": "Authorization must reflect the current durable peer record revision and revocation state without persisting ephemeral session handles.",
+      "gates": [
+        "native_test",
+        "security_test"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task implements the transport ownership and authorization contract approved by XT-093 without changing the security profile."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The canonical session module, engine-owned executor, and dependency direction remain unchanged."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "XT-095 accepts this prerequisite and XT-032 remains responsible for vertical-slice roadmap closure."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "native_test",
+      "security_test",
+      "verify"
+    ],
+    "commands": [
+      "make native-test",
+      "make security-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  },
+  "test_contract": {
+    "schema_version": 1,
+    "plan_content_sha256": "0745fccd1de83b1336f431bc4d78d965a7102449da25f0d0fef3c21b6d158510",
+    "criterion_ids": [
+      "CRIT-P1-SESSION-AUTHORITY-HANDOFF",
+      "CRIT-P1-TRANSPORT-CONTEXT-EXCHANGE"
+    ],
+    "proof_mode": "red_green",
+    "executor": "deterministic",
+    "gate": "native_test",
+    "proof_surface": [
+      "native/tests/session/**"
+    ],
+    "failure_fingerprints": [
+      "FAILED: normalized transport negotiation is not publicly composable",
+      "FAILED: established transport cannot activate session authority"
+    ],
+    "allow_skipped": false
+  }
+}
