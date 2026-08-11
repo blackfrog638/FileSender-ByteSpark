@@ -10,7 +10,7 @@
   ],
   "delivery_role": "acceptance",
   "task_type": "governance",
-  "state": "integrated",
+  "state": "done",
   "owner": "future-tdd-acceptance-agent",
   "base_sha": "f814c42e20f14583e8aca095eeca70707a5cd595",
   "head_sha": "2346f3f8d5609dca1af0d8b7bba4b125ad2d72e1",
@@ -125,9 +125,9 @@
     ],
     "source_commits_sha256": "ad380926d27b00ff84efc39eaf5727f44773438d1e0824e4702a09aed17efc91",
     "source_patch_id": "53f0cdbe53b234602ec4598dff509bca5b9e418a",
-    "result": "",
+    "result": "b7c456e5f44fa2853102973797aea9320016cf85",
     "result_patch_id": "53f0cdbe53b234602ec4598dff509bca5b9e418a",
-    "verified_sha": ""
+    "verified_sha": "b7c456e5f44fa2853102973797aea9320016cf85"
   },
   "verification": {
     "status": "passed",
@@ -141,11 +141,11 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": "local:2346f3f8d5609dca1af0d8b7bba4b125ad2d72e1:2026-08-11T09:21:54Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31480147017"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-11T18:18:49+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
