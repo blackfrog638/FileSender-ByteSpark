@@ -1,0 +1,155 @@
+{
+  "schema_version": 4,
+  "id": "XT-096",
+  "delivery_plan": "DP-SCHEMA4-LIFECYCLE-FIXTURE",
+  "requirement_ids": [
+    "REQ-SCHEMA4-LIFECYCLE-FIXTURE"
+  ],
+  "delivery_role": "implementation_acceptance",
+  "task_type": "bugfix",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-096.md",
+  "commit": {
+    "type": "fix",
+    "scope": "harness",
+    "summary": "restore schema-v4 lifecycle fixture isolation"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "The lifecycle fixture currently makes make verify fail for the first real schema-v4 integrated task, blocking every governed acceptance.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "high",
+      "rationale": "The repair must preserve fail-closed criterion-evidence validation and must not fabricate acceptance evidence to close inherited fixture state.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "The fixture performs a bounded read of one delivery-parent record for each inherited integrated task.",
+      "gates": [
+        "governance_test"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "Legacy records and accepted schema-v4 records must continue to validate while an in-flight schema-v4 delivery no longer poisons the isolated fixture.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "none",
+      "rationale": "The repair changes deterministic fixture preparation before any synthetic lifecycle process starts.",
+      "gates": []
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "The helper uses portable Python, JSON, and Git plumbing already required by the harness on every CI platform.",
+      "gates": [
+        "governance_test"
+      ]
+    },
+    "persistence": {
+      "level": "high",
+      "rationale": "Fixture record rewriting must remain isolated and must restore exact durable parent content instead of manufacturing terminal provenance.",
+      "gates": [
+        "governance_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The repair restores the accepted schema-v4 evidence contract and changes no public or expensive-to-reverse decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The change is confined to integration-test fixture preparation and introduces no production module or dependency."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The repair unblocks engineering acceptance and adds no product behavior or milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "governance_test",
+      "verify"
+    ],
+    "commands": [
+      "make governance-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  },
+  "test_contract": {
+    "schema_version": 1,
+    "plan_content_sha256": "db61f3435f3da3e77e21a7c40d8fa998ef45ca26eec23eb1e1e77a6230cbd797",
+    "criterion_ids": [
+      "CRIT-SCHEMA4-LIFECYCLE-FIXTURE"
+    ],
+    "proof_mode": "regression",
+    "executor": "deterministic",
+    "gate": "governance_test",
+    "proof_surface": [
+      "tool/harness/lifecycle_fixture_test.py"
+    ],
+    "failure_fingerprints": [
+      "FAILED: integrated schema-v4 lifecycle state is not isolated"
+    ],
+    "allow_skipped": false
+  },
+  "defect": {
+    "severity": "P1",
+    "source": "test",
+    "symptom": "make verify fails inside governance_test.sh with 'criterion_evidence must be an object' while XT-093 is locally integrated.",
+    "expected_contract": "AGENTS.md requires make verify as the repository completion gate, and schema-v4 done records require exact-candidate criterion evidence generated only during acceptance.",
+    "actual_behavior": "The isolated lifecycle fixture changes every inherited integrated record to done and supplies no criterion_evidence, so governance validation rejects its synthetic repository.",
+    "trigger": "Run make governance-test or make verify from a standard squash delivery commit whose task record has schema_version 4 and state integrated.",
+    "affected_since": "248774b0f029b82bd2246c58b99bc031112adafa",
+    "proof_mode": "deterministic",
+    "reproduction_commit": "",
+    "regression_gate": "governance_test",
+    "contract_disposition": "restore",
+    "failure_fingerprint": "FAILED: integrated schema-v4 lifecycle state is not isolated"
+  }
+}

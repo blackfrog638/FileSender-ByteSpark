@@ -1855,6 +1855,26 @@
         "REQ-P1-TRANSPORT-COMPOSITION-CONTRACT"
       ],
       "delivery_role": "acceptance"
+    },
+    {
+      "id": "XT-096",
+      "title": "Schema-v4 lifecycle fixture isolation",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [],
+      "owned_paths": [
+        "tool/harness/governance_test.sh",
+        "tool/harness/lifecycle_fixture.py",
+        "tool/harness/lifecycle_fixture_test.py"
+      ],
+      "delivery_plan": "DP-SCHEMA4-LIFECYCLE-FIXTURE",
+      "requirement_ids": [
+        "REQ-SCHEMA4-LIFECYCLE-FIXTURE"
+      ],
+      "delivery_role": "implementation_acceptance"
     }
   ]
 }
