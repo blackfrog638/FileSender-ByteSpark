@@ -59,9 +59,10 @@ closes that explicit prerequisite without adding transfer behavior.
 
 ## Architecture change
 
-The record declares `none`: this fills the existing engine-owned C++ worker
-runtime and accepted TLS/session boundaries without introducing a parallel
-provider or a new dependency direction.
+The record declares `refactor` for the canonical `tls` and `session` modules:
+this fills the existing engine-owned C++ worker runtime and accepted
+TLS/session boundaries without introducing a parallel provider, supersession,
+temporary lease, or new dependency direction.
 
 ## Acceptance criteria
 

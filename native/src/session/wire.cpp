@@ -231,29 +231,35 @@ security::tls::Role OppositeRole(const security::tls::Role role) noexcept {
                                                  : security::tls::Role::kInitiator;
 }
 
-ParseResult ParseFrame(const std::span<const std::uint8_t> encoded) noexcept {
-  if (encoded.size() < kPairingFrameHeaderSize) {
-    return {.error = PairingError::kMalformed};
-  }
-  if (!std::equal(kPairingMagic.begin(), kPairingMagic.end(), encoded.begin()) ||
+PairingError ValidateFrameHeader(const std::span<const std::uint8_t> encoded) noexcept {
+  if (encoded.size() < kPairingFrameHeaderSize ||
+      !std::equal(kPairingMagic.begin(), kPairingMagic.end(), encoded.begin()) ||
       ReadU16(encoded.subspan(4, 2)) != kPairingFrameHeaderSize) {
-    return {.error = PairingError::kMalformed};
+    return PairingError::kMalformed;
   }
   if (encoded[6] != 1 || encoded[7] != 0) {
-    return {.error = PairingError::kUnsupportedVersion};
+    return PairingError::kUnsupportedVersion;
   }
   const std::uint16_t type = ReadU16(encoded.subspan(8, 2));
   if (!IsKnownPairingType(type) || ReadU16(encoded.subspan(10, 2)) != 0) {
-    return {.error = PairingError::kMalformed};
+    return PairingError::kMalformed;
+  }
+  return ReadU32(encoded.subspan(16, 4)) > kMaxPairingBodySize
+             ? PairingError::kLimitExceeded
+             : PairingError::kNone;
+}
+
+ParseResult ParseFrame(const std::span<const std::uint8_t> encoded) noexcept {
+  const PairingError header_error = ValidateFrameHeader(encoded);
+  if (header_error != PairingError::kNone) {
+    return {.error = header_error};
   }
   const std::uint32_t body_length = ReadU32(encoded.subspan(16, 4));
-  if (body_length > kMaxPairingBodySize) {
-    return {.error = PairingError::kLimitExceeded};
-  }
   if (encoded.size() !=
       kPairingFrameHeaderSize + static_cast<std::size_t>(body_length)) {
     return {.error = PairingError::kMalformed};
   }
+  const std::uint16_t type = ReadU16(encoded.subspan(8, 2));
 
   try {
     Frame frame{

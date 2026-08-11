@@ -4,7 +4,11 @@ add_library(
   admission.cpp
   authority.cpp
   channels.cpp
+  connection_runtime.cpp
+  established_connection.cpp
   pairing.cpp
+  pairing_socket.cpp
+  tls_handshake.cpp
   wire.cpp
 )
 
@@ -28,7 +32,9 @@ target_link_libraries(
     xnn_transfer_identity
     xnn_transfer_tls
   PRIVATE
+    asio::asio
     OpenSSL::Crypto
+    OpenSSL::SSL
 )
 
 if(MSVC)

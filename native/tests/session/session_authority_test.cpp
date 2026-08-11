@@ -663,6 +663,87 @@ void TestLivePairingTlsExportersAndModeIsolation() {
          "pairing ALPN can never be promoted to established authority");
 }
 
+void TestTypedCapabilitiesAreConnectionBound() {
+  IdentityFixture client{DecodeArray<32>(kInitiatorSeed)};
+  IdentityFixture server{DecodeArray<32>(kResponderSeed)};
+  Expect(client.repository.Open().ok() && server.repository.Open().ok(),
+         "typed-capability identities open");
+  if (!client.repository.ready() || !server.repository.ready()) {
+    return;
+  }
+  const auto committed = server.repository.CommitPeer(identity::PeerCommit{
+      .public_key = *client.repository.root_public_key(),
+      .security_profile = tls::kSecurityProfileV1,
+      .display_label = "client",
+  });
+  auto first_dispatcher = tls::OpenSslTlsContext::CreateServerDispatcher(
+      server.repository, [] { return true; });
+  auto second_dispatcher = tls::OpenSslTlsContext::CreateServerDispatcher(
+      server.repository, [] { return true; });
+  auto established_client = tls::OpenSslTlsContext::Create(
+      tls::TlsEndpointRole::kClient, client.repository, kEstablishedAlpn);
+  Expect(committed.ok() && first_dispatcher.ok() && second_dispatcher.ok() &&
+             established_client.ok(),
+         "typed-capability established contexts configure");
+  if (!committed.ok() || !first_dispatcher.ok() || !second_dispatcher.ok() ||
+      !established_client.ok()) {
+    return;
+  }
+
+  auto first = Connect(established_client.value->native_handle(),
+                       first_dispatcher.value->native_handle());
+  auto second = Connect(established_client.value->native_handle(),
+                        second_dispatcher.value->native_handle());
+  Expect(first.has_value() && second.has_value(),
+         "two independent established handshakes complete");
+  if (!first.has_value() || !second.has_value()) {
+    return;
+  }
+  auto accepted =
+      first_dispatcher.value->AcceptServerPeer(first->server.get(), server.repository);
+  auto* established =
+      accepted.ok()
+          ? std::get_if<tls::AcceptedEstablishedTlsConnection>(&*accepted.value)
+          : nullptr;
+  Expect(established != nullptr,
+         "first handshake creates an established typed capability");
+  if (established != nullptr) {
+    const auto mismatched = session::EstablishedTlsChannel::Create(
+        *second_dispatcher.value, second->server.get(), std::move(*established));
+    Expect(!mismatched.ok() && mismatched.error == tls::SecurityError::kAlpnMismatch,
+           "established capability cannot authorize another SSL connection");
+  }
+
+  auto pairing_client = tls::OpenSslTlsContext::Create(tls::TlsEndpointRole::kClient,
+                                                       client.repository, kPairingAlpn);
+  auto pairing_first = pairing_client.ok()
+                           ? Connect(pairing_client.value->native_handle(),
+                                     first_dispatcher.value->native_handle())
+                           : std::nullopt;
+  auto pairing_second = pairing_client.ok()
+                            ? Connect(pairing_client.value->native_handle(),
+                                      second_dispatcher.value->native_handle())
+                            : std::nullopt;
+  Expect(pairing_first.has_value() && pairing_second.has_value(),
+         "two independent pairing handshakes complete");
+  if (!pairing_first.has_value() || !pairing_second.has_value()) {
+    return;
+  }
+  auto pairing_accepted = first_dispatcher.value->AcceptServerPeer(
+      pairing_first->server.get(), server.repository);
+  auto* pairing =
+      pairing_accepted.ok()
+          ? std::get_if<tls::AcceptedPairingTlsConnection>(&*pairing_accepted.value)
+          : nullptr;
+  Expect(pairing != nullptr, "first handshake creates a pairing typed capability");
+  if (pairing != nullptr) {
+    const auto mismatched = session::OpenSslPairingChannel::Create(
+        *second_dispatcher.value, pairing_second->server.get(), std::move(*pairing));
+    Expect(!mismatched.ok() && mismatched.error == tls::SecurityError::kAlpnMismatch,
+           "pairing capability cannot authorize another SSL connection");
+  }
+}
+
 }  // namespace
 
 int main() {
@@ -671,6 +752,7 @@ int main() {
   TestRotationResetAndShutdownInvalidate();
   TestPairingChannelRejectsSameKeyReuse();
   TestLivePairingTlsExportersAndModeIsolation();
+  TestTypedCapabilitiesAreConnectionBound();
 
   if (failures != 0) {
     std::cerr << failures << " session authority test(s) failed\n";

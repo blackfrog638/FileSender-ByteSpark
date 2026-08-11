@@ -49,15 +49,24 @@ struct PairingAdmissionState {
     Bucket bucket{};
   };
 
+  struct Owner {
+    std::uint64_t generation{};
+    std::uint64_t window_generation{};
+    bool window_enabled{};
+    std::uint64_t window_deadline_ms{};
+  };
+
   struct Entry {
     AttemptHandle connection_id{};
     std::uint64_t lease_generation{};
+    std::uint64_t owner_generation{};
     SourceToken source{};
     PublicKey local_key{};
     PublicKey peer_key{};
     security::tls::Role local_role{security::tls::Role::kInitiator};
     bool user_initiated{};
     bool visible{};
+    bool bound{};
     std::uint64_t admitted_at_ms{};
     std::uint64_t window_deadline_ms{};
   };
@@ -126,6 +135,30 @@ struct PairingAdmissionState {
     return iterator == entries.end() ? nullptr : &*iterator;
   }
 
+  [[nodiscard]] Owner* FindOwner(const std::uint64_t generation) noexcept {
+    const auto iterator = std::find_if(
+        owners.begin(), owners.end(),
+        [generation](const Owner& owner) { return owner.generation == generation; });
+    return iterator == owners.end() ? nullptr : &*iterator;
+  }
+
+  [[nodiscard]] const Owner* FindOwner(const std::uint64_t generation) const noexcept {
+    const auto iterator = std::find_if(
+        owners.begin(), owners.end(),
+        [generation](const Owner& owner) { return owner.generation == generation; });
+    return iterator == owners.end() ? nullptr : &*iterator;
+  }
+
+  [[nodiscard]] std::uint64_t RegisterOwner() {
+    if (next_owner_generation == 0U) {
+      return 0U;
+    }
+    const std::uint64_t generation = next_owner_generation;
+    owners.push_back(Owner{.generation = generation});
+    ++next_owner_generation;
+    return generation;
+  }
+
   [[nodiscard]] const Entry* Find(const AttemptHandle& connection_id) const noexcept {
     const auto iterator = std::find_if(entries.begin(), entries.end(),
                                        [&connection_id](const Entry& entry) {
@@ -184,16 +217,45 @@ struct PairingAdmissionState {
         entries.end());
   }
 
+  void ReleaseOwner(const std::uint64_t generation) noexcept {
+    entries.erase(std::remove_if(entries.begin(), entries.end(),
+                                 [generation](const Entry& entry) {
+                                   return entry.owner_generation == generation;
+                                 }),
+                  entries.end());
+    owners.erase(std::remove_if(owners.begin(), owners.end(),
+                                [generation](const Owner& owner) {
+                                  return owner.generation == generation;
+                                }),
+                 owners.end());
+  }
+
   bool initialized{};
-  bool window_enabled{};
-  std::uint64_t window_deadline_ms{};
   Bucket global_bucket{};
   std::uint64_t next_lease_generation{1};
+  std::uint64_t next_owner_generation{1};
+  std::uint64_t next_window_generation{1};
   std::vector<SourceBucket> source_buckets{};
   std::vector<Entry> entries{};
+  std::vector<Owner> owners{};
 };
 
 }  // namespace detail
+
+namespace {
+
+struct ProcessAdmissionRegistry {
+  std::mutex mutex{};
+  std::shared_ptr<detail::PairingAdmissionState> state{
+      std::make_shared<detail::PairingAdmissionState>()};
+};
+
+[[nodiscard]] ProcessAdmissionRegistry& AdmissionRegistry() {
+  static ProcessAdmissionRegistry registry;
+  return registry;
+}
+
+}  // namespace
 
 PairingAdmissionLease::PairingAdmissionLease(
     std::shared_ptr<detail::PairingAdmissionState> state, AttemptHandle connection_id,
@@ -233,6 +295,16 @@ bool PairingAdmissionLease::active() const noexcept {
   return state_->Find(connection_id_, lease_generation_) != nullptr;
 }
 
+bool PairingAdmissionLease::bound() const noexcept {
+  if (state_ == nullptr) {
+    return false;
+  }
+  const std::lock_guard lock(state_->mutex);
+  const detail::PairingAdmissionState::Entry* const entry =
+      state_->Find(connection_id_, lease_generation_);
+  return entry != nullptr && entry->bound;
+}
+
 PairingError PairingAdmissionLease::MarkVisible() noexcept {
   if (state_ == nullptr) {
     return PairingError::kStateViolation;
@@ -240,7 +312,7 @@ PairingError PairingAdmissionLease::MarkVisible() noexcept {
   const std::lock_guard lock(state_->mutex);
   detail::PairingAdmissionState::Entry* const entry =
       state_->Find(connection_id_, lease_generation_);
-  if (entry == nullptr) {
+  if (entry == nullptr || !entry->bound) {
     return PairingError::kBusy;
   }
   if (entry->visible) {
@@ -248,8 +320,9 @@ PairingError PairingAdmissionLease::MarkVisible() noexcept {
   }
   const std::size_t visible = static_cast<std::size_t>(
       std::count_if(state_->entries.begin(), state_->entries.end(),
-                    [](const detail::PairingAdmissionState::Entry& candidate) {
-                      return candidate.visible;
+                    [entry](const detail::PairingAdmissionState::Entry& candidate) {
+                      return candidate.owner_generation == entry->owner_generation &&
+                             candidate.visible;
                     }));
   if (visible == kMaxVisiblePairingAttempts) {
     return PairingError::kBusy;
@@ -313,12 +386,61 @@ std::uint64_t PairingAdmissionLease::window_deadline_ms() const noexcept {
 }
 
 PairingAdmissionController::PairingAdmissionController()
-    : state_(std::make_shared<detail::PairingAdmissionState>()) {}
-PairingAdmissionController::~PairingAdmissionController() = default;
+    : state_(std::make_shared<detail::PairingAdmissionState>()) {
+  const std::lock_guard lock(state_->mutex);
+  owner_generation_ = state_->RegisterOwner();
+}
+
 PairingAdmissionController::PairingAdmissionController(
-    PairingAdmissionController&&) noexcept = default;
+    std::shared_ptr<detail::PairingAdmissionState> state,
+    const std::uint64_t owner_generation)
+    : state_(std::move(state)), owner_generation_(owner_generation) {}
+
+PairingAdmissionController::~PairingAdmissionController() = default;
+
+PairingAdmissionController::PairingAdmissionController(
+    PairingAdmissionController&& other) noexcept
+    : state_(std::move(other.state_)),
+      owner_generation_(std::exchange(other.owner_generation_, 0U)) {}
+
 PairingAdmissionController& PairingAdmissionController::operator=(
-    PairingAdmissionController&&) noexcept = default;
+    PairingAdmissionController&& other) noexcept {
+  if (this != &other) {
+    state_ = std::move(other.state_);
+    owner_generation_ = std::exchange(other.owner_generation_, 0U);
+  }
+  return *this;
+}
+
+PairingAdmissionController PairingAdmissionController::ProcessScoped() {
+  ProcessAdmissionRegistry& registry = AdmissionRegistry();
+  const std::lock_guard registry_lock(registry.mutex);
+  const std::shared_ptr<detail::PairingAdmissionState> state = registry.state;
+  const std::lock_guard state_lock(state->mutex);
+  return PairingAdmissionController(state, state->RegisterOwner());
+}
+
+bool PairingAdmissionController::ResetProcessStateForTesting() {
+  ProcessAdmissionRegistry& registry = AdmissionRegistry();
+  const std::lock_guard registry_lock(registry.mutex);
+  {
+    const std::lock_guard state_lock(registry.state->mutex);
+    if (!registry.state->owners.empty() || !registry.state->entries.empty()) {
+      return false;
+    }
+  }
+  registry.state = std::make_shared<detail::PairingAdmissionState>();
+  return true;
+}
+
+void PairingAdmissionController::RetireOwner() noexcept {
+  if (state_ == nullptr || owner_generation_ == 0U) {
+    return;
+  }
+  const std::lock_guard lock(state_->mutex);
+  state_->ReleaseOwner(owner_generation_);
+  owner_generation_ = 0U;
+}
 
 bool PairingAdmissionController::OpenWindow(const std::uint64_t now_ms,
                                             const std::uint64_t duration_ms) {
@@ -326,7 +448,11 @@ bool PairingAdmissionController::OpenWindow(const std::uint64_t now_ms,
     return false;
   }
   const std::lock_guard lock(state_->mutex);
-  if (state_->window_enabled && now_ms < state_->window_deadline_ms) {
+  detail::PairingAdmissionState::Owner* const owner =
+      state_->FindOwner(owner_generation_);
+  if (owner == nullptr ||
+      (owner->window_enabled && now_ms < owner->window_deadline_ms) ||
+      state_->next_window_generation == 0U) {
     return false;
   }
   if (!state_->initialized) {
@@ -336,8 +462,10 @@ bool PairingAdmissionController::OpenWindow(const std::uint64_t now_ms,
         .last_refill_ms = now_ms,
     };
   }
-  state_->window_enabled = true;
-  state_->window_deadline_ms = CheckedDeadline(now_ms, duration_ms);
+  owner->window_generation = state_->next_window_generation;
+  ++state_->next_window_generation;
+  owner->window_enabled = true;
+  owner->window_deadline_ms = CheckedDeadline(now_ms, duration_ms);
   return true;
 }
 
@@ -346,32 +474,149 @@ void PairingAdmissionController::CloseWindow() noexcept {
     return;
   }
   const std::lock_guard lock(state_->mutex);
-  state_->window_enabled = false;
-  state_->entries.clear();
+  detail::PairingAdmissionState::Owner* const owner =
+      state_->FindOwner(owner_generation_);
+  if (owner == nullptr) {
+    return;
+  }
+  owner->window_enabled = false;
+  state_->entries.erase(
+      std::remove_if(state_->entries.begin(), state_->entries.end(),
+                     [this](const detail::PairingAdmissionState::Entry& entry) {
+                       return entry.owner_generation == owner_generation_ &&
+                              entry.bound;
+                     }),
+      state_->entries.end());
 }
 
-PairingAdmissionResult PairingAdmissionController::Admit(
-    const PairingAdmissionRequest& request) {
+std::unique_ptr<PairingAdmissionLease> PairingAdmissionController::ReserveHandshake(
+    const AttemptHandle& connection_id, const SourceToken& source_token,
+    const bool user_initiated, const std::uint64_t now_ms) {
   if (state_ == nullptr) {
+    return nullptr;
+  }
+  const std::lock_guard lock(state_->mutex);
+  if (state_->FindOwner(owner_generation_) == nullptr || AllZero(connection_id) ||
+      AllZero(source_token) || state_->Find(connection_id) != nullptr) {
+    return nullptr;
+  }
+  if (!state_->initialized) {
+    state_->initialized = true;
+    state_->global_bucket = {
+        .tokens = kGlobalAdmissionBucketCapacity,
+        .last_refill_ms = now_ms,
+    };
+  }
+  detail::PairingAdmissionState::Refill(state_->global_bucket, now_ms,
+                                        kGlobalAdmissionRefillMs,
+                                        kGlobalAdmissionBucketCapacity);
+  state_->PruneSourceBuckets(now_ms);
+
+  if (state_->entries.size() >= kMaxIncompletePairingHandshakes) {
+    return nullptr;
+  }
+  if (!user_initiated) {
+    const std::size_t non_user_count = static_cast<std::size_t>(
+        std::count_if(state_->entries.begin(), state_->entries.end(),
+                      [](const detail::PairingAdmissionState::Entry& entry) {
+                        return !entry.user_initiated;
+                      }));
+    if (non_user_count >=
+        kMaxIncompletePairingHandshakes - kReservedUserInitiatedPairingSlots) {
+      return nullptr;
+    }
+  }
+  if (state_->ActiveForSource(source_token) >=
+      kMaxIncompletePairingHandshakesPerSource) {
+    return nullptr;
+  }
+  if (state_->global_bucket.tokens == 0) {
+    return nullptr;
+  }
+
+  detail::PairingAdmissionState::SourceBucket* source =
+      state_->FindSource(source_token);
+  if (source == nullptr) {
+    if (state_->source_buckets.size() == kMaxTrackedSourceBuckets) {
+      return nullptr;
+    }
+    try {
+      state_->source_buckets.push_back(detail::PairingAdmissionState::SourceBucket{
+          .source = source_token,
+          .bucket =
+              {
+                  .tokens = kSourceAdmissionBucketCapacity,
+                  .last_refill_ms = now_ms,
+              },
+      });
+      source = &state_->source_buckets.back();
+    } catch (const std::bad_alloc&) {
+      return nullptr;
+    }
+  }
+  if (source->bucket.tokens == 0) {
+    return nullptr;
+  }
+  if (state_->next_lease_generation == 0) {
+    return nullptr;
+  }
+  const std::uint64_t lease_generation = state_->next_lease_generation;
+
+  try {
+    state_->entries.push_back(detail::PairingAdmissionState::Entry{
+        .connection_id = connection_id,
+        .lease_generation = lease_generation,
+        .owner_generation = owner_generation_,
+        .source = source_token,
+        .user_initiated = user_initiated,
+        .admitted_at_ms = now_ms,
+    });
+  } catch (const std::bad_alloc&) {
+    return nullptr;
+  }
+
+  std::unique_ptr<PairingAdmissionLease> lease;
+  try {
+    lease.reset(new PairingAdmissionLease(state_, connection_id, lease_generation));
+  } catch (const std::bad_alloc&) {
+    state_->Release(connection_id, lease_generation);
+    return nullptr;
+  }
+  ++state_->next_lease_generation;
+  --state_->global_bucket.tokens;
+  --source->bucket.tokens;
+  return lease;
+}
+
+PairingAdmissionResult PairingAdmissionController::Bind(
+    std::unique_ptr<PairingAdmissionLease> lease,
+    const PairingAdmissionRequest& request,
+    const std::uint64_t pairing_window_generation) {
+  if (state_ == nullptr || lease == nullptr || lease->state_ != state_) {
     return {.error = PairingError::kBusy};
   }
   const std::lock_guard lock(state_->mutex);
-  if (!state_->window_enabled || request.now_ms >= state_->window_deadline_ms) {
+  detail::PairingAdmissionState::Entry* const reserved =
+      state_->Find(lease->connection_id_, lease->lease_generation_);
+  detail::PairingAdmissionState::Owner* const owner =
+      state_->FindOwner(owner_generation_);
+  if (reserved == nullptr || reserved->bound ||
+      reserved->owner_generation != owner_generation_ || owner == nullptr ||
+      reserved->connection_id != request.connection_id ||
+      reserved->source != request.source ||
+      reserved->user_initiated != request.user_initiated || !owner->window_enabled ||
+      request.now_ms >= owner->window_deadline_ms || pairing_window_generation == 0U ||
+      pairing_window_generation != owner->window_generation) {
     return {.error = PairingError::kBusy};
   }
-  if (!IsRole(request.local_role) || AllZero(request.connection_id) ||
-      request.local_key == request.peer_key ||
-      state_->Find(request.connection_id) != nullptr) {
+  if (!IsRole(request.local_role) || request.local_key == request.peer_key) {
     return {.error = PairingError::kCertificateRejected};
   }
-  detail::PairingAdmissionState::Refill(state_->global_bucket, request.now_ms,
-                                        kGlobalAdmissionRefillMs,
-                                        kGlobalAdmissionBucketCapacity);
-  state_->PruneSourceBuckets(request.now_ms);
 
   detail::PairingAdmissionState::Entry* duplicate = nullptr;
   for (detail::PairingAdmissionState::Entry& entry : state_->entries) {
-    if (detail::PairingAdmissionState::SameKeyPair(entry, request)) {
+    if (&entry != reserved && entry.owner_generation == owner_generation_ &&
+        entry.bound && detail::PairingAdmissionState::SameKeyPair(entry, request)) {
       duplicate = &entry;
       break;
     }
@@ -396,96 +641,34 @@ PairingAdmissionResult PairingAdmissionController::Admit(
     displaced = duplicate->connection_id;
   }
 
-  const std::size_t active_count =
-      state_->entries.size() - static_cast<std::size_t>(displaced.has_value());
-  if (active_count >= kMaxIncompletePairingHandshakes) {
-    return {.error = PairingError::kBusy};
-  }
-  if (!request.user_initiated) {
-    const std::size_t non_user_count = static_cast<std::size_t>(std::count_if(
-        state_->entries.begin(), state_->entries.end(),
-        [&displaced](const detail::PairingAdmissionState::Entry& entry) {
-          return !entry.user_initiated &&
-                 (!displaced.has_value() || entry.connection_id != *displaced);
-        }));
-    if (non_user_count >=
-        kMaxIncompletePairingHandshakes - kReservedUserInitiatedPairingSlots) {
-      return {.error = PairingError::kBusy};
-    }
-  }
-  if (state_->ActiveForSource(request.source,
-                              displaced.has_value() ? &*displaced : nullptr) >=
-      kMaxIncompletePairingHandshakesPerSource) {
-    return {.error = PairingError::kBusy};
-  }
-  if (state_->global_bucket.tokens == 0) {
-    return {.error = PairingError::kBusy};
-  }
-
-  detail::PairingAdmissionState::SourceBucket* source =
-      state_->FindSource(request.source);
-  if (source == nullptr) {
-    if (state_->source_buckets.size() == kMaxTrackedSourceBuckets) {
-      return {.error = PairingError::kBusy};
-    }
-    try {
-      state_->source_buckets.push_back(detail::PairingAdmissionState::SourceBucket{
-          .source = request.source,
-          .bucket =
-              {
-                  .tokens = kSourceAdmissionBucketCapacity,
-                  .last_refill_ms = request.now_ms,
-              },
-      });
-      source = &state_->source_buckets.back();
-    } catch (const std::bad_alloc&) {
-      return {.error = PairingError::kBusy};
-    }
-  }
-  if (source->bucket.tokens == 0) {
-    return {.error = PairingError::kBusy};
-  }
-  if (state_->next_lease_generation == 0) {
-    return {.error = PairingError::kBusy};
-  }
-  const std::uint64_t lease_generation = state_->next_lease_generation;
-
-  try {
-    state_->entries.push_back(detail::PairingAdmissionState::Entry{
-        .connection_id = request.connection_id,
-        .lease_generation = lease_generation,
-        .source = request.source,
-        .local_key = request.local_key,
-        .peer_key = request.peer_key,
-        .local_role = request.local_role,
-        .user_initiated = request.user_initiated,
-        .admitted_at_ms = request.now_ms,
-        .window_deadline_ms = state_->window_deadline_ms,
-    });
-  } catch (const std::bad_alloc&) {
-    return {.error = PairingError::kBusy};
-  }
-
-  std::unique_ptr<PairingAdmissionLease> lease;
-  try {
-    lease.reset(
-        new PairingAdmissionLease(state_, request.connection_id, lease_generation));
-  } catch (const std::bad_alloc&) {
-    state_->Release(request.connection_id, lease_generation);
-    return {.error = PairingError::kBusy};
-  }
-
+  reserved->local_key = request.local_key;
+  reserved->peer_key = request.peer_key;
+  reserved->local_role = request.local_role;
+  reserved->window_deadline_ms = owner->window_deadline_ms;
+  reserved->bound = true;
   if (displaced.has_value()) {
     state_->Release(*displaced);
   }
-  ++state_->next_lease_generation;
-  --state_->global_bucket.tokens;
-  --source->bucket.tokens;
   return {
       .error = PairingError::kNone,
       .displaced_connection = displaced,
       .lease = std::move(lease),
   };
+}
+
+PairingAdmissionResult PairingAdmissionController::Admit(
+    const PairingAdmissionRequest& request) {
+  if (!IsRole(request.local_role) || AllZero(request.connection_id) ||
+      request.local_key == request.peer_key) {
+    return {.error = PairingError::kCertificateRejected};
+  }
+  const std::uint64_t pairing_window_generation = window_generation(request.now_ms);
+  std::unique_ptr<PairingAdmissionLease> lease = ReserveHandshake(
+      request.connection_id, request.source, request.user_initiated, request.now_ms);
+  if (lease == nullptr) {
+    return {.error = PairingError::kBusy};
+  }
+  return Bind(std::move(lease), request, pairing_window_generation);
 }
 
 bool PairingAdmissionController::window_open(
@@ -494,7 +677,23 @@ bool PairingAdmissionController::window_open(
     return false;
   }
   const std::lock_guard lock(state_->mutex);
-  return state_->window_enabled && now_ms < state_->window_deadline_ms;
+  const detail::PairingAdmissionState::Owner* const owner =
+      state_->FindOwner(owner_generation_);
+  return owner != nullptr && owner->window_enabled &&
+         now_ms < owner->window_deadline_ms;
+}
+
+std::uint64_t PairingAdmissionController::window_generation(
+    const std::uint64_t now_ms) const noexcept {
+  if (state_ == nullptr) {
+    return 0U;
+  }
+  const std::lock_guard lock(state_->mutex);
+  const detail::PairingAdmissionState::Owner* const owner =
+      state_->FindOwner(owner_generation_);
+  return owner != nullptr && owner->window_enabled && now_ms < owner->window_deadline_ms
+             ? owner->window_generation
+             : 0U;
 }
 
 std::size_t PairingAdmissionController::active_connections() const noexcept {
@@ -510,9 +709,12 @@ std::size_t PairingAdmissionController::visible_attempts() const noexcept {
     return 0;
   }
   const std::lock_guard lock(state_->mutex);
+  const std::uint64_t owner_generation = owner_generation_;
   return static_cast<std::size_t>(std::count_if(
       state_->entries.begin(), state_->entries.end(),
-      [](const detail::PairingAdmissionState::Entry& entry) { return entry.visible; }));
+      [owner_generation](const detail::PairingAdmissionState::Entry& entry) {
+        return entry.owner_generation == owner_generation && entry.visible;
+      }));
 }
 
 }  // namespace xnn_transfer::core::session

@@ -7,10 +7,10 @@
   ],
   "delivery_role": "implementation",
   "task_type": "feature",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "authenticated-connection-agent",
+  "base_sha": "f814c42e20f14583e8aca095eeca70707a5cd595",
+  "head_sha": "18448b78570732598fd790eaaa52148d6bea5a02",
   "handoff": ".agents/handoffs/XT-069.md",
   "commit": {
     "type": "feat",
@@ -18,8 +18,11 @@
     "summary": "add authenticated connection runtime"
   },
   "architecture_change": {
-    "mode": "none",
-    "modules": [],
+    "mode": "refactor",
+    "modules": [
+      "tls",
+      "session"
+    ],
     "supersedes": {
       "paths": [],
       "symbols": [],
@@ -107,12 +110,39 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "f814c42e20f14583e8aca095eeca70707a5cd595",
+    "source_head": "8e71f330c26fc44dfed176975262b907f439ccce",
+    "source_commits": [
+      "2d649869c3d0ba5963a089c4b6ed2f73120a1e0e",
+      "2399b3f95db3e7bf2656d0f92a611389c74eef19",
+      "51fc2ffdddd4ec2600d470deecb0169006d44191",
+      "811f4f2195da36f88775374ad77d6fcfd211de9f",
+      "947f6743f5377af3c9a1fd421b84874040b49905",
+      "ba1e21df528a6278708f4bd86a9fed6392fccb54",
+      "0137bcf85f03872898ce4d8f90ae104de5c57712",
+      "afb40b5fcebd992f3e937f5356fb0f4a739a1068",
+      "c6f9f926a5ededd2a2f7fdafd966edd9bf1488a4",
+      "2040d29668aa3df60d340b3dbdecc5680c0ce7c9",
+      "af44fd966824ddd2849a61ad0051f554f4b7d8a4",
+      "52a25073b01cb99c8d291c09c61a24845ca5467a",
+      "a02c6a17f7b7f99a55caf4a82aafba69c39e69dd",
+      "cc7cb12980d5ca26549ec9d9341d364a0c43afd4",
+      "25279a8e221954dfec833254a793b77531cf620b",
+      "4ff05752c40eb8503618afb6289d15fafd421763",
+      "5a3ad2afc0c1c2d0fd2be20fee14146e3fd95851",
+      "e02d179975722d08cd50a935cb3d9a54383dc5c1",
+      "18448b78570732598fd790eaaa52148d6bea5a02",
+      "8e71f330c26fc44dfed176975262b907f439ccce"
+    ],
+    "source_commits_sha256": "09845617d25821edd4c41a7da94f0181199e75b989974c472fc112cd14f2eb59",
+    "source_patch_id": "7dbb7a12ca6e6ebdca3bb427b4a4ff5857cf1c96",
+    "result": "",
+    "result_patch_id": "7dbb7a12ca6e6ebdca3bb427b4a4ff5857cf1c96",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "native_test",
       "security_test",
@@ -123,7 +153,7 @@
       "make security-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:18448b78570732598fd790eaaa52148d6bea5a02:2026-08-11T08:31:58Z"
   },
   "acceptance": {
     "accepted_by": "",

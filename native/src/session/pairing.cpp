@@ -765,7 +765,7 @@ PairingUpdate PairingAttempt::Create(security::identity::IdentityRepository& rep
   output.reset();
   const PublicKey* const local_public_key = repository.root_public_key();
   if (!repository.ready() || local_public_key == nullptr || channel == nullptr ||
-      admission == nullptr || !admission->active()) {
+      admission == nullptr || !admission->active() || !admission->bound()) {
     return PairingUpdate{
         .state = PairingState::kClosed,
         .error = PairingError::kBusy,

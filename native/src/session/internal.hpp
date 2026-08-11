@@ -70,6 +70,8 @@ struct ParseResult {
 };
 
 [[nodiscard]] ParseResult ParseFrame(std::span<const std::uint8_t> encoded) noexcept;
+[[nodiscard]] PairingError ValidateFrameHeader(
+    std::span<const std::uint8_t> encoded) noexcept;
 [[nodiscard]] PairingError DecodeHello(
     const Frame& frame, security::tls::Role expected_role,
     const security::tls::ValidatedEd25519PublicKey& expected_key, Hello& output);

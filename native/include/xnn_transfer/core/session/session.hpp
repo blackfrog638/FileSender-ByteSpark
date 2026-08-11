@@ -23,6 +23,9 @@ namespace detail {
 struct PairingAdmissionState;
 struct PairingReplayState;
 }  // namespace detail
+namespace runtime_internal {
+class PairingAdmissionBridge;
+}  // namespace runtime_internal
 
 inline constexpr std::size_t kAttemptHandleSize = 16;
 inline constexpr std::size_t kPairingFrameHeaderSize = 20;
@@ -169,6 +172,9 @@ class OpenSslPairingChannel final : public PairingChannel {
  public:
   [[nodiscard]] static security::tls::Result<std::unique_ptr<OpenSslPairingChannel>>
   Create(const security::tls::OpenSslTlsContext& context, ssl_st* connection);
+  [[nodiscard]] static security::tls::Result<std::unique_ptr<OpenSslPairingChannel>>
+  Create(const security::tls::OpenSslTlsContext& context, ssl_st* connection,
+         security::tls::AcceptedPairingTlsConnection accepted);
 
   ~OpenSslPairingChannel() override;
 
@@ -266,6 +272,7 @@ class PairingAdmissionLease final {
   [[nodiscard]] std::uint64_t window_deadline_ms() const noexcept;
 
  private:
+  [[nodiscard]] bool bound() const noexcept;
   PairingAdmissionLease(std::shared_ptr<detail::PairingAdmissionState> state,
                         AttemptHandle connection_id, std::uint64_t lease_generation);
 
@@ -274,6 +281,7 @@ class PairingAdmissionLease final {
   std::uint64_t lease_generation_{};
 
   friend class PairingAdmissionController;
+  friend class PairingAttempt;
 };
 
 struct PairingAdmissionResult {
@@ -304,7 +312,23 @@ class PairingAdmissionController final {
   [[nodiscard]] std::size_t visible_attempts() const noexcept;
 
  private:
+  PairingAdmissionController(std::shared_ptr<detail::PairingAdmissionState> state,
+                             std::uint64_t owner_generation);
+  [[nodiscard]] static PairingAdmissionController ProcessScoped();
+  [[nodiscard]] static bool ResetProcessStateForTesting();
+  void RetireOwner() noexcept;
+  [[nodiscard]] std::uint64_t window_generation(std::uint64_t now_ms) const noexcept;
+  [[nodiscard]] std::unique_ptr<PairingAdmissionLease> ReserveHandshake(
+      const AttemptHandle& connection_id, const SourceToken& source,
+      bool user_initiated, std::uint64_t now_ms);
+  [[nodiscard]] PairingAdmissionResult Bind(
+      std::unique_ptr<PairingAdmissionLease> lease,
+      const PairingAdmissionRequest& request, std::uint64_t pairing_window_generation);
+
   std::shared_ptr<detail::PairingAdmissionState> state_;
+  std::uint64_t owner_generation_{};
+
+  friend class runtime_internal::PairingAdmissionBridge;
 };
 
 class PairingAttempt final {
@@ -356,6 +380,9 @@ class EstablishedTlsChannel final {
   Create(const security::tls::OpenSslTlsContext& context, ssl_st* connection,
          const security::identity::IdentityRepository& repository,
          const DeviceId& peer_device_id);
+  [[nodiscard]] static security::tls::Result<std::unique_ptr<EstablishedTlsChannel>>
+  Create(const security::tls::OpenSslTlsContext& context, ssl_st* connection,
+         security::tls::AcceptedEstablishedTlsConnection accepted);
 
   ~EstablishedTlsChannel();
 

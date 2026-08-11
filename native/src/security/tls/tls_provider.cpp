@@ -13,6 +13,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <new>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -38,10 +39,80 @@ constexpr long kMaxPeerCertificateListBytes = 8'192;
 constexpr long kTls13CertificateBodyOverhead = 4;
 constexpr long kMaxPeerCertificateMessageBodyBytes =
     kTls13CertificateBodyOverhead + kMaxPeerCertificateListBytes;
+constexpr std::size_t kMaxFinishedBytes = 64;
 
 using ContextPointer = std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>;
 using KeyPointer = std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)>;
 using CertificatePointer = std::unique_ptr<X509, decltype(&X509_free)>;
+
+struct ServerAlpnPolicy {
+  const std::vector<Bytes>* alpns{};
+  const PairingAlpnPolicy* pairing_allowed{};
+  bool enforce_pairing_window{};
+};
+
+struct HandshakeFinished {
+  std::array<std::uint8_t, kMaxFinishedBytes> local{};
+  std::array<std::uint8_t, kMaxFinishedBytes> peer{};
+  std::size_t local_size{};
+  std::size_t peer_size{};
+};
+
+struct PairingWindowAuthorization {
+  std::uint64_t generation{};
+  std::array<std::uint8_t, SSL3_RANDOM_SIZE> client_random{};
+};
+
+void FreePairingWindowAuthorization(void*, void* const pointer, CRYPTO_EX_DATA*, int,
+                                    long, void*) noexcept {
+  delete static_cast<PairingWindowAuthorization*>(pointer);
+}
+
+[[nodiscard]] int PairingWindowAuthorizationIndex() noexcept {
+  static const int index = SSL_get_ex_new_index(0, nullptr, nullptr, nullptr,
+                                                &FreePairingWindowAuthorization);
+  return index;
+}
+
+[[nodiscard]] std::uint64_t PairingWindowGeneration(
+    const SSL* const connection) noexcept {
+  const int index = PairingWindowAuthorizationIndex();
+  if (connection == nullptr || index < 0) {
+    return 0U;
+  }
+  const auto* const authorization = static_cast<const PairingWindowAuthorization*>(
+      SSL_get_ex_data(connection, index));
+  return authorization == nullptr ? 0U : authorization->generation;
+}
+
+[[nodiscard]] bool CaptureClientHelloRandom(
+    SSL* const connection,
+    std::array<std::uint8_t, SSL3_RANDOM_SIZE>& output) noexcept {
+  const unsigned char* random = nullptr;
+  const std::size_t size = SSL_client_hello_get0_random(connection, &random);
+  if (random == nullptr || size != output.size()) {
+    return false;
+  }
+  std::copy_n(random, output.size(), output.begin());
+  return true;
+}
+
+[[nodiscard]] std::optional<HandshakeFinished> CaptureHandshakeFinished(
+    SSL* const connection) noexcept {
+  if (connection == nullptr || SSL_is_init_finished(connection) != 1) {
+    return std::nullopt;
+  }
+  HandshakeFinished output;
+  output.local_size =
+      SSL_get_finished(connection, output.local.data(), output.local.size());
+  output.peer_size =
+      SSL_get_peer_finished(connection, output.peer.data(), output.peer.size());
+  if (output.local_size == 0U || output.local_size > output.local.size() ||
+      output.peer_size == 0U || output.peer_size > output.peer.size()) {
+    return std::nullopt;
+  }
+  return output;
+}
 
 [[nodiscard]] int ValidateUntrustedIdentityCertificate(
     int, X509_STORE_CTX* const store_context) noexcept {
@@ -53,9 +124,15 @@ using CertificatePointer = std::unique_ptr<X509, decltype(&X509_free)>;
   X509* const certificate = X509_STORE_CTX_get_current_cert(store_context);
   const int encoded_size = certificate == nullptr ? -1 : i2d_X509(certificate, nullptr);
   STACK_OF(X509)* const untrusted_chain = X509_STORE_CTX_get0_untrusted(store_context);
+  const int not_before = certificate == nullptr
+                             ? 0
+                             : X509_cmp_current_time(X509_get0_notBefore(certificate));
+  const int not_after = certificate == nullptr
+                            ? 0
+                            : X509_cmp_current_time(X509_get0_notAfter(certificate));
   if (untrusted_chain == nullptr || sk_X509_num(untrusted_chain) != 1 ||
       sk_X509_value(untrusted_chain, 0) != certificate || encoded_size <= 0 ||
-      encoded_size > kMaxPeerCertificateDerBytes ||
+      encoded_size > kMaxPeerCertificateDerBytes || not_before >= 0 || not_after <= 0 ||
       X509_NAME_cmp(X509_get_subject_name(certificate),
                     X509_get_issuer_name(certificate)) != 0) {
     return 0;
@@ -157,40 +234,153 @@ using CertificatePointer = std::unique_ptr<X509, decltype(&X509_free)>;
 }  // namespace
 
 struct OpenSslTlsContext::Implementation {
-  Implementation(TlsEndpointRole endpoint_role, std::span<const std::uint8_t> protocol)
+  Implementation(TlsEndpointRole endpoint_role, std::vector<Bytes> protocols,
+                 const bool dispatch_server, PairingAlpnPolicy pairing_policy)
       : role(endpoint_role),
-        alpn(protocol.begin(), protocol.end()),
+        alpns(std::move(protocols)),
+        server_dispatcher(dispatch_server),
+        pairing_alpn_policy(std::move(pairing_policy)),
         context(SSL_CTX_new(TLS_method()), &SSL_CTX_free) {}
 
   TlsEndpointRole role;
-  std::vector<std::uint8_t> alpn;
+  std::vector<Bytes> alpns;
+  bool server_dispatcher{};
+  PairingAlpnPolicy pairing_alpn_policy{};
+  ServerAlpnPolicy server_alpn_policy{};
   ContextPointer context;
 };
 
 namespace {
 
-[[nodiscard]] int SelectExactAlpn(SSL*, const unsigned char** output,
-                                  unsigned char* output_size,
-                                  const unsigned char* input, unsigned int input_size,
-                                  void* argument) noexcept {
-  const auto* const alpn = static_cast<const std::vector<std::uint8_t>*>(argument);
-  if (alpn == nullptr || output == nullptr || output_size == nullptr ||
-      input == nullptr || alpn->empty() || alpn->size() > 255U ||
-      input_size != alpn->size() + 1U || input[0] != alpn->size() ||
-      CRYPTO_memcmp(input + 1, alpn->data(), alpn->size()) != 0) {
+[[nodiscard]] bool IsSingleRegisteredAlpn(
+    const unsigned char* input, const std::size_t input_size,
+    const std::vector<Bytes>* const alpns) noexcept {
+  if (alpns == nullptr || input == nullptr || input_size < 2U || input[0] == 0U ||
+      input_size != static_cast<std::size_t>(input[0]) + 1U) {
+    return false;
+  }
+  return std::any_of(alpns->begin(), alpns->end(), [input](const Bytes& alpn) {
+    return alpn.size() == input[0] &&
+           CRYPTO_memcmp(input + 1, alpn.data(), alpn.size()) == 0;
+  });
+}
+
+[[nodiscard]] bool PairingAllowed(SSL* const connection, const unsigned char* input,
+                                  const std::size_t input_size,
+                                  const ServerAlpnPolicy* const policy,
+                                  const bool authorize) noexcept {
+  if (policy == nullptr || policy->alpns == nullptr ||
+      !IsSingleRegisteredAlpn(input, input_size, policy->alpns)) {
+    return false;
+  }
+  const bool pairing =
+      input[0] == kPairingAlpn.size() &&
+      CRYPTO_memcmp(input + 1, kPairingAlpn.data(), kPairingAlpn.size()) == 0;
+  if (!pairing) {
+    return true;
+  }
+  if (!policy->enforce_pairing_window) {
+    return true;
+  }
+  if (policy->pairing_allowed == nullptr || !*policy->pairing_allowed) {
+    return false;
+  }
+  std::uint64_t generation = 0U;
+  try {
+    generation = (*policy->pairing_allowed)();
+  } catch (...) {
+    return false;
+  }
+  if (generation == 0U) {
+    return false;
+  }
+
+  const int index = PairingWindowAuthorizationIndex();
+  if (connection == nullptr || index < 0) {
+    return false;
+  }
+  const auto* const existing = static_cast<const PairingWindowAuthorization*>(
+      SSL_get_ex_data(connection, index));
+  if (existing != nullptr) {
+    if (!authorize) {
+      return existing->generation == generation;
+    }
+    std::array<std::uint8_t, SSL3_RANDOM_SIZE> client_random{};
+    if (!CaptureClientHelloRandom(connection, client_random)) {
+      return false;
+    }
+    if (CRYPTO_memcmp(existing->client_random.data(), client_random.data(),
+                      client_random.size()) == 0) {
+      return existing->generation == generation;
+    }
+  }
+  if (!authorize) {
+    return false;
+  }
+  auto* const authorization = new (std::nothrow) PairingWindowAuthorization{
+      .generation = generation,
+  };
+  if (authorization != nullptr &&
+      !CaptureClientHelloRandom(connection, authorization->client_random)) {
+    delete authorization;
+    return false;
+  }
+  if (authorization == nullptr ||
+      SSL_set_ex_data(connection, index, authorization) != 1) {
+    delete authorization;
+    return false;
+  }
+  delete existing;
+  return true;
+}
+
+[[nodiscard]] int RequireRegisteredAlpnClientHello(SSL* connection, int* alert,
+                                                   void* argument) noexcept {
+  const unsigned char* extension = nullptr;
+  std::size_t extension_size = 0;
+  if (connection == nullptr || alert == nullptr ||
+      SSL_client_hello_get0_ext(connection,
+                                TLSEXT_TYPE_application_layer_protocol_negotiation,
+                                &extension, &extension_size) != 1 ||
+      extension == nullptr || extension_size < 3U) {
+    if (alert != nullptr) {
+      *alert = SSL_AD_NO_APPLICATION_PROTOCOL;
+    }
+    return SSL_CLIENT_HELLO_ERROR;
+  }
+  const std::size_t list_size = (static_cast<std::size_t>(extension[0]) << 8U) |
+                                static_cast<std::size_t>(extension[1]);
+  if (list_size != extension_size - 2U ||
+      !PairingAllowed(connection, extension + 2U, list_size,
+                      static_cast<const ServerAlpnPolicy*>(argument), true)) {
+    *alert = SSL_AD_NO_APPLICATION_PROTOCOL;
+    return SSL_CLIENT_HELLO_ERROR;
+  }
+  return SSL_CLIENT_HELLO_SUCCESS;
+}
+
+[[nodiscard]] int SelectRegisteredAlpn(SSL* connection, const unsigned char** output,
+                                       unsigned char* output_size,
+                                       const unsigned char* input,
+                                       unsigned int input_size,
+                                       void* argument) noexcept {
+  if (output == nullptr || output_size == nullptr ||
+      !PairingAllowed(connection, input, input_size,
+                      static_cast<const ServerAlpnPolicy*>(argument), false)) {
     return SSL_TLSEXT_ERR_ALERT_FATAL;
   }
   *output = input + 1;
-  *output_size = static_cast<unsigned char>(alpn->size());
+  *output_size = input[0];
   return SSL_TLSEXT_ERR_OK;
 }
 
 [[nodiscard]] SecurityError ConfigureContext(SSL_CTX* const context,
                                              const TlsEndpointRole role,
-                                             const std::vector<std::uint8_t>& alpn,
+                                             const std::vector<Bytes>& alpns,
+                                             ServerAlpnPolicy* const server_alpn_policy,
                                              X509* const certificate,
                                              EVP_PKEY* const private_key) {
-  if (context == nullptr) {
+  if (context == nullptr || alpns.empty()) {
     return SecurityError::kTlsConfigurationFailure;
   }
   static_cast<void>(
@@ -224,6 +414,10 @@ namespace {
                      &ValidateUntrustedIdentityCertificate);
 
   if (role == TlsEndpointRole::kClient) {
+    if (alpns.size() != 1U) {
+      return SecurityError::kTlsConfigurationFailure;
+    }
+    const Bytes& alpn = alpns.front();
     std::vector<unsigned char> wire_alpn;
     wire_alpn.reserve(alpn.size() + 1);
     wire_alpn.push_back(static_cast<unsigned char>(alpn.size()));
@@ -233,15 +427,16 @@ namespace {
       return SecurityError::kTlsConfigurationFailure;
     }
   } else {
-    SSL_CTX_set_alpn_select_cb(context, &SelectExactAlpn,
-                               const_cast<std::vector<std::uint8_t>*>(&alpn));
+    SSL_CTX_set_client_hello_cb(context, &RequireRegisteredAlpnClientHello,
+                                server_alpn_policy);
+    SSL_CTX_set_alpn_select_cb(context, &SelectRegisteredAlpn, server_alpn_policy);
   }
   return SecurityError::kNone;
 }
 
 [[nodiscard]] SecurityError ValidateNegotiatedParameters(
     SSL* const connection, SSL_CTX* const expected_context,
-    const std::vector<std::uint8_t>& alpn) {
+    const std::span<const std::uint8_t> alpn) {
   if (connection == nullptr || SSL_get_SSL_CTX(connection) != expected_context ||
       SSL_is_init_finished(connection) != 1) {
     return SecurityError::kHandshakeIncomplete;
@@ -327,16 +522,51 @@ Result<OpenSslTlsContext> OpenSslTlsContext::Create(
                          ? SecurityError::kAlpnMismatch
                          : SecurityError::kIdentityUnavailable};
   }
+  return CreateForAlpns(role, identity_repository,
+                        {Bytes(alpn_protocol.begin(), alpn_protocol.end())}, false, {});
+}
+
+Result<OpenSslTlsContext> OpenSslTlsContext::CreateServerDispatcher(
+    identity::IdentityRepository& identity_repository,
+    PairingAlpnPolicy pairing_alpn_policy) {
+  return CreateForAlpns(TlsEndpointRole::kServer, identity_repository,
+                        {Bytes(kPairingAlpn.begin(), kPairingAlpn.end()),
+                         Bytes(kEstablishedAlpn.begin(), kEstablishedAlpn.end())},
+                        true, std::move(pairing_alpn_policy));
+}
+
+Result<OpenSslTlsContext> OpenSslTlsContext::CreateForAlpns(
+    const TlsEndpointRole role, identity::IdentityRepository& identity_repository,
+    std::vector<Bytes> alpn_protocols, const bool server_dispatcher,
+    PairingAlpnPolicy pairing_alpn_policy) {
+  if (alpn_protocols.empty() ||
+      std::any_of(
+          alpn_protocols.cbegin(), alpn_protocols.cend(),
+          [](const Bytes& alpn) { return alpn.empty() || alpn.size() > 255U; }) ||
+      (role == TlsEndpointRole::kClient && alpn_protocols.size() != 1U) ||
+      server_dispatcher !=
+          (role == TlsEndpointRole::kServer && alpn_protocols.size() == 2U) ||
+      (server_dispatcher && !pairing_alpn_policy) ||
+      identity_repository.root_public_key() == nullptr) {
+    return {.error = SecurityError::kTlsConfigurationFailure};
+  }
   const auto validated_root =
       ValidateEd25519PublicKey(*identity_repository.root_public_key());
   if (!validated_root.ok()) {
     return {.error = SecurityError::kIdentityUnavailable};
   }
 
-  auto implementation = std::make_unique<Implementation>(role, alpn_protocol);
+  auto implementation = std::make_unique<Implementation>(
+      role, std::move(alpn_protocols), server_dispatcher,
+      std::move(pairing_alpn_policy));
   if (!implementation->context) {
     return {.error = SecurityError::kTlsConfigurationFailure};
   }
+  implementation->server_alpn_policy = {
+      .alpns = &implementation->alpns,
+      .pairing_allowed = &implementation->pairing_alpn_policy,
+      .enforce_pairing_window = implementation->server_dispatcher,
+  };
 
   SecurityError configuration_error = SecurityError::kIdentityUnavailable;
   const identity::Result<void> identity_result = identity_repository.UseIdentitySeed(
@@ -349,7 +579,10 @@ Result<OpenSslTlsContext> OpenSslTlsContext::Create(
           return identity::Result<void>::Failure(identity::ErrorCode::kCryptoFailure);
         }
         configuration_error = ConfigureContext(
-            implementation->context.get(), implementation->role, implementation->alpn,
+            implementation->context.get(), implementation->role, implementation->alpns,
+            implementation->role == TlsEndpointRole::kServer
+                ? &implementation->server_alpn_policy
+                : nullptr,
             certificate.value->get(), private_key.get());
         return configuration_error == SecurityError::kNone
                    ? identity::Result<void>::Success()
@@ -380,9 +613,33 @@ ssl_ctx_st* OpenSslTlsContext::native_handle() const noexcept {
 }
 
 std::span<const std::uint8_t> OpenSslTlsContext::alpn_protocol() const noexcept {
-  return implementation_ == nullptr
+  return implementation_ == nullptr || implementation_->alpns.size() != 1U
              ? std::span<const std::uint8_t>{}
-             : std::span<const std::uint8_t>(implementation_->alpn);
+             : std::span<const std::uint8_t>(implementation_->alpns.front());
+}
+
+bool OpenSslTlsContext::Owns(const VerifiedTlsConnection& connection,
+                             ssl_st* const native_connection,
+                             const std::span<const std::uint8_t> alpn) const noexcept {
+  return implementation_ != nullptr && native_connection != nullptr &&
+         connection.owner_ == implementation_.get() &&
+         connection.connection_ == native_connection &&
+         connection.alpn_.size() == alpn.size() &&
+         CRYPTO_memcmp(connection.alpn_.data(), alpn.data(), alpn.size()) == 0 &&
+         MatchesHandshake(connection);
+}
+
+bool OpenSslTlsContext::MatchesHandshake(
+    const VerifiedTlsConnection& connection) const noexcept {
+  const std::optional<HandshakeFinished> current =
+      CaptureHandshakeFinished(connection.connection_);
+  return current.has_value() &&
+         current->local_size == connection.local_finished_size_ &&
+         current->peer_size == connection.peer_finished_size_ &&
+         CRYPTO_memcmp(current->local.data(), connection.local_finished_.data(),
+                       current->local_size) == 0 &&
+         CRYPTO_memcmp(current->peer.data(), connection.peer_finished_.data(),
+                       current->peer_size) == 0;
 }
 
 Result<VerifiedTlsConnection> OpenSslTlsContext::VerifyPeer(
@@ -391,8 +648,17 @@ Result<VerifiedTlsConnection> OpenSslTlsContext::VerifyPeer(
   if (implementation_ == nullptr) {
     return {.error = SecurityError::kTlsConfigurationFailure};
   }
+  if (implementation_->server_dispatcher) {
+    return {.error = SecurityError::kAlpnMismatch};
+  }
+  if (std::equal(implementation_->alpns.front().cbegin(),
+                 implementation_->alpns.front().cend(), kEstablishedAlpn.cbegin(),
+                 kEstablishedAlpn.cend()) &&
+      !expected_pin.has_value()) {
+    return {.error = SecurityError::kPinMismatch};
+  }
   const SecurityError parameter_error = ValidateNegotiatedParameters(
-      connection, implementation_->context.get(), implementation_->alpn);
+      connection, implementation_->context.get(), implementation_->alpns.front());
   if (parameter_error != SecurityError::kNone) {
     return {.error = parameter_error};
   }
@@ -405,10 +671,100 @@ Result<VerifiedTlsConnection> OpenSslTlsContext::VerifyPeer(
       !EqualPublicKeys(peer_public_key.value->bytes(), *expected_pin)) {
     return {.error = SecurityError::kPinMismatch};
   }
+  const std::optional<HandshakeFinished> finished =
+      CaptureHandshakeFinished(connection);
+  if (!finished.has_value()) {
+    return {.error = SecurityError::kHandshakeIncomplete};
+  }
 
   return {
-      .value = VerifiedTlsConnection(connection, implementation_.get(),
-                                     *peer_public_key.value),
+      .value = VerifiedTlsConnection(
+          connection, implementation_.get(), *peer_public_key.value,
+          implementation_->alpns.front(), finished->local,
+          static_cast<std::uint8_t>(finished->local_size), finished->peer,
+          static_cast<std::uint8_t>(finished->peer_size)),
+      .error = SecurityError::kNone,
+  };
+}
+
+Result<AcceptedServerTlsConnection> OpenSslTlsContext::AcceptServerPeer(
+    ssl_st* const connection,
+    const identity::IdentityRepository& identity_repository) const {
+  if (implementation_ == nullptr || !implementation_->server_dispatcher ||
+      implementation_->role != TlsEndpointRole::kServer ||
+      !identity_repository.ready()) {
+    return {.error = SecurityError::kTlsConfigurationFailure};
+  }
+
+  const unsigned char* selected_alpn = nullptr;
+  unsigned int selected_alpn_size = 0;
+  SSL_get0_alpn_selected(connection, &selected_alpn, &selected_alpn_size);
+  const std::span<const std::uint8_t> negotiated(
+      reinterpret_cast<const std::uint8_t*>(selected_alpn), selected_alpn_size);
+  const bool is_pairing =
+      negotiated.size() == kPairingAlpn.size() &&
+      CRYPTO_memcmp(negotiated.data(), kPairingAlpn.data(), kPairingAlpn.size()) == 0;
+  const bool is_established = negotiated.size() == kEstablishedAlpn.size() &&
+                              CRYPTO_memcmp(negotiated.data(), kEstablishedAlpn.data(),
+                                            kEstablishedAlpn.size()) == 0;
+  if (!is_pairing && !is_established) {
+    return {.error = SecurityError::kAlpnMismatch};
+  }
+  const SecurityError parameter_error = ValidateNegotiatedParameters(
+      connection, implementation_->context.get(), negotiated);
+  if (parameter_error != SecurityError::kNone) {
+    return {.error = parameter_error};
+  }
+
+  auto peer_public_key = ExtractValidatedPeerPublicKey(connection);
+  if (!peer_public_key.ok()) {
+    return {.error = peer_public_key.error};
+  }
+  const std::optional<HandshakeFinished> finished =
+      CaptureHandshakeFinished(connection);
+  if (!finished.has_value()) {
+    return {.error = SecurityError::kHandshakeIncomplete};
+  }
+  VerifiedTlsConnection verified(
+      connection, implementation_.get(), *peer_public_key.value, negotiated,
+      finished->local, static_cast<std::uint8_t>(finished->local_size), finished->peer,
+      static_cast<std::uint8_t>(finished->peer_size));
+  if (is_pairing) {
+    const std::uint64_t pairing_window_generation = PairingWindowGeneration(connection);
+    if (pairing_window_generation == 0U) {
+      return {.error = SecurityError::kAlpnMismatch};
+    }
+    return {
+        .value = AcceptedServerTlsConnection(AcceptedPairingTlsConnection(
+            std::move(verified), pairing_window_generation)),
+        .error = SecurityError::kNone,
+    };
+  }
+
+  const identity::PeerRecord* resolved_peer = nullptr;
+  for (const identity::PeerRecord& peer : identity_repository.peers()) {
+    if (peer.trust_state != identity::TrustState::kActive ||
+        !EqualPublicKeys(peer.public_key, peer_public_key.value->bytes())) {
+      continue;
+    }
+    if (resolved_peer != nullptr) {
+      return {.error = SecurityError::kPinMismatch};
+    }
+    resolved_peer = &peer;
+  }
+  if (resolved_peer == nullptr) {
+    return {.error = SecurityError::kPinMismatch};
+  }
+  if (resolved_peer->security_profile == 0U ||
+      resolved_peer->security_profile > kSecurityProfileV1) {
+    return {.error = SecurityError::kUnsupportedProfile};
+  }
+
+  return {
+      .value = AcceptedServerTlsConnection(AcceptedEstablishedTlsConnection(
+          std::move(verified), resolved_peer->device_id,
+          resolved_peer->security_profile, identity_repository.revision(),
+          resolved_peer->record_revision)),
       .error = SecurityError::kNone,
   };
 }
@@ -438,9 +794,10 @@ Result<identity::SecretBuffer> OpenSslTlsContext::ExportKeyingMaterial(
     const std::span<const std::uint8_t> context) const {
   if (implementation_ == nullptr || connection.owner_ != implementation_.get() ||
       connection.connection_ == nullptr || context.size() != kSha256Size ||
+      !MatchesHandshake(connection) ||
       ValidateNegotiatedParameters(connection.connection_,
                                    implementation_->context.get(),
-                                   implementation_->alpn) != SecurityError::kNone) {
+                                   connection.alpn_) != SecurityError::kNone) {
     return {.error = SecurityError::kExporterFailure};
   }
 

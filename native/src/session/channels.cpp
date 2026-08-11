@@ -19,13 +19,6 @@ using security::tls::OpenSslTlsContext;
 using security::tls::SecurityError;
 using security::tls::VerifiedTlsConnection;
 
-constexpr std::array<std::uint8_t, 22> kPairingAlpn = {
-    'x', 'n', 'n', '-', 't', 'r', 'a', 'n', 's', 'f', 'e',
-    'r', '-', 'p', 'a', 'i', 'r', 'i', 'n', 'g', '/', '1',
-};
-constexpr std::array<std::uint8_t, 14> kEstablishedAlpn = {
-    'x', 'n', 'n', '-', 't', 'r', 'a', 'n', 's', 'f', 'e', 'r', '/', '1',
-};
 constexpr std::size_t kMaxTlsFinishedSize = 64;
 
 struct HandshakeBinding {
@@ -103,7 +96,7 @@ struct OpenSslPairingChannel::Implementation {
 security::tls::Result<std::unique_ptr<OpenSslPairingChannel>>
 OpenSslPairingChannel::Create(const OpenSslTlsContext& context,
                               ssl_st* const connection) {
-  if (!ExactAlpn(context.alpn_protocol(), kPairingAlpn)) {
+  if (!ExactAlpn(context.alpn_protocol(), security::tls::kPairingAlpn)) {
     return {.error = SecurityError::kAlpnMismatch};
   }
   auto verified = context.VerifyPeer(connection, std::nullopt);
@@ -117,6 +110,30 @@ OpenSslPairingChannel::Create(const OpenSslTlsContext& context,
   try {
     auto implementation = std::make_unique<Implementation>(
         context, connection, handshake, std::move(*verified.value));
+    return {
+        .value = std::unique_ptr<OpenSslPairingChannel>(
+            new OpenSslPairingChannel(std::move(implementation))),
+        .error = SecurityError::kNone,
+    };
+  } catch (const std::bad_alloc&) {
+    return {.error = SecurityError::kCryptoFailure};
+  }
+}
+
+security::tls::Result<std::unique_ptr<OpenSslPairingChannel>>
+OpenSslPairingChannel::Create(const OpenSslTlsContext& context,
+                              ssl_st* const connection,
+                              security::tls::AcceptedPairingTlsConnection accepted) {
+  if (!context.Owns(accepted.verified_, connection, security::tls::kPairingAlpn)) {
+    return {.error = SecurityError::kAlpnMismatch};
+  }
+  HandshakeBinding handshake{};
+  if (!CaptureHandshakeBinding(connection, handshake)) {
+    return {.error = SecurityError::kHandshakeIncomplete};
+  }
+  try {
+    auto implementation = std::make_unique<Implementation>(
+        context, connection, handshake, std::move(accepted.verified_));
     return {
         .value = std::unique_ptr<OpenSslPairingChannel>(
             new OpenSslPairingChannel(std::move(implementation))),
@@ -232,7 +249,7 @@ EstablishedTlsChannel::Create(const OpenSslTlsContext& context,
                               ssl_st* const connection,
                               const security::identity::IdentityRepository& repository,
                               const DeviceId& peer_device_id) {
-  if (!ExactAlpn(context.alpn_protocol(), kEstablishedAlpn)) {
+  if (!ExactAlpn(context.alpn_protocol(), security::tls::kEstablishedAlpn)) {
     return {.error = SecurityError::kAlpnMismatch};
   }
   if (!repository.ready()) {
@@ -259,6 +276,36 @@ EstablishedTlsChannel::Create(const OpenSslTlsContext& context,
         context, connection, handshake, peer->device_id, peer->public_key,
         security::tls::kSecurityProfileV1, peer->record_revision, repository.revision(),
         std::move(*verified.value));
+    return {
+        .value = std::unique_ptr<EstablishedTlsChannel>(
+            new EstablishedTlsChannel(std::move(implementation))),
+        .error = SecurityError::kNone,
+    };
+  } catch (const std::bad_alloc&) {
+    return {.error = SecurityError::kCryptoFailure};
+  }
+}
+
+security::tls::Result<std::unique_ptr<EstablishedTlsChannel>>
+EstablishedTlsChannel::Create(
+    const OpenSslTlsContext& context, ssl_st* const connection,
+    security::tls::AcceptedEstablishedTlsConnection accepted) {
+  if (!context.Owns(accepted.verified_, connection, security::tls::kEstablishedAlpn)) {
+    return {.error = SecurityError::kAlpnMismatch};
+  }
+  HandshakeBinding handshake{};
+  if (!CaptureHandshakeBinding(connection, handshake)) {
+    return {.error = SecurityError::kHandshakeIncomplete};
+  }
+  try {
+    const DeviceId peer_device_id = accepted.peer_device_id_;
+    const PublicKey peer_public_key = accepted.verified_.peer_public_key().bytes();
+    const std::uint64_t record_revision = accepted.record_revision_;
+    const std::uint64_t repository_revision = accepted.repository_revision_;
+    auto implementation = std::make_unique<Implementation>(
+        context, connection, handshake, peer_device_id, peer_public_key,
+        security::tls::kSecurityProfileV1, record_revision, repository_revision,
+        std::move(accepted.verified_));
     return {
         .value = std::unique_ptr<EstablishedTlsChannel>(
             new EstablishedTlsChannel(std::move(implementation))),

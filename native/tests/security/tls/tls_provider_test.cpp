@@ -618,6 +618,14 @@ void TestStaleCapabilityRejectedAfterConnectionReuse(
   if (!stale_capability.ok()) {
     return;
   }
+  Expect(ReconnectClient(*handshake, server.native_handle()),
+         "same SSL object reconnects to the same peer");
+  tls::PairingExporterInput input{};
+  const auto same_peer_stale =
+      client.ExportKeyingMaterial(*stale_capability.value, input);
+  Expect(!same_peer_stale.ok() &&
+             same_peer_stale.error == tls::SecurityError::kExporterFailure,
+         "handshake Finished binding rejects stale same-peer capability");
 
   Expect(ReconnectClient(*handshake, replacement_server.value->native_handle()),
          "same SSL object reconnects to replacement peer");
@@ -628,7 +636,6 @@ void TestStaleCapabilityRejectedAfterConnectionReuse(
     return;
   }
 
-  tls::PairingExporterInput input{};
   const auto fresh_export = client.ExportKeyingMaterial(*fresh_capability.value, input);
   Expect(fresh_export.ok(), "fresh capability exports after SSL object reuse");
 
@@ -679,6 +686,283 @@ void TestAlpnAndCertificateFailures(identity::IdentityRepository& client_identit
   }
 }
 
+void TestExpiredCertificateRejected(const tls::OpenSslTlsContext& client,
+                                    const tls::OpenSslTlsContext& server) {
+  X509* const source = SSL_CTX_get0_certificate(server.native_handle());
+  EVP_PKEY* const private_key = SSL_CTX_get0_privatekey(server.native_handle());
+  CertificatePointer original(source == nullptr ? nullptr : X509_dup(source),
+                              &X509_free);
+  CertificatePointer expired(source == nullptr ? nullptr : X509_dup(source),
+                             &X509_free);
+  const bool prepared =
+      original && expired && private_key != nullptr &&
+      X509_gmtime_adj(X509_getm_notBefore(expired.get()), -120L) != nullptr &&
+      X509_gmtime_adj(X509_getm_notAfter(expired.get()), -60L) != nullptr &&
+      X509_sign(expired.get(), private_key, nullptr) > 0;
+  Expect(prepared, "expired identity certificate fixture is prepared");
+  if (!prepared) {
+    return;
+  }
+  Expect(InstallIdentityCertificate(server.native_handle(), expired.get()),
+         "expired identity certificate installs for negative handshake");
+  Expect(!Connect(client.native_handle(), server.native_handle()).has_value(),
+         "expired peer identity fails during TLS verification");
+  Expect(InstallIdentityCertificate(server.native_handle(), original.get()),
+         "valid identity certificate is restored after expiry test");
+}
+
+void TestMalformedCertificateTimeRejected(const tls::OpenSslTlsContext& client,
+                                          const tls::OpenSslTlsContext& server) {
+  X509* const source = SSL_CTX_get0_certificate(server.native_handle());
+  EVP_PKEY* const private_key = SSL_CTX_get0_privatekey(server.native_handle());
+  CertificatePointer original(source == nullptr ? nullptr : X509_dup(source),
+                              &X509_free);
+  CertificatePointer malformed(source == nullptr ? nullptr : X509_dup(source),
+                               &X509_free);
+  constexpr std::string_view kInvalidTime = "not-a-time";
+  const bool prepared =
+      original && malformed && private_key != nullptr &&
+      ASN1_STRING_set(X509_getm_notAfter(malformed.get()), kInvalidTime.data(),
+                      static_cast<int>(kInvalidTime.size())) == 1 &&
+      X509_cmp_current_time(X509_get0_notAfter(malformed.get())) == 0 &&
+      X509_sign(malformed.get(), private_key, nullptr) > 0;
+  Expect(prepared, "malformed certificate-time fixture is prepared");
+  if (!prepared) {
+    return;
+  }
+  Expect(InstallIdentityCertificate(server.native_handle(), malformed.get()),
+         "malformed certificate-time fixture installs");
+  Expect(!Connect(client.native_handle(), server.native_handle()).has_value(),
+         "unparseable certificate time fails during TLS verification");
+  Expect(InstallIdentityCertificate(server.native_handle(), original.get()),
+         "valid identity certificate is restored after malformed-time test");
+}
+
+void TestTypedServerDispatcher(IdentityFixture& client_identity,
+                               IdentityFixture& server_identity) {
+  std::uint64_t pairing_window_generation = 7U;
+  auto dispatcher = tls::OpenSslTlsContext::CreateServerDispatcher(
+      server_identity.repository,
+      [&pairing_window_generation] { return pairing_window_generation; });
+  auto pairing_client = tls::OpenSslTlsContext::Create(
+      tls::TlsEndpointRole::kClient, client_identity.repository, tls::kPairingAlpn);
+  auto established_client = tls::OpenSslTlsContext::Create(
+      tls::TlsEndpointRole::kClient, client_identity.repository, tls::kEstablishedAlpn);
+  Expect(dispatcher.ok() && pairing_client.ok() && established_client.ok(),
+         "typed dispatcher and both registered clients configure");
+  if (!dispatcher.ok() || !pairing_client.ok() || !established_client.ok()) {
+    return;
+  }
+
+  auto pairing =
+      Connect(pairing_client.value->native_handle(), dispatcher.value->native_handle());
+  Expect(pairing.has_value(), "dispatcher accepts exact pairing ALPN");
+  if (pairing.has_value()) {
+    pairing_window_generation = 8U;
+    auto accepted = dispatcher.value->AcceptServerPeer(pairing->server.get(),
+                                                       server_identity.repository);
+    const auto* pairing_capability =
+        accepted.ok() ? std::get_if<tls::AcceptedPairingTlsConnection>(&*accepted.value)
+                      : nullptr;
+    Expect(pairing_capability != nullptr &&
+               pairing_capability->pairing_window_generation() == 7U,
+           "pairing capability retains its ClientHello window generation");
+    const auto generic =
+        dispatcher.value->VerifyPeer(pairing->server.get(), std::nullopt);
+    Expect(!generic.ok() && generic.error == tls::SecurityError::kAlpnMismatch,
+           "dispatcher never returns a generic unpinned capability");
+    pairing_window_generation = 9U;
+    const bool reused = SSL_clear(pairing->client.get()) == 1 &&
+                        SSL_clear(pairing->server.get()) == 1 &&
+                        CompleteHandshake(pairing->client.get(), pairing->server.get());
+    Expect(reused, "dispatcher SSL objects complete a fresh pairing handshake");
+    if (reused) {
+      auto fresh = dispatcher.value->AcceptServerPeer(pairing->server.get(),
+                                                      server_identity.repository);
+      const auto* fresh_pairing =
+          fresh.ok() ? std::get_if<tls::AcceptedPairingTlsConnection>(&*fresh.value)
+                     : nullptr;
+      Expect(
+          fresh_pairing != nullptr && fresh_pairing->pairing_window_generation() == 9U,
+          "reused dispatcher SSL records the fresh window generation");
+    }
+  }
+  pairing_window_generation = 0U;
+  Expect(
+      !Connect(pairing_client.value->native_handle(), dispatcher.value->native_handle())
+           .has_value(),
+      "dispatcher rejects pairing ALPN while the local window is closed");
+
+  auto unknown = Connect(established_client.value->native_handle(),
+                         dispatcher.value->native_handle());
+  Expect(unknown.has_value(),
+         "unknown established identity may complete proof-safe TLS");
+  if (unknown.has_value()) {
+    const auto accepted = dispatcher.value->AcceptServerPeer(
+        unknown->server.get(), server_identity.repository);
+    Expect(!accepted.ok() && accepted.error == tls::SecurityError::kPinMismatch,
+           "unknown established identity fails before typed dispatch");
+  }
+
+  const auto committed = server_identity.repository.CommitPeer(identity::PeerCommit{
+      .public_key = *client_identity.repository.root_public_key(),
+      .security_profile = tls::kSecurityProfileV1,
+      .display_label = "active client",
+  });
+  Expect(committed.ok(), "dispatcher test commits an active exact pin");
+  if (!committed.ok()) {
+    return;
+  }
+  auto active = Connect(established_client.value->native_handle(),
+                        dispatcher.value->native_handle());
+  Expect(active.has_value(), "active established identity handshakes");
+  if (active.has_value()) {
+    auto accepted = dispatcher.value->AcceptServerPeer(active->server.get(),
+                                                       server_identity.repository);
+    const auto* established =
+        accepted.ok()
+            ? std::get_if<tls::AcceptedEstablishedTlsConnection>(&*accepted.value)
+            : nullptr;
+    Expect(established != nullptr && established->peer_device_id() == committed.value(),
+           "active exact pin resolves the typed established capability");
+  }
+
+  Expect(server_identity.repository.RevokePeer(committed.value()).ok(),
+         "dispatcher test revokes the active pin");
+  auto revoked = Connect(established_client.value->native_handle(),
+                         dispatcher.value->native_handle());
+  Expect(revoked.has_value(), "revoked identity still proves its certificate");
+  if (revoked.has_value()) {
+    const auto accepted = dispatcher.value->AcceptServerPeer(
+        revoked->server.get(), server_identity.repository);
+    Expect(!accepted.ok() && accepted.error == tls::SecurityError::kPinMismatch,
+           "revoked exact pin fails before established dispatch");
+  }
+
+  const auto make_hostile_alpn = [&](const std::vector<unsigned char>& wire) {
+    const unsigned char empty_marker = 0U;
+    const unsigned char* const protocols = wire.empty() ? &empty_marker : wire.data();
+    Handshake handshake{
+        .client = SslPointer(SSL_new(pairing_client.value->native_handle()), &SSL_free),
+        .server = SslPointer(SSL_new(dispatcher.value->native_handle()), &SSL_free),
+    };
+    if (!handshake.client || !handshake.server ||
+        SSL_set_alpn_protos(handshake.client.get(), protocols,
+                            static_cast<unsigned int>(wire.size())) != 0) {
+      return false;
+    }
+    return !CompleteHandshake(handshake.client.get(), handshake.server.get());
+  };
+  std::vector<unsigned char> multiple{
+      static_cast<unsigned char>(tls::kPairingAlpn.size())};
+  multiple.insert(multiple.end(), tls::kPairingAlpn.begin(), tls::kPairingAlpn.end());
+  multiple.push_back(static_cast<unsigned char>(tls::kEstablishedAlpn.size()));
+  multiple.insert(multiple.end(), tls::kEstablishedAlpn.begin(),
+                  tls::kEstablishedAlpn.end());
+  Expect(make_hostile_alpn(multiple),
+         "offering both registered ALPN modes fails closed");
+
+  std::vector<unsigned char> duplicate{
+      static_cast<unsigned char>(tls::kPairingAlpn.size())};
+  duplicate.insert(duplicate.end(), tls::kPairingAlpn.begin(), tls::kPairingAlpn.end());
+  duplicate.push_back(static_cast<unsigned char>(tls::kPairingAlpn.size()));
+  duplicate.insert(duplicate.end(), tls::kPairingAlpn.begin(), tls::kPairingAlpn.end());
+  Expect(make_hostile_alpn(duplicate),
+         "duplicating one registered ALPN mode fails closed");
+
+  ContextPointer missing_alpn_context(SSL_CTX_new(TLS_method()), &SSL_CTX_free);
+  const bool missing_alpn_configured =
+      missing_alpn_context != nullptr &&
+      SSL_CTX_set_min_proto_version(missing_alpn_context.get(), TLS1_3_VERSION) == 1 &&
+      SSL_CTX_set_max_proto_version(missing_alpn_context.get(), TLS1_3_VERSION) == 1 &&
+      SSL_CTX_set_ciphersuites(missing_alpn_context.get(),
+                               "TLS_AES_128_GCM_SHA256:"
+                               "TLS_CHACHA20_POLY1305_SHA256") == 1 &&
+      SSL_CTX_set1_groups_list(missing_alpn_context.get(), "X25519") == 1 &&
+      SSL_CTX_set1_sigalgs_list(missing_alpn_context.get(), "ed25519") == 1 &&
+      SSL_CTX_use_certificate(
+          missing_alpn_context.get(),
+          SSL_CTX_get0_certificate(pairing_client.value->native_handle())) == 1 &&
+      SSL_CTX_use_PrivateKey(
+          missing_alpn_context.get(),
+          SSL_CTX_get0_privatekey(pairing_client.value->native_handle())) == 1 &&
+      SSL_CTX_check_private_key(missing_alpn_context.get()) == 1;
+  Expect(missing_alpn_configured,
+         "client context without ALPN retains the required TLS profile");
+  if (missing_alpn_configured) {
+    Expect(!Connect(missing_alpn_context.get(), dispatcher.value->native_handle())
+                .has_value(),
+           "omitting ALPN from the shared listener fails closed");
+  }
+  constexpr std::array<unsigned char, 7> kUnknownAlpn = {
+      6U, 'u', 'n', 'k', 'n', 'o', 'w',
+  };
+  Expect(make_hostile_alpn(
+             std::vector<unsigned char>(kUnknownAlpn.begin(), kUnknownAlpn.end())),
+         "unknown ALPN on the shared listener fails closed");
+}
+
+void TestRotatedPinRejected() {
+  IdentityFixture old_client;
+  IdentityFixture new_client;
+  IdentityFixture server;
+  Expect(old_client.repository.Open().ok() && new_client.repository.Open().ok() &&
+             server.repository.Open().ok(),
+         "rotation dispatcher identities open");
+  if (!old_client.repository.ready() || !new_client.repository.ready() ||
+      !server.repository.ready()) {
+    return;
+  }
+  const auto committed = server.repository.CommitPeer(identity::PeerCommit{
+      .public_key = *old_client.repository.root_public_key(),
+      .security_profile = tls::kSecurityProfileV1,
+      .display_label = "old client",
+  });
+  Expect(committed.ok(), "old pin commits before rotation");
+  if (!committed.ok()) {
+    return;
+  }
+  const auto rotated = server.repository.RotatePeer(
+      committed.value(), *new_client.repository.root_public_key(), 1U);
+  Expect(rotated.ok(), "active pin rotates to the replacement identity");
+  if (!rotated.ok()) {
+    return;
+  }
+  auto dispatcher = tls::OpenSslTlsContext::CreateServerDispatcher(server.repository,
+                                                                   [] { return true; });
+  auto old_context = tls::OpenSslTlsContext::Create(
+      tls::TlsEndpointRole::kClient, old_client.repository, tls::kEstablishedAlpn);
+  auto new_context = tls::OpenSslTlsContext::Create(
+      tls::TlsEndpointRole::kClient, new_client.repository, tls::kEstablishedAlpn);
+  Expect(dispatcher.ok() && old_context.ok() && new_context.ok(),
+         "rotation dispatcher contexts configure");
+  if (!dispatcher.ok() || !old_context.ok() || !new_context.ok()) {
+    return;
+  }
+  auto old_connection =
+      Connect(old_context.value->native_handle(), dispatcher.value->native_handle());
+  auto new_connection =
+      Connect(new_context.value->native_handle(), dispatcher.value->native_handle());
+  Expect(old_connection.has_value() && new_connection.has_value(),
+         "old and replacement identities complete proof-safe TLS");
+  if (old_connection.has_value()) {
+    const auto accepted = dispatcher.value->AcceptServerPeer(
+        old_connection->server.get(), server.repository);
+    Expect(!accepted.ok() && accepted.error == tls::SecurityError::kPinMismatch,
+           "rotated-away identity fails active-pin resolution");
+  }
+  if (new_connection.has_value()) {
+    auto accepted = dispatcher.value->AcceptServerPeer(new_connection->server.get(),
+                                                       server.repository);
+    const auto* established =
+        accepted.ok()
+            ? std::get_if<tls::AcceptedEstablishedTlsConnection>(&*accepted.value)
+            : nullptr;
+    Expect(established != nullptr && established->peer_device_id() == rotated.value(),
+           "replacement identity resolves after rotation");
+  }
+}
+
 }  // namespace
 
 int main() {
@@ -715,7 +999,11 @@ int main() {
         *client.value, *server.value, *server_identity.repository.root_public_key());
     TestAlpnAndCertificateFailures(client_identity.repository, *server.value);
     TestPeerCertificateBounds(*client.value, *server.value);
+    TestExpiredCertificateRejected(*client.value, *server.value);
+    TestMalformedCertificateTimeRejected(*client.value, *server.value);
   }
+  TestTypedServerDispatcher(client_identity, server_identity);
+  TestRotatedPinRejected();
 
   if (failures != 0) {
     std::cerr << failures << " TLS provider test(s) failed\n";

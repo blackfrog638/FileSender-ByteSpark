@@ -97,3 +97,15 @@ add_executable(
   "${xnn_transfer_generated_pairing_vectors}"
 )
 xnn_transfer_configure_session_test(xnn_transfer_session_authority_tests)
+
+add_executable(
+  xnn_transfer_connection_runtime_tests
+  connection_runtime_test.cpp
+  "${xnn_transfer_generated_pairing_vectors}"
+)
+target_link_libraries(
+  xnn_transfer_connection_runtime_tests
+  PRIVATE
+    asio::asio
+)
+xnn_transfer_configure_session_test(xnn_transfer_connection_runtime_tests)
