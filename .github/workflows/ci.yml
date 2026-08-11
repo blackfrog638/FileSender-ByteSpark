@@ -354,3 +354,86 @@ jobs:
 
       - name: Governance lifecycle
         run: make governance-test
+
+  criterion-evidence-plan:
+    name: Criterion evidence plan
+    if: >-
+      github.event_name == 'push' &&
+      startsWith(github.ref_name, 'ci/XT-')
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      has_evidence: ${{ steps.matrix.outputs.has_evidence }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve approved evidence matrix
+        id: matrix
+        shell: bash
+        run: |
+          task_id="${GITHUB_REF_NAME#ci/}"
+          matrix="$(
+            python3 -B tool/harness/evidence.py matrix \
+              --root . \
+              --task-id "$task_id"
+          )"
+          printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
+          if [[ "$matrix" == '{"include":[]}' ]]; then
+            printf 'has_evidence=false\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'has_evidence=true\n' >> "$GITHUB_OUTPUT"
+          fi
+
+  criterion-evidence:
+    name: >-
+      Criterion evidence (${{ matrix.evidence_id }},
+      ${{ matrix.platform_label }}, ${{ matrix.role_label }})
+    needs: criterion-evidence-plan
+    if: needs.criterion-evidence-plan.outputs.has_evidence == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.criterion-evidence-plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Evidence build tools
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update
+            sudo apt-get install -y \
+              autoconf autoconf-archive automake clang cmake dbus-x11 \
+              gnome-keyring libgtk-3-dev libtool ninja-build pkg-config
+          else
+            brew install pkgconf
+          fi
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.32.8
+          channel: stable
+          cache: true
+
+      - name: "Evidence gate: ${{ matrix.gate }}"
+        shell: bash
+        run: >-
+          python3 -B tool/harness/evidence.py run
+          --root .
+          --task-id "${GITHUB_REF_NAME#ci/}"
+          --evidence-id "${{ matrix.evidence_id }}"
+          --platform "${{ matrix.platform }}"
+          --role "${{ matrix.role }}"
+          --job-name "${{ matrix.job_name }}"
+          --output out/criterion-evidence
+
+      - name: Upload criterion evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: out/criterion-evidence
+          if-no-files-found: error
+          retention-days: 7

@@ -19,9 +19,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import evidence as criterion_evidence
+
 
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 BRANCH_PATTERN = re.compile(r"^ci/XT-[0-9]{3,}$")
+TASK_PATTERN = re.compile(r"^XT-[0-9]{3,}$")
 WORKFLOW_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 HTTPS_REMOTE_PATTERN = re.compile(
     r"^https://github\.com/([^/]+)/([^/]+?)(?:\.git)?$"
@@ -34,6 +37,8 @@ RUN_URL_PATTERN = re.compile(
     r"^https://github\.com/([^/]+)/([^/]+)/actions/runs/([1-9][0-9]*)$"
 )
 PENDING_STATES = {"queued", "in_progress", "pending", "requested", "waiting"}
+MAX_JSON_BYTES = 4 * 1024 * 1024
+MAX_ARTIFACT_BYTES = criterion_evidence.MAX_ARTIFACT_BYTES
 
 
 class GitHubCIError(RuntimeError):
@@ -49,9 +54,13 @@ class Repository:
 @dataclass(frozen=True)
 class WorkflowRun:
     run_id: int
+    run_attempt: int
     status: str
     conclusion: str | None
     html_url: str
+    event: str
+    head_branch: str
+    head_sha: str
 
 
 def parse_remote_url(value: str) -> Repository:
@@ -125,30 +134,91 @@ class GitHubClient:
             "X-GitHub-Api-Version": "2022-11-28",
         }
 
+    def _url(self, suffix: str) -> str:
+        owner = urllib.parse.quote(self.repository.owner, safe="")
+        name = urllib.parse.quote(self.repository.name, safe="")
+        return f"https://api.github.com/repos/{owner}/{name}/{suffix}"
+
+    def _request_bytes(
+        self,
+        url: str,
+        label: str,
+        limit: int,
+    ) -> bytes:
+        request = urllib.request.Request(url, headers=self.headers)
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                raw_length = response.headers.get("Content-Length")
+                if raw_length is not None:
+                    try:
+                        content_length = int(raw_length)
+                    except ValueError as error:
+                        raise GitHubCIError(
+                            f"GitHub Actions {label} response has invalid size"
+                        ) from error
+                    if content_length < 0 or content_length > limit:
+                        raise GitHubCIError(
+                            f"GitHub Actions {label} exceeds the size limit"
+                        )
+                content = response.read(limit + 1)
+        except urllib.error.HTTPError as error:
+            raise GitHubCIError(
+                f"GitHub Actions {label} request returned HTTP {error.code}"
+            ) from error
+        except GitHubCIError:
+            raise
+        except (urllib.error.URLError, TimeoutError, OSError) as error:
+            raise GitHubCIError(
+                f"GitHub Actions {label} request failed"
+            ) from error
+        if len(content) > limit:
+            raise GitHubCIError(
+                f"GitHub Actions {label} exceeds the size limit"
+            )
+        return content
+
+    def _request_json(self, url: str, label: str) -> dict[str, Any]:
+        content = self._request_bytes(url, label, MAX_JSON_BYTES)
+        try:
+            payload = json.loads(content)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise GitHubCIError(
+                f"GitHub Actions {label} response is not valid JSON"
+            ) from error
+        if not isinstance(payload, dict):
+            raise GitHubCIError(
+                f"GitHub Actions {label} response is not an object"
+            )
+        return payload
+
     def workflow_runs(self, workflow: str, branch: str) -> dict[str, Any]:
         query = urllib.parse.urlencode(
             {"branch": branch, "event": "push", "per_page": "100"}
         )
-        owner = urllib.parse.quote(self.repository.owner, safe="")
-        name = urllib.parse.quote(self.repository.name, safe="")
         workflow_id = urllib.parse.quote(workflow, safe="")
-        url = (
-            f"https://api.github.com/repos/{owner}/{name}/actions/workflows/"
-            f"{workflow_id}/runs?{query}"
+        return self._request_json(
+            self._url(f"actions/workflows/{workflow_id}/runs?{query}"),
+            "workflow runs",
         )
-        request = urllib.request.Request(url, headers=self.headers)
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                payload = json.load(response)
-        except urllib.error.HTTPError as error:
-            raise GitHubCIError(
-                f"GitHub Actions API returned HTTP {error.code}"
-            ) from error
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as error:
-            raise GitHubCIError(f"GitHub Actions API request failed: {error}") from error
-        if not isinstance(payload, dict):
-            raise GitHubCIError("GitHub Actions API returned a non-object payload")
-        return payload
+
+    def workflow_jobs(self, run_id: int) -> dict[str, Any]:
+        return self._request_json(
+            self._url(f"actions/runs/{run_id}/jobs?per_page=100"),
+            "jobs",
+        )
+
+    def workflow_artifacts(self, run_id: int) -> dict[str, Any]:
+        return self._request_json(
+            self._url(f"actions/runs/{run_id}/artifacts?per_page=100"),
+            "artifacts",
+        )
+
+    def artifact_archive(self, artifact_id: int) -> bytes:
+        return self._request_bytes(
+            self._url(f"actions/artifacts/{artifact_id}/zip"),
+            "artifact archive",
+            MAX_ARTIFACT_BYTES,
+        )
 
 
 def select_run(
@@ -171,11 +241,14 @@ def select_run(
         ):
             continue
         run_id = raw.get("id")
+        run_attempt = raw.get("run_attempt")
         status = raw.get("status")
         conclusion = raw.get("conclusion")
         html_url = raw.get("html_url")
         if (
             not isinstance(run_id, int)
+            or not isinstance(run_attempt, int)
+            or run_attempt <= 0
             or not isinstance(status, str)
             or (conclusion is not None and not isinstance(conclusion, str))
             or not isinstance(html_url, str)
@@ -194,15 +267,19 @@ def select_run(
         matches.append(
             WorkflowRun(
                 run_id=run_id,
+                run_attempt=run_attempt,
                 status=status,
                 conclusion=conclusion,
                 html_url=html_url,
+                event=str(raw["event"]),
+                head_branch=str(raw["head_branch"]),
+                head_sha=str(raw["head_sha"]),
             )
         )
     return max(matches, key=lambda run: run.run_id, default=None)
 
 
-def wait_for_workflow(
+def wait_for_workflow_run(
     fetch_runs: Callable[[], dict[str, Any]],
     repository: Repository,
     branch: str,
@@ -212,7 +289,7 @@ def wait_for_workflow(
     *,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
-) -> str:
+) -> WorkflowRun:
     deadline = monotonic() + timeout_seconds
     while True:
         run = select_run(fetch_runs(), repository, branch, sha)
@@ -223,7 +300,7 @@ def wait_for_workflow(
                         f"GitHub Actions run {run.run_id} completed with "
                         f"{run.conclusion or 'no conclusion'}: {run.html_url}"
                     )
-                return run.html_url
+                return run
             if run.status not in PENDING_STATES:
                 raise GitHubCIError(
                     f"GitHub Actions run {run.run_id} has unknown status "
@@ -237,6 +314,29 @@ def wait_for_workflow(
         sleep(min(poll_seconds, deadline - now))
 
 
+def wait_for_workflow(
+    fetch_runs: Callable[[], dict[str, Any]],
+    repository: Repository,
+    branch: str,
+    sha: str,
+    timeout_seconds: float,
+    poll_seconds: float,
+    *,
+    monotonic: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> str:
+    return wait_for_workflow_run(
+        fetch_runs,
+        repository,
+        branch,
+        sha,
+        timeout_seconds,
+        poll_seconds,
+        monotonic=monotonic,
+        sleep=sleep,
+    ).html_url
+
+
 def wait_command(args: argparse.Namespace) -> None:
     root = args.root.resolve()
     if not SHA_PATTERN.fullmatch(args.sha):
@@ -247,10 +347,19 @@ def wait_command(args: argparse.Namespace) -> None:
         raise GitHubCIError("workflow must be a safe workflow filename")
     if args.timeout_seconds <= 0 or args.poll_seconds <= 0:
         raise GitHubCIError("timeout and poll interval must be positive")
+    if (args.task_id is None) != (args.evidence_output is None):
+        raise GitHubCIError(
+            "task-id and evidence-output must be supplied together"
+        )
+    if args.task_id is not None:
+        if not TASK_PATTERN.fullmatch(args.task_id):
+            raise GitHubCIError("task-id must match XT-NNN")
+        if args.branch != f"ci/{args.task_id}":
+            raise GitHubCIError("candidate branch does not match task-id")
     repository = load_repository(root, args.remote)
     username, password = load_credentials(root)
     client = GitHubClient(repository, username, password)
-    result = wait_for_workflow(
+    run = wait_for_workflow_run(
         lambda: client.workflow_runs(args.workflow, args.branch),
         repository,
         args.branch,
@@ -258,7 +367,27 @@ def wait_command(args: argparse.Namespace) -> None:
         args.timeout_seconds,
         args.poll_seconds,
     )
-    print(result)
+    if args.evidence_output is not None and args.task_id is not None:
+        bundle = criterion_evidence.collect_for_task(
+            root,
+            args.task_id,
+            args.sha,
+            {
+                "id": run.run_id,
+                "run_attempt": run.run_attempt,
+                "status": run.status,
+                "conclusion": run.conclusion,
+                "html_url": run.html_url,
+                "event": run.event,
+                "head_branch": run.head_branch,
+                "head_sha": run.head_sha,
+            },
+            client.workflow_jobs(run.run_id),
+            client.workflow_artifacts(run.run_id),
+            client.artifact_archive,
+        )
+        criterion_evidence.write_bundle(args.evidence_output, bundle)
+    print(run.html_url)
 
 
 def main() -> int:
@@ -272,11 +401,13 @@ def main() -> int:
     wait_parser.add_argument("--sha", required=True)
     wait_parser.add_argument("--timeout-seconds", type=float, default=5400)
     wait_parser.add_argument("--poll-seconds", type=float, default=15)
+    wait_parser.add_argument("--task-id")
+    wait_parser.add_argument("--evidence-output", type=Path)
     args = parser.parse_args()
     try:
         if args.command == "wait":
             wait_command(args)
-    except (GitHubCIError, OSError) as error:
+    except (GitHubCIError, criterion_evidence.EvidenceError, OSError) as error:
         print(f"Remote CI error: {error}", file=sys.stderr)
         return 1
     return 0

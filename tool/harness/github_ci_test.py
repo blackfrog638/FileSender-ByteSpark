@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import unittest
+import urllib.error
 from pathlib import Path
 from unittest import mock
 
@@ -17,6 +19,7 @@ SHA = "a" * 40
 def run_payload(
     *,
     run_id: int = 123,
+    run_attempt: int = 1,
     status: str = "completed",
     conclusion: str | None = "success",
     branch: str = BRANCH,
@@ -30,6 +33,7 @@ def run_payload(
         "workflow_runs": [
             {
                 "id": run_id,
+                "run_attempt": run_attempt,
                 "status": status,
                 "conclusion": conclusion,
                 "head_branch": branch,
@@ -86,6 +90,63 @@ class CredentialTests(unittest.TestCase):
                 github_ci.GitHubCIError, "returned no github.com credentials"
             ):
                 github_ci.load_credentials(Path("/repository"))
+
+
+class ClientTests(unittest.TestCase):
+    def client(self) -> github_ci.GitHubClient:
+        return github_ci.GitHubClient(REPOSITORY, "user", "secret")
+
+    def response(self, value: object) -> mock.MagicMock:
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = json.dumps(value).encode("utf-8")
+        response.headers = {"Content-Length": "2"}
+        return response
+
+    def test_fetches_structured_jobs_artifacts_and_archive(self) -> None:
+        client = self.client()
+        jobs = {"total_count": 1, "jobs": [{"id": 1}]}
+        artifacts = {"total_count": 1, "artifacts": [{"id": 2}]}
+        archive = b"PK\x03\x04fixture"
+        responses = [
+            self.response(jobs),
+            self.response(artifacts),
+            self.response({}),
+        ]
+        responses[2].read.return_value = archive
+        responses[2].headers = {"Content-Length": str(len(archive))}
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=responses,
+        ):
+            self.assertEqual(client.workflow_jobs(123), jobs)
+            self.assertEqual(client.workflow_artifacts(123), artifacts)
+            self.assertEqual(client.artifact_archive(2), archive)
+
+    def test_api_failure_does_not_echo_secret_bearing_detail(self) -> None:
+        detail = "https://example.test/?token=ghp_super_secret"
+        with mock.patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.URLError(detail),
+        ):
+            with self.assertRaises(github_ci.GitHubCIError) as context:
+                self.client().workflow_jobs(123)
+        self.assertNotIn("ghp_super_secret", str(context.exception))
+        self.assertIn("request failed", str(context.exception))
+
+    def test_rejects_oversized_artifact_before_reading_it(self) -> None:
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.headers = {
+            "Content-Length": str(github_ci.MAX_ARTIFACT_BYTES + 1)
+        }
+        with mock.patch("urllib.request.urlopen", return_value=response):
+            with self.assertRaisesRegex(
+                github_ci.GitHubCIError,
+                "size limit",
+            ):
+                self.client().artifact_archive(2)
+        response.read.assert_not_called()
 
 
 class RunSelectionTests(unittest.TestCase):

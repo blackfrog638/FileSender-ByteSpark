@@ -1,4 +1,4 @@
-.PHONY: abi-compat-test architecture-test benchmark bootstrap commit-message-test dashboard-test delivery-plan-test dependency-test doctor flutter-test format governance-test macos-bundle-test native-test security-test tdd-proof-test vcpkg-bootstrap verify
+.PHONY: abi-compat-test architecture-test benchmark bootstrap commit-message-test dashboard-test delivery-plan-test dependency-test doctor evidence-test flutter-test format governance-test macos-bundle-test native-test security-test tdd-proof-test vcpkg-bootstrap verify
 
 abi-compat-test:
 	@tool/harness/abi_compat_test.sh
@@ -17,6 +17,9 @@ delivery-plan-test:
 
 doctor:
 	@tool/harness/doctor.sh
+
+evidence-test:
+	@python3 -B tool/harness/evidence_test.py
 
 bootstrap:
 	@tool/harness/bootstrap.sh

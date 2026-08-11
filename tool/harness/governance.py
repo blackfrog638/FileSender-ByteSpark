@@ -23,6 +23,7 @@ if str(HARNESS_DIR) not in sys.path:
 import architecture_change
 import defect_proof as defect_proof_runner
 import delivery_plan as delivery_plan_contract
+import evidence as evidence_runner
 import tdd_contract
 import tdd_proof as tdd_proof_runner
 from trusted_gates import GateRegistryError, load_gate_registry
@@ -1444,6 +1445,14 @@ def validate_record(
                 verify_git=verify_git,
             )
         )
+    errors.extend(
+        evidence_runner.validate_record_evidence(
+            ROOT,
+            task,
+            record,
+            gate_registry,
+        )
+    )
 
     if state == "done":
         if verification.get("status") != "passed":
@@ -1829,6 +1838,7 @@ def update_state(task_id: str, expected: str, target: str) -> None:
         record["verification"]["status"] = "pending"
         record["verification"]["reference"] = ""
         record["verification"].pop("tdd_proof", None)
+        record.pop("criterion_evidence", None)
     write_json(record_path(task_id), record)
 
 
@@ -1907,7 +1917,13 @@ def mark_integrated(task_id: str, provenance_path: Path) -> None:
     write_json(record_path(task_id), record)
 
 
-def mark_accepted(task_id: str, reviewer: str, reference: str, verified_sha: str) -> None:
+def mark_accepted(
+    task_id: str,
+    reviewer: str,
+    reference: str,
+    verified_sha: str,
+    evidence_path: Path | None = None,
+) -> None:
     record = load_record(task_id)
     if record.get("state") != "integrated":
         raise GovernanceError(f"{task_id} must be integrated before acceptance")
@@ -1919,6 +1935,29 @@ def mark_accepted(task_id: str, reviewer: str, reference: str, verified_sha: str
         raise GovernanceError(
             f"{task_id} acceptance requires a GitHub Actions run URL"
         )
+    schema_v4 = record.get("schema_version") == 4
+    if schema_v4 and evidence_path is None:
+        raise GovernanceError(
+            f"{task_id} schema-v4 acceptance requires criterion evidence"
+        )
+    if not schema_v4 and evidence_path is not None:
+        raise GovernanceError(
+            f"{task_id} legacy acceptance must not attach criterion evidence"
+        )
+    criterion_evidence: dict[str, Any] | None = None
+    if evidence_path is not None:
+        try:
+            with evidence_path.open(encoding="utf-8") as source:
+                value = json.load(source)
+        except (OSError, json.JSONDecodeError) as error:
+            raise GovernanceError(
+                f"Cannot read {task_id} criterion evidence"
+            ) from error
+        if not isinstance(value, dict):
+            raise GovernanceError(
+                f"{task_id} criterion evidence must be an object"
+            )
+        criterion_evidence = value
     record["state"] = "done"
     if (
         record["integration"].get("strategy") == "squash"
@@ -1928,6 +1967,8 @@ def mark_accepted(task_id: str, reviewer: str, reference: str, verified_sha: str
     record["integration"]["verified_sha"] = verified_sha
     record["verification"]["status"] = "passed"
     record["verification"]["reference"] = reference
+    if criterion_evidence is not None:
+        record["criterion_evidence"] = criterion_evidence
     record["acceptance"] = {
         "accepted_by": reviewer,
         "accepted_at": dt.datetime.now(dt.timezone.utc).astimezone().isoformat(
@@ -1935,6 +1976,16 @@ def mark_accepted(task_id: str, reviewer: str, reference: str, verified_sha: str
         ),
         "note": "Accepted by the integration owner after repository verification.",
     }
+    if schema_v4:
+        _, tasks = load_backlog()
+        evidence_errors = evidence_runner.validate_record_evidence(
+            ROOT,
+            tasks[task_id],
+            record,
+            trusted_gate_registry(),
+        )
+        if evidence_errors:
+            raise GovernanceError("\n".join(evidence_errors))
     write_json(record_path(task_id), record)
 
 
@@ -2009,6 +2060,7 @@ def main() -> int:
     accepted_parser.add_argument("reviewer")
     accepted_parser.add_argument("reference")
     accepted_parser.add_argument("verified_sha")
+    accepted_parser.add_argument("evidence_path", type=Path, nargs="?")
 
     get_parser = subparsers.add_parser("get")
     get_parser.add_argument("task_id")
@@ -2039,6 +2091,7 @@ def main() -> int:
                 args.reviewer,
                 args.reference,
                 args.verified_sha,
+                args.evidence_path,
             )
         elif args.command == "get":
             get_field(args.task_id, args.field)

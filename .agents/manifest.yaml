@@ -46,6 +46,7 @@ commands:
   commit_message_test: make commit-message-test
   vcpkg_bootstrap: make vcpkg-bootstrap
   agent_list: tool/harness/agent.sh list
+  evidence_test: make evidence-test
   governance_test: make governance-test
   tdd_proof_test: make tdd-proof-test
   dashboard_test: make dashboard-test

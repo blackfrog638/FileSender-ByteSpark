@@ -1021,6 +1021,8 @@ stage_candidate_ci() {
   local candidate_branch="$1"
   local candidate_ref="$2"
   local candidate_sha="$3"
+  local evidence_output="${4:-}"
+  local task_id="${5:-}"
   local current
   current="$(remote_ref_sha "$candidate_ref")"
   if [[ "$current" != "$candidate_sha" ]]; then
@@ -1033,11 +1035,21 @@ stage_candidate_ci() {
       return 1
     fi
   fi
-  python3 -B "$github_ci" wait \
-    --root "$root" \
-    --remote "$remote" \
-    --branch "$candidate_branch" \
-    --sha "$candidate_sha"
+  if [[ -n "$evidence_output" ]]; then
+    python3 -B "$github_ci" wait \
+      --root "$root" \
+      --remote "$remote" \
+      --branch "$candidate_branch" \
+      --sha "$candidate_sha" \
+      --task-id "$task_id" \
+      --evidence-output "$evidence_output"
+  else
+    python3 -B "$github_ci" wait \
+      --root "$root" \
+      --remote "$remote" \
+      --branch "$candidate_branch" \
+      --sha "$candidate_sha"
+  fi
 }
 
 delete_candidate_ref() {
@@ -1084,7 +1096,9 @@ accept() {
   local task_id="$1"
   local reviewer="$2"
   local branch state verified_sha acceptance_sha backup reference
+  local schema_version evidence_file
   local candidate_branch candidate_ref remote_head task_trailer lifecycle
+  local -a mark_accepted_args
   branch="$(task_branch "$task_id")"
   candidate_branch="ci/$task_id"
   candidate_ref="refs/heads/$candidate_branch"
@@ -1151,24 +1165,41 @@ accept() {
   "$governance" validate >/dev/null
   run_verification "$root" "$task_id"
   verified_sha="$(git -C "$root" rev-parse HEAD)"
+  schema_version="$("$governance" get "$task_id" schema_version)"
+  evidence_file=""
   remote_head="$(remote_ref_sha "refs/heads/$integration_branch")"
   require_fast_forward "$remote_head" "$verified_sha"
+  if [[ "$schema_version" == "4" ]]; then
+    evidence_file="$(mktemp)"
+  fi
   if ! reference="$(
     stage_candidate_ci \
-      "$candidate_branch" "$candidate_ref" "$verified_sha"
+      "$candidate_branch" "$candidate_ref" "$verified_sha" \
+      "$evidence_file" "$task_id"
   )"; then
+    [[ -z "$evidence_file" ]] || rm -f "$evidence_file"
     delete_candidate_ref "$candidate_ref" "$verified_sha"
     return 1
   fi
   backup="$(mktemp)"
   cp "$root/.agents/records/$task_id.json" "$backup"
-  if ! "$governance" mark-accepted \
-    "$task_id" "$reviewer" "$reference" "$verified_sha"; then
+  mark_accepted_args=(
+    "$task_id"
+    "$reviewer"
+    "$reference"
+    "$verified_sha"
+  )
+  if [[ -n "$evidence_file" ]]; then
+    mark_accepted_args+=("$evidence_file")
+  fi
+  if ! "$governance" mark-accepted "${mark_accepted_args[@]}"; then
     cp "$backup" "$root/.agents/records/$task_id.json"
     rm -f "$backup"
+    [[ -z "$evidence_file" ]] || rm -f "$evidence_file"
     delete_candidate_ref "$candidate_ref" "$verified_sha"
     return 1
   fi
+  [[ -z "$evidence_file" ]] || rm -f "$evidence_file"
   if ! "$governance" validate; then
     cp "$backup" "$root/.agents/records/$task_id.json"
     rm -f "$backup"
