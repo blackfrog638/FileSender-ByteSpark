@@ -656,6 +656,7 @@ PY
     "$task_id" \
     integration \
     "$(task_lifecycle_subject "$task_id" integration)"
+  "$governance" validate >/dev/null
   rm -f "$mapping_rows" "$provenance_json"
 }
 
@@ -1342,6 +1343,7 @@ prompt() {
   printf '先完整阅读 AGENTS.md、.agents/manifest.yaml、docs/architecture.md。\n'
   printf 'Owned paths:\n'
   task_field "$task_id" owned_paths | sed 's/^/- /'
+  "$worktree/tool/harness/governance.py" prompt-contract "$task_id"
   printf '%s\n' \
     '开始时执行 agent.sh transition <task> in_progress。' \
     '提交代码和 handoff 后转 review；该命令会执行记录中的验证项。' \

@@ -29,11 +29,14 @@ Create the matching machine-readable `.agents/records/XT-000.json`. Declare
 ADR, architecture, and roadmap impact there. Use `not_required` only with a
 concrete rationale.
 
-Select one schema version 3 task type:
+Tasks at or after `.agents/manifest.yaml`'s
+`tdd_governance.required_from_task` threshold use schema version 4. Earlier
+records retain their original schema and are not retroactively rewritten.
+Select one task type:
 
 ```json
 {
-  "schema_version": 3,
+  "schema_version": 4,
   "task_type": "feature"
 }
 ```
@@ -41,6 +44,33 @@ Select one schema version 3 task type:
 Allowed types are `feature`, `bugfix`, `refactor`, `investigation`, `test`, and
 `governance`. A bugfix must violate an existing contract or invariant; missing
 roadmap behavior remains a feature.
+
+For schema-v4 tasks, bind the approved plan criteria before claim:
+
+```json
+{
+  "test_contract": {
+    "schema_version": 1,
+    "plan_content_sha256": "<approved plan digest>",
+    "criterion_ids": ["CRIT-EXAMPLE-BEHAVIOR"],
+    "proof_mode": "red_green",
+    "executor": "deterministic",
+    "gate": "native_test",
+    "proof_surface": ["native/tests/example/**"],
+    "failure_fingerprints": [
+      "FAILED: example behavior is not implemented"
+    ],
+    "allow_skipped": false
+  }
+}
+```
+
+The task type and delivery role determine `proof_mode`: feature and governance
+use `red_green`, bugfix uses `regression`, refactor uses `equivalence`, test
+infrastructure uses `mutation`, investigation uses `bounded_evidence`, and an
+acceptance-only task uses `evidence_closure`. Claim rejects placeholders,
+untrusted gates, incomplete criterion mappings, and Red paths outside task
+ownership.
 
 Declare the delivery commit metadata in that record:
 
@@ -145,7 +175,7 @@ Replace `pending` with `bugfix`, `feature`, or `no_change` before review.
 
 ## Risk profile
 
-Use record schema version 3 and assess every dimension:
+Use the required record schema and assess every dimension:
 
 ```json
 {
@@ -178,7 +208,7 @@ resolved from `verification.gates`; tasks cannot introduce shell commands.
 ```bash
 # Declare gate IDs in the record; this block documents expected outcomes.
 make verify
-```
+
 
 ## Handoff
 

@@ -5,6 +5,13 @@ set -euo pipefail
 export PYTHONDONTWRITEBYTECODE=1
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+if ! grep -qx 'tdd_governance:' "$root/.agents/manifest.yaml" ||
+  ! grep -qx \
+    '  required_from_task: XT-083' \
+    "$root/.agents/manifest.yaml"; then
+  printf 'FAILED: XT-083 TDD activation threshold is not enforced\n' >&2
+  exit 1
+fi
 python3 -B "$root/tool/harness/trusted_gates_test.py"
 python3 -B "$root/tool/harness/defect_proof_test.py"
 python3 -B "$root/tool/harness/tdd_proof_test.py"
@@ -17,7 +24,7 @@ python3 -B "$root/tool/harness/github_ci_test.py"
 temporary="$(mktemp -d)"
 repository="$temporary/repository"
 remote_repository="$temporary/remote.git"
-task_id="XT-999"
+task_id="XT-000"
 
 cleanup() {
   rm -rf "$temporary"
@@ -1070,9 +1077,10 @@ if git --git-dir="$remote_repository" show-ref \
   printf 'Acceptance left its ephemeral CI branch behind.\n' >&2
   exit 1
 fi
-done_record="$temporary/$task_id-done.json"
-cp "$record" "$done_record"
-python3 - "$record" <<'PY'
+remote_evidence_record="$repository/.agents/records/XT-080.json"
+remote_evidence_backup="$temporary/XT-080-remote-evidence.json"
+cp "$remote_evidence_record" "$remote_evidence_backup"
+python3 - "$remote_evidence_record" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -1086,7 +1094,7 @@ if "$repository/tool/harness/governance.py" validate >/dev/null 2>&1; then
   printf 'Governance accepted local-only evidence for a new task.\n' >&2
   exit 1
 fi
-cp "$done_record" "$record"
+cp "$remote_evidence_backup" "$remote_evidence_record"
 "$repository/tool/harness/agent.sh" cleanup "$task_id" >/dev/null
 
 test ! -e "$task_worktree"
@@ -1221,7 +1229,7 @@ from pathlib import Path
 
 root = Path(sys.argv[1])
 plan = {
-    "schema_version": 1,
+    "schema_version": 2,
     "id": "DP-TASK-GENERATOR-FIXTURE",
     "title": "Task generator fixture",
     "status": "draft",
@@ -1234,16 +1242,69 @@ plan = {
             "id": "REQ-GENERATE-FEATURE",
             "source_ref": "GOVERNANCE-GENERATE-FEATURE",
             "statement": "Generate one plan-bound feature task.",
-            "acceptance_criteria": ["The generated metadata is complete."],
-            "implementation_tasks": ["XT-998"],
+            "criteria": [
+                {
+                    "id": "CRIT-GENERATE-FEATURE-COMPLETE",
+                    "statement": "The generated feature metadata is complete.",
+                    "negative_definitions": [
+                        "A schema-v3 record does not satisfy future governance."
+                    ],
+                    "implementation_tasks": ["XT-998"],
+                    "evidence": [
+                        {
+                            "id": "EVD-GENERATE-FEATURE",
+                            "producer_task": "XT-998",
+                            "gate": "legacy_verify",
+                            "level": "unit",
+                            "required_scenarios": [
+                                "generator.feature.complete"
+                            ],
+                            "required_assertions": [
+                                "record.schema_v4"
+                            ],
+                            "required_platforms": [],
+                            "required_roles": [],
+                            "topology": "in_process",
+                            "allow_skipped": False,
+                        }
+                    ],
+                }
+            ],
             "acceptance_task": "XT-998",
         },
         {
             "id": "REQ-GENERATE-BUGFIX",
             "source_ref": "GOVERNANCE-GENERATE-BUGFIX",
             "statement": "Generate one plan-bound bugfix task.",
-            "acceptance_criteria": ["The generated defect contract is complete."],
-            "implementation_tasks": ["XT-997"],
+            "criteria": [
+                {
+                    "id": "CRIT-GENERATE-BUGFIX-COMPLETE",
+                    "statement": "The generated bugfix metadata is complete.",
+                    "negative_definitions": [
+                        "A missing regression contract does not satisfy "
+                        "future governance."
+                    ],
+                    "implementation_tasks": ["XT-997"],
+                    "evidence": [
+                        {
+                            "id": "EVD-GENERATE-BUGFIX",
+                            "producer_task": "XT-997",
+                            "gate": "legacy_verify",
+                            "level": "unit",
+                            "required_scenarios": [
+                                "generator.bugfix.complete"
+                            ],
+                            "required_assertions": [
+                                "record.regression_contract"
+                            ],
+                            "required_platforms": [],
+                            "required_roles": [],
+                            "topology": "in_process",
+                            "allow_skipped": False,
+                        }
+                    ],
+                }
+            ],
             "acceptance_task": "XT-997",
         },
     ],
@@ -1256,7 +1317,57 @@ plan = {
 }
 path = root / ".agents" / "plans" / "DP-TASK-GENERATOR-FIXTURE.json"
 path.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+
+legacy_plan = {
+    "schema_version": 1,
+    "id": "DP-LEGACY-TDD-BYPASS",
+    "title": "Legacy TDD bypass",
+    "status": "draft",
+    "source": {
+        "kind": "governance",
+        "path": ".agents/manifest.yaml",
+    },
+    "requirements": [
+        {
+            "id": "REQ-LEGACY-TDD-BYPASS",
+            "source_ref": "GOVERNANCE-LEGACY-TDD-BYPASS",
+            "statement": "Attempt to register an ungoverned future task.",
+            "acceptance_criteria": [
+                "Legacy metadata must not cross the activation boundary."
+            ],
+            "implementation_tasks": ["XT-083"],
+            "acceptance_task": "XT-083",
+        }
+    ],
+    "approval": {
+        "approved_by": "",
+        "approved_at": "",
+        "content_sha256": "",
+    },
+    "superseded_by": "",
+}
+legacy_path = root / ".agents" / "plans" / "DP-LEGACY-TDD-BYPASS.json"
+legacy_path.write_text(
+    json.dumps(legacy_plan, indent=2) + "\n",
+    encoding="utf-8",
+)
 PY
+
+if "$repository/tool/harness/new_task.sh" \
+  XT-083 legacy-tdd-bypass integration \
+  --task-type governance \
+  --commit-type ci \
+  --commit-scope harness \
+  --commit-summary 'reject legacy future task metadata' \
+  --architecture-mode none \
+  --delivery-plan DP-LEGACY-TDD-BYPASS \
+  --requirement-id REQ-LEGACY-TDD-BYPASS \
+  --delivery-role implementation_acceptance \
+  --owned '.agents/handoffs/XT-083.md' >/dev/null 2>&1; then
+  printf 'Task generator accepted a legacy XT-083 contract.\n' >&2
+  exit 1
+fi
+test ! -e "$repository/.agents/records/XT-083.json"
 
 if "$repository/tool/harness/new_task.sh" \
   XT-997 invalid-type-fixture integration \
@@ -1279,7 +1390,8 @@ fi
   --delivery-plan DP-TASK-GENERATOR-FIXTURE \
   --requirement-id REQ-GENERATE-FEATURE \
   --delivery-role implementation_acceptance \
-  --owned '.agents/handoffs/XT-998.md' >/dev/null
+  --owned '.agents/handoffs/XT-998.md' \
+  --owned 'tests/future-feature/**' >/dev/null
 test -f "$repository/.agents/tasks/XT-998-no-dependency-fixture.md"
 test -f "$repository/.agents/records/XT-998.json"
 
@@ -1293,7 +1405,8 @@ test -f "$repository/.agents/records/XT-998.json"
   --delivery-plan DP-TASK-GENERATOR-FIXTURE \
   --requirement-id REQ-GENERATE-BUGFIX \
   --delivery-role implementation_acceptance \
-  --owned '.agents/handoffs/XT-997.md' >/dev/null
+  --owned '.agents/handoffs/XT-997.md' \
+  --owned 'tests/future-bugfix/**' >/dev/null
 test -f "$repository/.agents/tasks/XT-997-bugfix-fixture.md"
 test -f "$repository/.agents/records/XT-997.json"
 
@@ -1317,7 +1430,7 @@ assert task["delivery_role"] == "implementation_acceptance"
 record = json.loads(
     (root / ".agents" / "records" / "XT-998.json").read_text(encoding="utf-8")
 )
-assert record["schema_version"] == 3
+assert record["schema_version"] == 4
 assert record["task_type"] == "feature"
 assert record["delivery_plan"] == "DP-TASK-GENERATOR-FIXTURE"
 assert record["requirement_ids"] == ["REQ-GENERATE-FEATURE"]
@@ -1346,6 +1459,17 @@ assert set(record["risks"]) == {
 assert record["risks"]["functionality"]["gates"] == ["verify"]
 assert record["verification"]["gates"] == ["verify"]
 assert record["verification"]["commands"] == ["true"]
+assert record["test_contract"] == {
+    "schema_version": 1,
+    "plan_content_sha256": "",
+    "criterion_ids": ["CRIT-GENERATE-FEATURE-COMPLETE"],
+    "proof_mode": "red_green",
+    "executor": "TODO",
+    "gate": "TODO",
+    "proof_surface": [],
+    "failure_fingerprints": [],
+    "allow_skipped": False,
+}
 assert all(
     "TODO" in risk["rationale"] for risk in record["risks"].values()
 )
@@ -1358,8 +1482,12 @@ assert "## Architecture change" in spec
 bugfix = json.loads(
     (root / ".agents" / "records" / "XT-997.json").read_text(encoding="utf-8")
 )
-assert bugfix["schema_version"] == 3
+assert bugfix["schema_version"] == 4
 assert bugfix["task_type"] == "bugfix"
+assert bugfix["test_contract"]["criterion_ids"] == [
+    "CRIT-GENERATE-BUGFIX-COMPLETE"
+]
+assert bugfix["test_contract"]["proof_mode"] == "regression"
 assert set(bugfix["defect"]) == {
     "severity",
     "source",
@@ -1395,5 +1523,247 @@ grep -q \
 grep -q \
   'XT-998.risks.functionality.rationale still contains TODO' \
   "$generated_errors"
+
+python3 - "$repository" <<'PY'
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+paths = (
+    root / ".agents" / "records" / "XT-997.json",
+    root / ".agents" / "records" / "XT-998.json",
+    root / ".agents" / "tasks" / "XT-997-bugfix-fixture.md",
+    root / ".agents" / "tasks" / "XT-998-no-dependency-fixture.md",
+)
+for path in paths:
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("TODO", "PENDING"),
+        encoding="utf-8",
+    )
+PY
+python3 -B "$repository/tool/harness/delivery_plan.py" \
+  approve DP-TASK-GENERATOR-FIXTURE --by integration-owner >/dev/null
+git -C "$repository" add .agents
+git -C "$repository" commit \
+  -m "test(harness): approve generated TDD fixture" >/dev/null
+
+placeholder_errors="$temporary/generated-placeholder-claim-errors.txt"
+if "$repository/tool/harness/agent.sh" \
+  claim XT-998 placeholder-agent "$temporary/placeholder-worktree" \
+  >"$placeholder_errors" 2>&1; then
+  printf 'Claim accepted unresolved future TDD placeholders.\n' >&2
+  exit 1
+fi
+grep -q \
+  'XT-998.test_contract.plan_content_sha256 does not match approved plan' \
+  "$placeholder_errors"
+grep -q 'XT-998.test_contract.executor must be one of' "$placeholder_errors"
+grep -q 'XT-998.test_contract.gate is not registered' "$placeholder_errors"
+grep -q \
+  'XT-998.test_contract.proof_surface must not be empty' \
+  "$placeholder_errors"
+grep -q \
+  'XT-998.test_contract.failure_fingerprints must not be empty' \
+  "$placeholder_errors"
+
+python3 - "$repository" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+path = root / ".agents" / "records" / "XT-998.json"
+record = json.loads(path.read_text(encoding="utf-8"))
+record["test_contract"]["criterion_ids"] = []
+record["test_contract"]["proof_mode"] = "TODO"
+path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+PY
+contract_errors="$temporary/generated-contract-claim-errors.txt"
+if "$repository/tool/harness/governance.py" \
+  validate-claim XT-998 >"$contract_errors" 2>&1; then
+  printf 'Claim validation accepted missing criteria and proof mode.\n' >&2
+  exit 1
+fi
+grep -q \
+  'XT-998.test_contract.criterion_ids must not be empty' \
+  "$contract_errors"
+grep -q \
+  'XT-998.test_contract.proof_mode must be red_green' \
+  "$contract_errors"
+git -C "$repository" checkout -- .agents/records/XT-998.json
+
+cp \
+  "$repository/.agents/plans/DP-TASK-GENERATOR-FIXTURE.json" \
+  "$temporary/approved-generator-plan.json"
+python3 - "$repository" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+path = root / ".agents" / "plans" / "DP-TASK-GENERATOR-FIXTURE.json"
+plan = json.loads(path.read_text(encoding="utf-8"))
+plan["requirements"][0]["criteria"][0]["evidence"][0]["producer_task"] = ""
+path.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+PY
+owner_errors="$temporary/generated-evidence-owner-errors.txt"
+if "$repository/tool/harness/governance.py" \
+  validate-claim XT-998 >"$owner_errors" 2>&1; then
+  printf 'Claim validation accepted an incomplete evidence owner.\n' >&2
+  exit 1
+fi
+grep -q 'producer_task must match XT-NNN' "$owner_errors"
+cp \
+  "$temporary/approved-generator-plan.json" \
+  "$repository/.agents/plans/DP-TASK-GENERATOR-FIXTURE.json"
+
+python3 - "$repository" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+plan = json.loads(
+    (
+        root / ".agents" / "plans" / "DP-TASK-GENERATOR-FIXTURE.json"
+    ).read_text(encoding="utf-8")
+)
+digest = plan["approval"]["content_sha256"]
+
+def resolve_record(
+    task_id: str,
+    criterion_id: str,
+    mode: str,
+    surface: str,
+    fingerprint: str,
+) -> None:
+    path = root / ".agents" / "records" / f"{task_id}.json"
+    record = json.loads(path.read_text(encoding="utf-8"))
+    record["risks"] = {
+        "functionality": {
+            "level": "medium",
+            "rationale": "The generated contract must remain enforceable.",
+            "gates": ["legacy_verify"],
+        },
+        "security": {
+            "level": "none",
+            "rationale": "The fixture crosses no security boundary.",
+            "gates": [],
+        },
+        "performance": {
+            "level": "none",
+            "rationale": "The fixture has no performance behavior.",
+            "gates": [],
+        },
+        "compatibility": {
+            "level": "medium",
+            "rationale": "The fixture exercises the activation boundary.",
+            "gates": ["legacy_verify"],
+        },
+        "concurrency": {
+            "level": "none",
+            "rationale": "The fixture has no concurrent behavior.",
+            "gates": [],
+        },
+        "platform": {
+            "level": "none",
+            "rationale": "The fixture is platform independent.",
+            "gates": [],
+        },
+        "persistence": {
+            "level": "none",
+            "rationale": "The fixture persists no product state.",
+            "gates": [],
+        },
+    }
+    record["impacts"] = {
+        "adr": {
+            "required": False,
+            "status": "not_required",
+            "references": [],
+            "rationale": "The fixture makes no durable decision.",
+        },
+        "architecture": {
+            "status": "not_required",
+            "references": [],
+            "rationale": "The fixture changes no architecture.",
+        },
+        "roadmap": {
+            "status": "not_required",
+            "references": [],
+            "rationale": "The fixture changes no roadmap.",
+        },
+    }
+    record["verification"]["gates"] = ["legacy_verify", "verify"]
+    record["verification"]["commands"] = ["make verify", "true"]
+    record["test_contract"] = {
+        "schema_version": 1,
+        "plan_content_sha256": digest,
+        "criterion_ids": [criterion_id],
+        "proof_mode": mode,
+        "executor": "deterministic",
+        "gate": "legacy_verify",
+        "proof_surface": [surface],
+        "failure_fingerprints": [fingerprint],
+        "allow_skipped": False,
+    }
+    if task_id == "XT-997":
+        record["defect"] = {
+            "severity": "P2",
+            "source": "test",
+            "symptom": "Generated bugfix metadata was incomplete.",
+            "expected_contract": "Future bugfix tasks bind regression proof.",
+            "actual_behavior": "The generated fixture omitted proof metadata.",
+            "trigger": "Generate the future bugfix fixture.",
+            "affected_since": "XT-083",
+            "proof_mode": "deterministic",
+            "reproduction_commit": "",
+            "regression_gate": "legacy_verify",
+            "contract_disposition": "restore",
+            "failure_fingerprint": fingerprint,
+        }
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+
+resolve_record(
+    "XT-998",
+    "CRIT-GENERATE-FEATURE-COMPLETE",
+    "red_green",
+    "tests/future-feature/**",
+    "FAILED: generated feature behavior is not implemented",
+)
+resolve_record(
+    "XT-997",
+    "CRIT-GENERATE-BUGFIX-COMPLETE",
+    "regression",
+    "tests/future-bugfix/**",
+    "FAILED: generated bugfix behavior is not restored",
+)
+for task_id, slug in (
+    ("XT-998", "no-dependency-fixture"),
+    ("XT-997", "bugfix-fixture"),
+):
+    path = root / ".agents" / "tasks" / f"{task_id}-{slug}.md"
+    content = path.read_text(encoding="utf-8")
+    content = content.replace("PENDING", "Resolved")
+    path.write_text(content, encoding="utf-8")
+PY
+git -C "$repository" add .agents
+git -C "$repository" commit \
+  -m "test(harness): resolve generated TDD fixture" >/dev/null
+
+future_worktree="$temporary/future-task-worktree"
+"$repository/tool/harness/agent.sh" \
+  claim XT-998 future-agent "$future_worktree" >/dev/null
+prompt_output="$("$future_worktree/tool/harness/agent.sh" prompt XT-998)"
+grep -Fq \
+  'Criterion CRIT-GENERATE-FEATURE-COMPLETE: The generated feature metadata is complete.' \
+  <<<"$prompt_output"
+grep -Fq \
+  'Negative: A schema-v3 record does not satisfy future governance.' \
+  <<<"$prompt_output"
+grep -Fq 'Proof mode: red_green' <<<"$prompt_output"
+grep -Fq 'Focused gate: legacy_verify (make verify)' <<<"$prompt_output"
+grep -Fq 'Allowed Red path: tests/future-feature/**' <<<"$prompt_output"
 
 printf 'Governance lifecycle test passed.\n'

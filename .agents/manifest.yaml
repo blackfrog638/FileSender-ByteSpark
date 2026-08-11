@@ -20,6 +20,9 @@ delivery_plans:
   directory: .agents/plans
   required_from_task: XT-064
 
+tdd_governance:
+  required_from_task: XT-083
+
 commands:
   abi_compat_test: make abi-compat-test
   architecture_test: make architecture-test

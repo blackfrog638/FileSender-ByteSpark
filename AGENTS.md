@@ -26,6 +26,9 @@ file assigned to you before editing code.
 11. Roadmap requirements become executable only through an approved Delivery
     Plan. Draft-plan tasks and tasks with unaccepted dependencies cannot be
     claimed.
+12. Tasks at or after `tdd_governance.required_from_task` bind approved
+    criterion-level test contracts before claim. Earlier tasks retain their
+    historical evidence and are not retroactively labeled as TDD.
 
 ## Architecture boundaries
 
@@ -140,6 +143,23 @@ claim check and branch creation share one recoverable Git-ref lock. Review and
 integration reject a base that diverged from the integration branch or is
 behind relevant owned or global-governance changes. Unrelated product changes
 may remain parallel.
+
+Beginning with XT-083, generated task records use schema version 4 and an
+approved schema-v2 Delivery Plan. The record binds exact criterion IDs, plan
+digest, task-type proof mode, one trusted focused gate, allowed Red paths,
+stable failure fingerprints where applicable, and a no-skip policy. Generated
+placeholders remain blocked and unclaimable. `agent.sh prompt` prints the
+approved criterion statements, negative definitions, proof mode, focused gate,
+and Red scope before implementation.
+
+For deterministic Red-Green, regression, mutation, and equivalence work, commit
+only the declared test surface, run `agent.sh checkpoint <task> red`, then
+implement. Review replays the focused gate at the task base, Red revision, and
+reviewed head and freezes the governance context and proof surface. Acceptance
+collects criterion evidence from the exact integrated candidate and rejects
+missing, skipped, stale, partial-matrix, or generic evidence. Changes to the
+bound plan, task registration/spec, manifest, workflow, or proof/evidence
+runners require rebase and a fresh checkpoint and review.
 
 Squash is the standard task integration strategy. `agent.sh integrate` records
 the complete ordered source range and proves that its aggregate payload patch

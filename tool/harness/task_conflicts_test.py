@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import tempfile
 import unittest
@@ -215,6 +216,27 @@ class RepositoryTest(unittest.TestCase):
                 self.base,
                 "HEAD",
             )
+
+    def test_future_tdd_context_changes_reject_stale_base(self) -> None:
+        paths = (
+            ".agents/manifest.yaml",
+            ".github/workflows/ci.yml",
+            "tool/harness/tdd_proof.py",
+            "tool/harness/evidence.py",
+        )
+        for path in paths:
+            with self.subTest(path=path):
+                self.commit_file(path, f"changed {path}\n")
+                with self.assertRaisesRegex(
+                    task_conflicts.TaskConflictError,
+                    re.escape(path),
+                ):
+                    task_conflicts.check_stale_base(
+                        self.root,
+                        "XT-102",
+                        self.base,
+                        "HEAD",
+                    )
 
     def test_delivery_plan_change_rejects_stale_base(self) -> None:
         self.commit_file(".agents/plans/DP-FOO.json", '{"changed":true}\n')

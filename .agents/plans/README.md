@@ -2,7 +2,8 @@
 
 Delivery Plans are the reviewed bridge between roadmap or governance
 requirements and executable XT tasks. JSON documents in this directory use
-schema version 1 and contain:
+schema version 1 for legacy planning or schema version 2 for criterion-level
+TDD planning. They contain:
 
 - one stable `DP-*` plan ID;
 - a roadmap or governance source document;
@@ -35,6 +36,27 @@ coverage and metadata, then makes those catalogue entries claimable.
 The approval digest excludes lifecycle fields but binds the plan source,
 requirements, criteria, and task mappings. Editing approved semantics without
 returning the plan to draft invalidates governance.
+
+## Future TDD plans
+
+Tasks at or after the manifest's `tdd_governance.required_from_task` boundary
+require schema version 2. Each requirement contains stable `CRIT-*` entries
+with an observable statement, explicit negative definitions, implementation
+task mappings, and one or more `EVD-*` contracts. Evidence contracts bind a
+producer task, trusted gate, level, scenarios, assertions, platform/role
+matrix, topology, and no-skip policy.
+
+The task record copies only immutable bindings: the approved plan digest,
+mapped criterion IDs, proof mode, executor, focused gate, Red surface, failure
+fingerprints, and no-skip policy. Generated placeholders are deliberately
+unclaimable until those fields are concrete. The prompt renders the approved
+criterion semantics before implementation, review proves chronology, and
+acceptance closes criteria from the exact integrated candidate.
+
+The activation boundary is future-only. Schema-v1 plans and records before
+XT-083 remain valid with their original evidence. Compatibility readers do not
+permit XT-083-or-later tasks to omit schema-v2 criteria or schema-v4 proof and
+evidence contracts.
 
 For a roadmap source, each approved requirement's `source_ref` must have an
 exact marker in the source document:

@@ -147,6 +147,8 @@ TASK_ID_IN_TEXT_PATTERN = re.compile(r"\bXT-[0-9]{3,}\b", re.IGNORECASE)
 ARCHITECTURE_SCHEMA_MIN_TASK_NUMBER = 48
 ARCHITECTURE_MODULES = ROOT / ".agents" / "architecture" / "modules.json"
 MANIFEST = ROOT / ".agents" / "manifest.yaml"
+TDD_REQUIRED_FROM_TASK = "XT-083"
+TDD_SCHEMA_MIN_TASK_NUMBER = 83
 
 
 class GovernanceError(RuntimeError):
@@ -182,6 +184,44 @@ def load_json(path: Path) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise GovernanceError(f"{path.relative_to(ROOT)} must contain an object")
     return value
+
+
+def tdd_required_from_task() -> str:
+    try:
+        lines = MANIFEST.read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise GovernanceError(
+            f"Cannot read .agents/manifest.yaml: {error}"
+        ) from error
+
+    values: list[str] = []
+    in_section = False
+    section_count = 0
+    for line in lines:
+        if line == "tdd_governance:":
+            section_count += 1
+            in_section = True
+            continue
+        if in_section and line and not line.startswith(" "):
+            in_section = False
+        if not in_section:
+            continue
+        match = re.fullmatch(r"  required_from_task:\s*(\S+)", line)
+        if match is not None:
+            values.append(match.group(1))
+
+    if section_count != 1 or len(values) != 1:
+        raise GovernanceError(
+            ".agents/manifest.yaml must define exactly one "
+            "tdd_governance.required_from_task"
+        )
+    required_from = values[0]
+    if required_from != TDD_REQUIRED_FROM_TASK:
+        raise GovernanceError(
+            "tdd_governance.required_from_task is an immutable compatibility "
+            f"boundary and must be {TDD_REQUIRED_FROM_TASK}"
+        )
+    return required_from
 
 
 def write_json(path: Path, value: dict[str, Any]) -> None:
@@ -1215,6 +1255,14 @@ def validate_record(
     if schema_version not in {1, 2, 3, 4}:
         errors.append(f"{task_id}.schema_version must be 1, 2, 3, or 4")
     if (
+        task_number >= TDD_SCHEMA_MIN_TASK_NUMBER
+        and schema_version != 4
+    ):
+        errors.append(
+            f"{task_id}.schema_version must be 4 at or after "
+            f"{TDD_REQUIRED_FROM_TASK}"
+        )
+    if (
         task.get("risk_profile_required") is True
         and schema_version not in {2, 3, 4}
     ):
@@ -1524,9 +1572,17 @@ def validate_record(
     return errors
 
 
-def validate_repository(*, verify_git: bool = True) -> None:
+def validate_repository(
+    *,
+    verify_git: bool = True,
+    announce: bool = True,
+) -> None:
     document, tasks = load_backlog()
     errors: list[str] = []
+    try:
+        tdd_required_from_task()
+    except GovernanceError as error:
+        errors.append(str(error))
     try:
         gate_registry = trusted_gate_registry()
     except GovernanceError as error:
@@ -1680,14 +1736,50 @@ def validate_repository(*, verify_git: bool = True) -> None:
 
     if errors:
         raise GovernanceError("\n".join(f"- {error}" for error in errors))
-    print(f"Governance validation passed for {len(tasks)} tasks.")
+    if announce:
+        print(f"Governance validation passed for {len(tasks)} tasks.")
 
 
 def validate_claim(task_id: str) -> None:
     errors = delivery_plan_contract.validate_claim(ROOT, task_id)
+    try:
+        tdd_required_from_task()
+    except GovernanceError as error:
+        errors.append(str(error))
+    try:
+        _, tasks = load_backlog()
+        task = tasks.get(task_id)
+        if task is None:
+            errors.append(f"Unknown task: {task_id}")
+        else:
+            records = {
+                current_id: load_record(current_id)
+                for current_id in tasks
+            }
+            errors.extend(
+                validate_record(
+                    task,
+                    records[task_id],
+                    records,
+                    tasks,
+                    architecture_module_ids(),
+                    trusted_gate_registry(),
+                    verify_git=True,
+                )
+            )
+            specs = task_spec_paths(task_id)
+            if len(specs) != 1:
+                errors.append(
+                    f"{task_id} must have exactly one tracked task spec"
+                )
+            elif "TODO" in specs[0].read_text(encoding="utf-8"):
+                errors.append(f"{task_id} task spec still contains TODO")
+    except GovernanceError as error:
+        errors.append(str(error))
+    errors = list(dict.fromkeys(errors))
     if errors:
         raise GovernanceError("\n".join(f"- {error}" for error in errors))
-    print(f"{task_id} Delivery Plan claim eligibility passed.")
+    print(f"{task_id} claim eligibility passed.")
 
 
 def find_worktree(task_id: str) -> Path:
@@ -2023,6 +2115,64 @@ def verification_commands(task_id: str) -> None:
         print(command)
 
 
+def prompt_contract(task_id: str) -> None:
+    task_number = int(task_id.removeprefix("XT-"))
+    if task_number < TDD_SCHEMA_MIN_TASK_NUMBER:
+        return
+    _, tasks = load_backlog()
+    task = tasks.get(task_id)
+    if task is None:
+        raise GovernanceError(f"Unknown task: {task_id}")
+    record = load_record(task_id)
+    registry = trusted_gate_registry()
+    contract_errors = tdd_contract.validate_test_contract(
+        ROOT,
+        task,
+        record,
+        registry,
+    )
+    if contract_errors:
+        raise GovernanceError(
+            "\n".join(f"- {error}" for error in contract_errors)
+        )
+
+    plan_id = task.get("delivery_plan")
+    if not isinstance(plan_id, str):
+        raise GovernanceError(f"{task_id} has no Delivery Plan")
+    plan = load_json(ROOT / ".agents" / "plans" / f"{plan_id}.json")
+    contract = record["test_contract"]
+    criterion_ids = set(contract["criterion_ids"])
+    selected: dict[str, dict[str, Any]] = {}
+    for requirement in plan.get("requirements", []):
+        if (
+            not isinstance(requirement, dict)
+            or requirement.get("id") not in task.get("requirement_ids", [])
+        ):
+            continue
+        for criterion in requirement.get("criteria", []):
+            if (
+                isinstance(criterion, dict)
+                and criterion.get("id") in criterion_ids
+            ):
+                selected[str(criterion["id"])] = criterion
+    if set(selected) != criterion_ids:
+        raise GovernanceError(
+            f"{task_id} cannot render every approved criterion"
+        )
+
+    print("Approved TDD contract:")
+    for criterion_id in contract["criterion_ids"]:
+        criterion = selected[criterion_id]
+        print(f"Criterion {criterion_id}: {criterion['statement']}")
+        for negative in criterion["negative_definitions"]:
+            print(f"Negative: {negative}")
+    print(f"Proof mode: {contract['proof_mode']}")
+    gate = contract["gate"]
+    print(f"Focused gate: {gate} ({registry[gate]})")
+    for path in contract["proof_surface"]:
+        print(f"Allowed Red path: {path}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -2069,6 +2219,11 @@ def main() -> int:
     commands_parser = subparsers.add_parser("verification-commands")
     commands_parser.add_argument("task_id")
 
+    prompt_parser = subparsers.add_parser("prompt-contract")
+    prompt_parser.add_argument("task_id")
+
+    subparsers.add_parser("tdd-threshold")
+
     args = parser.parse_args()
     try:
         if args.command == "validate":
@@ -2097,6 +2252,10 @@ def main() -> int:
             get_field(args.task_id, args.field)
         elif args.command == "verification-commands":
             verification_commands(args.task_id)
+        elif args.command == "prompt-contract":
+            prompt_contract(args.task_id)
+        elif args.command == "tdd-threshold":
+            print(tdd_required_from_task())
         else:
             parser.error("unknown command")
     except GovernanceError as error:

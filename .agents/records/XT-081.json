@@ -10,10 +10,10 @@
   ],
   "delivery_role": "implementation",
   "task_type": "governance",
-  "state": "ready",
-  "owner": "unassigned",
-  "base_sha": "",
-  "head_sha": "",
+  "state": "integrated",
+  "owner": "future-tdd-adoption-agent",
+  "base_sha": "268fd25f5702119b343f0a22508d2bad1917ce64",
+  "head_sha": "76ee61199f321b256656616cf67f7bd3c783dc4a",
   "handoff": ".agents/handoffs/XT-081.md",
   "commit": {
     "type": "ci",
@@ -109,12 +109,28 @@
     }
   },
   "integration": {
-    "strategy": "",
-    "mappings": [],
+    "strategy": "squash",
+    "source_base": "268fd25f5702119b343f0a22508d2bad1917ce64",
+    "source_head": "884d39310de9b439a1eb4d25ae3df06426e203de",
+    "source_commits": [
+      "bc0b190f1f88d46119867c7be2191e6d13cffa48",
+      "9cdda30fa3504543e759abc38de9ce454e1327f6",
+      "e17a67d31975ce4fa2fe72c8e9d20ff44e0d56af",
+      "daabc1f1f2b635254a017de84688663475799df0",
+      "7c1c4fa22ed1cf6ae53e105aa5b4e1b8899c79ca",
+      "6dfa6962119c61c79a55e685e28333cd07199113",
+      "69a5a00c7da3bdd65f4e9bebdff6f5e809cd96a0",
+      "76ee61199f321b256656616cf67f7bd3c783dc4a",
+      "884d39310de9b439a1eb4d25ae3df06426e203de"
+    ],
+    "source_commits_sha256": "0aa4b3a9040f8a105c2ed673d3c742e716c63a0f260df4f9e9ea710097da944e",
+    "source_patch_id": "cd03533412ee1df669971cae355295fbc4a50b55",
+    "result": "",
+    "result_patch_id": "cd03533412ee1df669971cae355295fbc4a50b55",
     "verified_sha": ""
   },
   "verification": {
-    "status": "pending",
+    "status": "passed",
     "gates": [
       "delivery_plan_test",
       "governance_test",
@@ -125,7 +141,7 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": ""
+    "reference": "local:76ee61199f321b256656616cf67f7bd3c783dc4a:2026-08-11T05:26:50Z"
   },
   "acceptance": {
     "accepted_by": "",

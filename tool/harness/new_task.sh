@@ -294,6 +294,34 @@ if [[ -n "$delivery_plan" || "${#requirement_ids[@]}" -gt 0 || \
   esac
 fi
 
+tdd_required_from="$("$root/tool/harness/governance.py" tdd-threshold)"
+tdd_required_number="${tdd_required_from#XT-}"
+tdd_governed=0
+if ((10#$task_number >= 10#$tdd_required_number)); then
+  tdd_governed=1
+  plan_schema="$(
+    python3 -B - "$root" "$delivery_plan" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+plan_id = sys.argv[2]
+path = root / ".agents" / "plans" / f"{plan_id}.json"
+try:
+    plan = json.loads(path.read_text(encoding="utf-8"))
+except (OSError, json.JSONDecodeError):
+    print("")
+else:
+    print(plan.get("schema_version", ""))
+PY
+  )"
+  if [[ "$plan_schema" != "2" ]]; then
+    printf '%s requires a schema-v2 Delivery Plan.\n' "$task_id" >&2
+    exit 2
+  fi
+fi
+
 destination="$root/.agents/tasks/$task_id-$slug.md"
 record="$root/.agents/records/$task_id.json"
 if [[ -e "$destination" || -e "$record" ]]; then
@@ -340,7 +368,7 @@ DEPENDENCIES="$dependencies_text" OWNED_PATHS="$owned_paths_text" \
   SUPERSEDES_TARGETS="$supersedes_targets_text" \
   RETIRES_LEASES="$retires_leases_text" \
   DELIVERY_PLAN="$delivery_plan" REQUIREMENT_IDS="$requirement_ids_text" \
-  DELIVERY_ROLE="$delivery_role" \
+  DELIVERY_ROLE="$delivery_role" TDD_GOVERNED="$tdd_governed" \
   python3 -B - \
     "$root" "$task_id" "$slug" "$workstream" "$destination" "$record" <<'PY'
 import json
@@ -353,6 +381,7 @@ root = Path(root_value)
 sys.path.insert(0, str(root / "tool" / "harness"))
 from trusted_gates import load_gate_registry
 import delivery_plan as delivery_plan_contract
+import tdd_contract
 
 spec_path = Path(spec_value)
 record_path = Path(record_value)
@@ -375,6 +404,8 @@ requirement_ids = [
     value for value in os.environ["REQUIREMENT_IDS"].splitlines() if value
 ]
 delivery_role = os.environ["DELIVERY_ROLE"]
+tdd_governed = os.environ["TDD_GOVERNED"] == "1"
+plan = {}
 if delivery_plan:
     registration_errors = delivery_plan_contract.validate_registration(
         root,
@@ -385,6 +416,10 @@ if delivery_plan:
     )
     if registration_errors:
         raise SystemExit("\n".join(registration_errors))
+    with (
+        root / ".agents" / "plans" / f"{delivery_plan}.json"
+    ).open(encoding="utf-8") as source:
+        plan = json.load(source)
 architecture_change = {
     "mode": os.environ["ARCHITECTURE_MODE"],
     "modules": [
@@ -474,6 +509,18 @@ Resolve the bounded question, scope, evidence, and exit criteria. Replace the
 `pending` outcome disposition before review.
 """
 
+record_schema = 4 if tdd_governed else 3
+tdd_section = ""
+if tdd_governed:
+    tdd_section = """
+## TDD contract
+
+Resolve every `test_contract` placeholder before claim. The approved plan
+defines exact criteria, negative definitions, evidence ownership, and
+acceptance ownership. Use a trusted focused gate, keep every Red path inside
+task ownership, and reject skipped evidence.
+"""
+
 spec_path.write_text(
     f"""---
 id: {task_id}
@@ -498,6 +545,7 @@ TODO: describe one observable outcome.
 ## Context
 
 TODO: link architecture, ADR, protocol, and predecessor tasks.
+{tdd_section}
 
 ## Constraints
 
@@ -511,7 +559,7 @@ machine-readable in `architecture_change`.
 
 ## Risk profile
 
-Resolve every schema version 3 risk dimension in the task record. Every
+Resolve every schema version {record_schema} risk dimension in the task record. Every
 non-none risk must name trusted gate IDs that also appear in
 `verification.gates`; commands are resolved from `.agents/manifest.yaml`.
 
@@ -531,7 +579,7 @@ make verify
 )
 
 record = {
-    "schema_version": 3,
+    "schema_version": record_schema,
     "id": task_id,
     **(
         {
@@ -614,6 +662,40 @@ record = {
     },
     "acceptance": {"accepted_by": "", "accepted_at": "", "note": ""},
 }
+if tdd_governed:
+    mapped_criteria = []
+    wanted_requirements = set(requirement_ids)
+    for requirement in plan.get("requirements", []):
+        if requirement.get("id") not in wanted_requirements:
+            continue
+        accepts = (
+            delivery_role in {"acceptance", "implementation_acceptance"}
+            and requirement.get("acceptance_task") == task_id
+        )
+        for criterion in requirement.get("criteria", []):
+            implements = task_id in criterion.get("implementation_tasks", [])
+            if implements or accepts:
+                mapped_criteria.append(criterion["id"])
+    approval = plan.get("approval")
+    approved_digest = (
+        approval.get("content_sha256", "")
+        if isinstance(approval, dict)
+        else ""
+    )
+    record["test_contract"] = {
+        "schema_version": 1,
+        "plan_content_sha256": approved_digest,
+        "criterion_ids": sorted(set(mapped_criteria)),
+        "proof_mode": tdd_contract.expected_proof_mode(
+            task_type,
+            delivery_role,
+        ),
+        "executor": "TODO",
+        "gate": "TODO",
+        "proof_surface": [],
+        "failure_fingerprints": [],
+        "allow_skipped": False,
+    }
 if task_type == "bugfix":
     record["defect"] = {
         "severity": "TODO",
