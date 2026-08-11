@@ -123,7 +123,7 @@
   },
   "test_contract": {
     "schema_version": 1,
-    "plan_content_sha256": "db61f3435f3da3e77e21a7c40d8fa998ef45ca26eec23eb1e1e77a6230cbd797",
+    "plan_content_sha256": "07ad21f3bc2982a6fb91756e97b269e258895b89b9558eb14bfd44d6b6a1dc76",
     "criterion_ids": [
       "CRIT-SCHEMA4-LIFECYCLE-FIXTURE"
     ],

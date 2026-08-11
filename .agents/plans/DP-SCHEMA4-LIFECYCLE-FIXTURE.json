@@ -41,7 +41,7 @@
               ],
               "required_platforms": [],
               "required_roles": [],
-              "topology": "real_process",
+              "topology": "in_process",
               "allow_skipped": false
             }
           ]
@@ -52,8 +52,8 @@
   ],
   "approval": {
     "approved_by": "integration-owner",
-    "approved_at": "2026-08-11T18:32:13+00:00",
-    "content_sha256": "db61f3435f3da3e77e21a7c40d8fa998ef45ca26eec23eb1e1e77a6230cbd797"
+    "approved_at": "2026-08-11T21:34:07+00:00",
+    "content_sha256": "07ad21f3bc2982a6fb91756e97b269e258895b89b9558eb14bfd44d6b6a1dc76"
   },
   "superseded_by": ""
 }
