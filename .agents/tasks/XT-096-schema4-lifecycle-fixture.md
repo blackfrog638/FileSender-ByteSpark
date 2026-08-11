@@ -6,6 +6,9 @@ workstream: integration
 owner: unassigned
 depends_on: []
 owned_paths:
+  - .agents/records/XT-096.json
+  - .agents/tasks/XT-096-schema4-lifecycle-fixture.md
+  - .agents/handoffs/XT-096.md
   - tool/harness/governance_test.sh
   - tool/harness/lifecycle_fixture.py
   - tool/harness/lifecycle_fixture_test.py

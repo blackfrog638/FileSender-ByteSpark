@@ -131,6 +131,7 @@
     "executor": "deterministic",
     "gate": "governance_test",
     "proof_surface": [
+      "tool/harness/governance_test.sh",
       "tool/harness/lifecycle_fixture_test.py"
     ],
     "failure_fingerprints": [
