@@ -8,7 +8,7 @@
   ],
   "delivery_role": "implementation",
   "task_type": "governance",
-  "state": "integrated",
+  "state": "done",
   "owner": "criterion-evidence-agent",
   "base_sha": "bf611967420b70ac0069825e1649a79c3cfec9b9",
   "head_sha": "d1e988fadba2463e34a8885d8ebff59ee4e3ec47",
@@ -121,9 +121,9 @@
     ],
     "source_commits_sha256": "2be88ecf6b9da019084037691d659cf49cbb7875b49acdcb5e1c6ac3334d7447",
     "source_patch_id": "4e19a2b5985e90aecb700d5f07b312b9ec384484",
-    "result": "",
+    "result": "248774b0f029b82bd2246c58b99bc031112adafa",
     "result_patch_id": "4e19a2b5985e90aecb700d5f07b312b9ec384484",
-    "verified_sha": ""
+    "verified_sha": "248774b0f029b82bd2246c58b99bc031112adafa"
   },
   "verification": {
     "status": "passed",
@@ -135,11 +135,11 @@
       "make governance-test",
       "make verify"
     ],
-    "reference": "local:d1e988fadba2463e34a8885d8ebff59ee4e3ec47:2026-08-11T00:05:35Z"
+    "reference": "https://github.com/blackfrog638/XnnTransfer/actions/runs/31452213591"
   },
   "acceptance": {
-    "accepted_by": "",
-    "accepted_at": "",
-    "note": ""
+    "accepted_by": "integration-owner",
+    "accepted_at": "2026-08-11T10:42:39+08:00",
+    "note": "Accepted by the integration owner after repository verification."
   }
 }
