@@ -37,6 +37,25 @@ constexpr std::string_view kReservedTemporaryDirectory = ".xnn-transfer-tmp";
   return true;
 }
 
+[[nodiscard]] bool IsWindowsReservedComponent(
+    const std::string_view component) noexcept {
+  if (component.ends_with('.') || component.ends_with(' ')) {
+    return true;
+  }
+
+  const std::string_view stem = component.substr(0, component.find('.'));
+  for (const std::string_view reserved : {"CON", "PRN", "AUX", "NUL"}) {
+    if (AsciiCaseInsensitiveEquals(stem, reserved)) {
+      return true;
+    }
+  }
+  if (stem.size() != 4 || stem[3] < '1' || stem[3] > '9') {
+    return false;
+  }
+  return AsciiCaseInsensitiveEquals(stem.substr(0, 3), "COM") ||
+         AsciiCaseInsensitiveEquals(stem.substr(0, 3), "LPT");
+}
+
 [[nodiscard]] bool IsNoncharacter(const utf8proc_int32_t codepoint) noexcept {
   return (codepoint >= 0xfdd0 && codepoint <= 0xfdef) ||
          (codepoint & 0xffff) == 0xfffe || (codepoint & 0xffff) == 0xffff;
@@ -161,6 +180,9 @@ PathValidationResult ValidateReceivePath(const std::span<const std::uint8_t> enc
     }
     if (components.empty() &&
         AsciiCaseInsensitiveEquals(component, kReservedTemporaryDirectory)) {
+      return PathValidationResult(ValidationError::kPathReservedComponent);
+    }
+    if (IsWindowsReservedComponent(component)) {
       return PathValidationResult(ValidationError::kPathReservedComponent);
     }
     components.emplace_back(component);

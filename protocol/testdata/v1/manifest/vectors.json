@@ -1915,6 +1915,118 @@
         "error": "INVALID_MANIFEST",
         "reason": "MANIFEST_END_MISSING"
       }
+    },
+    {
+      "name": "hostile_windows_reserved_device",
+      "description": "A Windows reserved device name is not a portable path component.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "CON",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_RESERVED_COMPONENT"
+      }
+    },
+    {
+      "name": "hostile_windows_reserved_device_extension",
+      "description": "A reserved device alias remains reserved with an extension and mixed ASCII case.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "docs/nUl.txt",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_RESERVED_COMPONENT"
+      }
+    },
+    {
+      "name": "hostile_windows_trailing_dot",
+      "description": "A component ending in an ASCII dot is not portable to Windows.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "docs/name.",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_RESERVED_COMPONENT"
+      }
+    },
+    {
+      "name": "hostile_windows_trailing_space",
+      "description": "A component ending in an ASCII space is not portable to Windows.",
+      "comparison_profile": "posix_case_sensitive_nfc",
+      "manifest": {
+        "offer": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        },
+        "entries": [
+          {
+            "entry_index": 0,
+            "kind": 2,
+            "relative_path": "docs/name ",
+            "file_size": 0
+          }
+        ],
+        "end": {
+          "entry_count": 1,
+          "total_file_bytes": 0
+        }
+      },
+      "expect": {
+        "result": "reject",
+        "error": "INVALID_MANIFEST",
+        "reason": "PATH_RESERVED_COMPONENT"
+      }
     }
   ]
 }

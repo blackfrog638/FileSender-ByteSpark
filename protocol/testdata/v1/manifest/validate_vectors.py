@@ -122,6 +122,19 @@ def is_noncharacter(character: str) -> bool:
     return 0xFDD0 <= value <= 0xFDEF or value & 0xFFFF in {0xFFFE, 0xFFFF}
 
 
+def is_windows_reserved_component(component: str) -> bool:
+    if component.endswith((".", " ")):
+        return True
+    stem = component.split(".", 1)[0].upper()
+    if stem in {"CON", "PRN", "AUX", "NUL"}:
+        return True
+    return (
+        len(stem) == 4
+        and stem[:3] in {"COM", "LPT"}
+        and stem[3] in "123456789"
+    )
+
+
 def decode_wire_path(entry: dict[str, Any]) -> tuple[bytes, str]:
     representations = {
         key
@@ -234,6 +247,12 @@ def validate_wire_path(entry: dict[str, Any]) -> tuple[int, str, list[str]]:
             "INVALID_MANIFEST",
             "PATH_TRAVERSAL",
             "path contains parent traversal component",
+        )
+    if any(is_windows_reserved_component(component) for component in components):
+        fail(
+            "INVALID_MANIFEST",
+            "PATH_RESERVED_COMPONENT",
+            "path contains a non-portable Windows component",
         )
     if len(components) > MAX_PATH_COMPONENTS:
         fail(

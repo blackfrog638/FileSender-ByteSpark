@@ -441,7 +441,7 @@ struct MountPointReparseData {
 #endif
 
 void TestManifestFixtureOwnershipAndPathValidation() {
-  static_assert(kManifestFixtureCases.size() == 66);
+  static_assert(kManifestFixtureCases.size() == 70);
   static_assert(kStorageFixtureCaseCount + kXt028FixtureCaseCount +
                     kXt033FixtureCaseCount ==
                 kManifestFixtureCases.size());
@@ -519,6 +519,51 @@ void TestAdditionalRequestBounds() {
          "reserved namespace rejection covers Windows case aliases");
   Expect(ValidateReceivePath(Bytes("safe/.xnn-transfer-tmp")).ok(),
          "reserved name is limited to the root component");
+}
+
+void TestPortableWindowsPathAliases() {
+  Expect(ValidateReceivePath(Bytes("CON")).error() ==
+             ValidationError::kPathReservedComponent,
+         "Windows reserved path aliases must fail before filesystem access");
+
+  constexpr std::array<std::string_view, 22> aliases{
+      "CON",  "PRN",  "AUX",  "NUL",  "COM1", "COM2", "COM3", "COM4",
+      "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3",
+      "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+  };
+  for (const std::string_view alias : aliases) {
+    Expect(ValidateReceivePath(Bytes(alias)).error() ==
+               ValidationError::kPathReservedComponent,
+           "every Windows reserved device name is rejected");
+
+    std::string with_extension(alias);
+    with_extension.append(".txt");
+    Expect(ValidateReceivePath(Bytes(with_extension)).error() ==
+               ValidationError::kPathReservedComponent,
+           "reserved device names remain reserved with extensions");
+
+    std::string lowercase(alias);
+    for (char& character : lowercase) {
+      if (character >= 'A' && character <= 'Z') {
+        character = static_cast<char>(character - 'A' + 'a');
+      }
+    }
+    Expect(ValidateReceivePath(Bytes(lowercase)).error() ==
+               ValidationError::kPathReservedComponent,
+           "reserved device names use ASCII-insensitive comparison");
+  }
+
+  for (const std::string_view path :
+       {"name.", "name ", "docs/name.", "docs/name ", "docs./name"}) {
+    Expect(ValidateReceivePath(Bytes(path)).error() ==
+               ValidationError::kPathReservedComponent,
+           "trailing dots and spaces are rejected in every component");
+  }
+  for (const std::string_view path :
+       {"docs/a.b", "docs/a b", "console.txt", "com0", "com10", "lpt0", "lpt10"}) {
+    Expect(ValidateReceivePath(Bytes(path)).ok(),
+           "ordinary interior dots, spaces, and alias prefixes remain valid");
+  }
 }
 
 void TestSuccessfulAndEmptyCommit() {
@@ -1215,6 +1260,7 @@ void TestWindowsRootEncodingAndProtectedDacl() {
 int main() {
   TestManifestFixtureOwnershipAndPathValidation();
   TestAdditionalRequestBounds();
+  TestPortableWindowsPathAliases();
   TestSuccessfulAndEmptyCommit();
   TestShortExtraAndPartialWrites();
   TestBudgetSpacePermissionAndOpenCleanup();
@@ -1236,6 +1282,6 @@ int main() {
     std::cerr << failures << " storage assertion(s) failed\n";
     return 1;
   }
-  std::cout << "Storage tests passed with all 66 XT-011 cases classified.\n";
+  std::cout << "Storage tests passed with all 70 manifest cases classified.\n";
   return 0;
 }

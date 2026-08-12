@@ -62,7 +62,8 @@ components, 255-byte components, 1,024-byte paths, 100,000 entries,
 
 Hostile vectors include traversal, POSIX absolute paths, drive and UNC forms,
 backslash separators, alternate data streams, invalid UTF-8, controls,
-noncharacters, non-NFC text, duplicate and case-colliding paths, file ancestor
+noncharacters, non-NFC text, Windows reserved device aliases, components with
+trailing dots or spaces, duplicate and case-colliding paths, file ancestor
 conflicts, unrepresentable special-file kinds, invalid file/directory
 combinations, noncontiguous indexes, checked aggregate-limit failures, and
 inconsistent offer/end summaries.

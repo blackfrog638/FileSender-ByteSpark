@@ -75,6 +75,26 @@ STORAGE_CASES = {
         "kPathColonOrAds",
         "kPathColonOrAds",
     ),
+    "hostile_windows_reserved_device": (
+        0,
+        "kPathReservedComponent",
+        "kPathReservedComponent",
+    ),
+    "hostile_windows_reserved_device_extension": (
+        0,
+        "kPathReservedComponent",
+        "kPathReservedComponent",
+    ),
+    "hostile_windows_trailing_dot": (
+        0,
+        "kPathReservedComponent",
+        "kPathReservedComponent",
+    ),
+    "hostile_windows_trailing_space": (
+        0,
+        "kPathReservedComponent",
+        "kPathReservedComponent",
+    ),
     "hostile_invalid_utf8_continuation": (
         0,
         "kInvalidUtf8",
@@ -237,9 +257,9 @@ def generate(vectors_path: Path) -> str:
     cases = vectors["cases"]
     names = {case["name"] for case in cases}
     owners = set(STORAGE_CASES) | XT_028_CASES | XT_033_CASES
-    if len(cases) != 66:
+    if len(cases) != 70:
         raise ValueError(
-            f"expected 66 XT-011 cases, got {len(cases)}"
+            f"expected 70 manifest cases, got {len(cases)}"
         )
     if names != owners:
         missing = sorted(names - owners)
