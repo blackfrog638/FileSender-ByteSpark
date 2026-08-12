@@ -7,6 +7,7 @@ import io
 import json
 import sys
 import unittest
+import urllib.request
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, Mapping
@@ -147,6 +148,36 @@ class GitHubEvidenceTest(unittest.TestCase):
         )
         with self.assertRaises(github_evidence.GitHubEvidenceError):
             github_evidence.repository_slug("https://example.com/repo.git")
+
+    def test_cross_origin_redirect_does_not_forward_credentials(self) -> None:
+        handler = github_evidence._CredentialSafeRedirectHandler()
+        request = urllib.request.Request(
+            "https://api.github.com/repos/example/XnnTransfer/actions/artifacts/7/zip",
+            headers={"Authorization": "Bearer secret"},
+        )
+        redirected = handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://pipelines.actions.githubusercontent.com/artifact.zip",
+        )
+        self.assertIsNotNone(redirected)
+        assert redirected is not None
+        self.assertIsNone(redirected.get_header("Authorization"))
+
+        same_origin = handler.redirect_request(
+            request,
+            None,
+            302,
+            "Found",
+            {},
+            "https://api.github.com/redirected",
+        )
+        self.assertIsNotNone(same_origin)
+        assert same_origin is not None
+        self.assertEqual(same_origin.get_header("Authorization"), "Bearer secret")
 
     def test_collects_exact_run_jobs_and_downloaded_artifact(self) -> None:
         evidence = self.collect(FakeClient())

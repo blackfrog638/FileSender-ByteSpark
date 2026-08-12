@@ -708,3 +708,30 @@ result: failed after Windows dependency Gate
   删除该声明必须失败的负向测试；
 - license 内容仍按原始字节校验，不采用会掩盖未审查 CRLF 内容变更的
   运行时归一化。
+
+### Hosted attempt 5 and external acceptance
+
+```text
+candidate: 2f12ee5387771eb50d62d402371ef30f2cf9f021
+run: https://github.com/blackfrog638/XnnTransfer/actions/runs/31581202707
+hosted result: success
+external acceptance result: failed before attestation write
+```
+
+- Candidate plan、Harness V2、三平台 exact product Gates、三个 evidence
+  artifacts、Cutover security 和 `Candidate accepted` 全部通过；
+- `bootstrap-accept` 在下载首个 artifact 时失败；GitHub API 将请求重定向
+  到 Azure Blob，Python `urllib` 把 GitHub bearer token 转发到跨 origin
+  目标，Azure 以 HTTP 401 拒绝；
+- 失败发生在 artifact 解析和 attestation 写入之前，远端未创建部分
+  `attest/bootstrap/*` ref，candidate 也未发布。
+
+修复：
+
+- credential-aware redirect handler 只在同 origin 重定向中保留
+  `Authorization`，跨 origin 显式剥离；
+- 新增 bearer token 不得跨 origin 泄露、同 origin 必须保留的负向/正向
+  测试；
+- HTTP status 纳入 bounded diagnostic；
+- 使用真实 attempt 5 artifacts 完成 collector smoke test 后，仍按
+  trust-root 规则生成新的 exact candidate，不复用旧 candidate acceptance。

@@ -13,7 +13,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
-from typing import Any, Dict, List, Mapping, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024
@@ -23,6 +23,33 @@ MAX_ARTIFACT_ENTRIES = 32
 
 class GitHubEvidenceError(RuntimeError):
     """Raised when hosted workflow evidence is unavailable or malformed."""
+
+
+class _CredentialSafeRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        request: urllib.request.Request,
+        fp: Any,
+        code: int,
+        message: str,
+        headers: Mapping[str, str],
+        new_url: str,
+    ) -> Optional[urllib.request.Request]:
+        redirected = super().redirect_request(
+            request,
+            fp,
+            code,
+            message,
+            headers,
+            new_url,
+        )
+        if redirected is None:
+            return None
+        source = urllib.parse.urlsplit(request.full_url)
+        target = urllib.parse.urlsplit(new_url)
+        if (source.scheme, source.netloc) != (target.scheme, target.netloc):
+            redirected.remove_header("Authorization")
+        return redirected
 
 
 def _reject_duplicate_pairs(pairs: Sequence[tuple[str, Any]]) -> Dict[str, Any]:
@@ -86,10 +113,15 @@ class GitHubClient:
             },
         )
         try:
-            with urllib.request.urlopen(request, timeout=30) as response:
+            opener = urllib.request.build_opener(_CredentialSafeRedirectHandler())
+            with opener.open(request, timeout=30) as response:
                 data = response.read(MAX_RESPONSE_BYTES + 1)
+        except urllib.error.HTTPError as error:
+            raise GitHubEvidenceError(
+                "evidence request failed with HTTP {}".format(error.code)
+            ) from error
         except (urllib.error.URLError, TimeoutError) as error:
-            raise GitHubEvidenceError("GitHub API request failed") from error
+            raise GitHubEvidenceError("evidence request failed") from error
         if len(data) > MAX_RESPONSE_BYTES:
             raise GitHubEvidenceError("GitHub API response exceeds size limit")
         return data
