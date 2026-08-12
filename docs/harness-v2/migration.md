@@ -259,3 +259,16 @@ tool/harness/new_task.sh
 - candidate 只执行一次完整 CI；
 - rollback 演练完成；
 - 两个 pilot task 达到 SLO 且无 invariant 回退。
+
+## 完成状态
+
+2026-08-12，以上迁移边界已通过 `XT-098`、`XT-099` 和 `XT-100`
+验证。最终 Pilot candidates 分别为 `6541280041512dbc8d635bd7b123b27390784c12`
+和 `1309431daa5df3e81bdf053c4677452b829cff43`，各自只有一个成功的完整
+hosted run。两次 queue-to-done 观测为 3 分 30 秒和 21 分 19 秒，中位数
+12 分 25 秒；该样本支持 P50 目标，但不足以估计 production P95。
+
+Migration completion 不宣称已经证明三任务并行吞吐、nightly
+cache-bypass、artifact 长期保留或 queue-worker 最小权限。这些项目作为
+后续治理风险保留，不回退已完成的 V1 删除、external attestation 或
+protected CAS 边界。

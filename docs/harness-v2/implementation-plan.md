@@ -2,7 +2,7 @@
 
 ## 计划状态
 
-- 状态：active
+- 状态：completed
 - 执行授权：项目所有者已于 2026-08-12 明确授权
 - 旧 Harness 快速通道：规划与原子替换已授权
 - 计划 owner：项目所有者
@@ -11,9 +11,11 @@
 当前进度：
 
 - HV2-WP0～WP6：实现完成；
-- HV2-WP7：原子替换提交 `ec342d2` 已生成，等待 exact candidate CI；
-- HV2-WP8：本地恢复/安全门禁完成，远端三平台、ruleset 审计、性能基准
-  和 pilot 待执行。
+- HV2-WP7：原子替换、三平台 exact-candidate qualification、external
+  attestation 和 protected CAS 发布完成；
+- HV2-WP8：`XT-098`、`XT-099` 和 `XT-100` evidence closure 完成；
+- 未关闭的 production-scale SLO 与最小权限项目保留为后续治理需求，
+  不阻塞本次 V2 实现验收。
 
 本文使用 `HV2-WP*` 作为工作包编号，不注册旧式 XT，不创建旧 records，
 也不进入旧 backlog。工作包状态记录到 V2 bootstrap worklog，直到 V2
@@ -313,23 +315,30 @@ tool/harness/tests/test_remote_contract.py
 
 Pilot A：
 
-- 低风险文档/治理；
-- 验证 fast lane、state ref、submission 和一次 CI。
+- `XT-098`，低风险文档任务；
+- candidate `6541280041512dbc8d635bd7b123b27390784c12`；
+- hosted run `31591066794`，Linux fast lane；
+- queue run 创建至 `done` event 为 3 分 30 秒。
 
 Pilot B：
 
-- 窄模块行为变更；
-- 验证 Red、Green、Gate DAG、queue 和 attestation。
+- `XT-099`，Storage 路径可移植性行为变更；
+- candidate `1309431daa5df3e81bdf053c4677452b829cff43`；
+- hosted run `31614117117`，Linux、macOS、Windows；
+- queue run 创建至 `done` event 为 21 分 19 秒，Linux product Gate
+  19 分 20 秒，是关键路径。
 
-验收：
+结果：
 
-- 两任务均无手工修改运行状态；
-- 无重复 leaf Gate；
-- 每个 candidate 最多一次完整 CI；
-- P50 指标达到 README 目标或有经批准的偏差；
-- state、attestation 和 protected branch 可恢复；
-- 安全负例全部通过；
-- 项目所有者批准 ADR 0017 为 accepted。
+- 两任务均只通过 append-only state events 推进，无手工修改运行状态；
+- 每个平台 artifact 中 leaf Gate 唯一，无重复 leaf；
+- 每个最终 candidate 只有一次完整 hosted workflow；
+- 两个 queue-to-done 样本的中位数为 12 分 25 秒，低于 20 分钟 P50
+  目标；样本量不足以声明生产 P95，观测最大值低于 35 分钟；
+- `XT-100` 在同一 protected SHA 上完成 payload-free evidence closure；
+- interrupted claim、Git HTTPS timeout 和 idempotent publication recovery
+  均在真实流程中执行；
+- Storage 负例、三平台 product Gates 和 bootstrap sanitizer/fuzz 通过。
 
 ## 提交与留痕策略
 

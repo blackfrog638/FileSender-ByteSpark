@@ -735,3 +735,109 @@ external acceptance result: failed before attestation write
 - HTTP status 纳入 bounded diagnostic；
 - 使用真实 attempt 5 artifacts 完成 collector smoke test 后，仍按
   trust-root 规则生成新的 exact candidate，不复用旧 candidate acceptance。
+
+## 2026-08-12：HV2-WP8 governed pilots
+
+### Pilot catalogue seed
+
+`DP-HARNESS-V2-PILOT` 注册 `XT-098`、`XT-099` 和 acceptance task
+`XT-100`。Plan approval digest：
+
+```text
+a366b5d166ffe421545d9af793ce825b248d4f75c7900d48e983ab0dc87b4f65
+```
+
+修正后的 catalogue candidate `7c1c6d63381906e4507398063f2c5b22decc8e7d`
+通过 hosted run `31589107666`，external bootstrap attestation digest 为
+`8e7f0f3958327a77dd689f1488c81e0baaac37506550526e8354c0e8bb8044aa`，
+随后通过 protected CAS 发布。更早的 `032f194` run 在发现 frozen proof
+surface 不完整后被取消，未用于 acceptance。
+
+### Pilot A
+
+`XT-098` 只修改 `docs/harness-v2/pilot-operations.md`：
+
+```text
+candidate: 6541280041512dbc8d635bd7b123b27390784c12
+run: 31591066794
+platform: linux
+hosted workflow: 2m25s
+queue run created -> done event: 3m30s
+acceptance digest:
+1b3f36993498f5afad25c59adc701078df00e78b22c58df7ebb1629493f1e0c3
+```
+
+该 candidate 只有一次完整 hosted run。普通 queue 的 security job 运行
+policy marker，不执行 bootstrap sanitizer/fuzz。
+
+### Pilot B
+
+`XT-099` 将 Windows reserved device aliases 和尾随点/空格写入 v1 path
+contract、manifest vectors 和 native shared validator。Red proof 冻结
+70-case manifest corpus、fixture generator 和 C++ tests。
+
+首次 claim 使用 project-owner 身份，high-risk submission 因 reviewer
+不独立被拒绝。完整 Green head 保存到
+`archive/task-owner/XT-099-user-claim`，随后使用 `claim-recover` 追加
+`active -> ready` recovery event，以 `trae-agent@localhost` 重新 claim，
+并在同一 accepted base 重放 Red/Green。未直接修改 state ref。
+
+```text
+red: 3e9e551a8b7dada59c19336232d153ca1c23709b
+candidate: 1309431daa5df3e81bdf053c4677452b829cff43
+run: 31614117117
+macos product Gate: 6m45s
+windows product Gate: 10m02s
+linux product Gate: 19m20s
+hosted workflow: 20m00s
+queue run created -> done event: 21m19s
+acceptance digest:
+257615713753e621d85bcde9b95df667de711a280e7b6b054f7b7c884b7bd028
+```
+
+Linux 是关键路径。三个平台、Harness、candidate plan 和 stable
+`Candidate accepted` context 全部通过，candidate 只有一次完整 hosted
+run。
+
+### Evidence closure and SLO
+
+`XT-100` 在 protected SHA
+`1309431daa5df3e81bdf053c4677452b829cff43` 上完成 payload-free closure：
+
+```text
+closure digest:
+d03f6815f8b315b13b1b96c818534be2d73d5bbad8d71dcf412a54a0622e09bc
+```
+
+两个 queue-to-done 样本为 3 分 30 秒和 21 分 19 秒，中位数 12 分
+25 秒，达到小于 20 分钟的 Pilot P50 目标。样本量不足以估计
+production P95；只记录观测最大值低于 35 分钟，不声明 P95 已证明。
+
+真实恢复路径还覆盖：
+
+- Git HTTPS `ls-remote` 75 秒超时后的幂等重试；
+- external attestation 已存在时的安全复用；
+- protected CAS publish retry；
+- active claim 的 append-only rollback 和角色重登记。
+
+### Pilot report governance
+
+`DP-HARNESS-V2-PILOT-REPORT` approval digest：
+
+```text
+d83e4480ff1603e276dbc65fecc78ddbd71bbd4851f91e28cf1fb74c5a051780
+```
+
+catalogue candidate `abd30b5ae0e7e43c9114695fc766f3231c4f8017` 通过
+hosted run `31616330401` 和 bootstrap attestation
+`c47a08246124bd768731c398f30769ff8587001cf5444141d1bbdae5e64235ef`
+后发布，再由 `XT-101` 交付本报告，`XT-102` 负责 payload-free closure。
+
+残余风险：
+
+- queue worker 仍复用 project-owner credential，远端 ruleset 已审计但
+  尚未实现最小权限 credential 拆分；
+- publication CAS 临界区未独立插桩计时；
+- nightly cache-bypass、三任务并行吞吐和 production P95 未由两个
+  Pilot 样本证明；
+- state/ref/artifact 长期保留策略尚未落地。

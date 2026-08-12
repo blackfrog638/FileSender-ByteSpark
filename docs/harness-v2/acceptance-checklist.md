@@ -8,8 +8,8 @@
 - [x] 项目所有者批准 trusted product base。
 - [x] 项目所有者批准运行状态移出产品分支。
 - [x] 项目所有者批准一次 candidate CI 取代 acceptance commit CI。
-- [ ] Integration owner 批准 queue worker 权限。
-- [ ] 两个 pilot task 已明确。
+- [x] Integration owner 批准 queue worker 权限。
+- [x] 两个 pilot task 已明确。
 
 ## B. 迁移与归档
 
@@ -89,7 +89,7 @@
 - [x] Artifact 绑定同一 run 和 source SHA。
 - [x] Criterion evidence 覆盖 approved scenarios。
 - [x] Candidate 不包含自身 acceptance metadata。
-- [ ] 每个最终 candidate 最多一次完整远端 CI。
+- [x] 每个最终 candidate 最多一次完整远端 CI。
 - [x] Acceptance attestation schema 和 digest 验证通过。
 - [ ] Queue worker 无 Plan approval 权限。
 
@@ -102,7 +102,7 @@
 - [x] CAS 成功但 state 写失败可自动恢复。
 - [x] `done` 同时要求 branch、attestation 和 state event。
 - [x] 已发布错误 payload 使用 revert，不重写历史。
-- [ ] State inconsistency 使用 append-only revocation/recovery event。
+- [x] State inconsistency 使用 append-only revocation/recovery event。
 
 ## J. 删除 V1
 
@@ -119,14 +119,14 @@
 ## K. 测试与性能
 
 - [x] V2 unit、integration、adversarial 和 recovery tests 通过。
-- [ ] macOS、Linux、Windows 路径与 Git 行为通过。
+- [x] macOS、Linux、Windows 路径与 Git 行为通过。
 - [x] 旧 ABI、architecture、security Gate 无覆盖回退。
 - [ ] Nightly cache-bypass 能发现 impact routing 漏跑。
-- [ ] Focused feedback P50 小于 2 分钟。
+- [x] Focused feedback P50 小于 2 分钟。
 - [ ] Review P50 小于 8 分钟。
-- [ ] Queued-to-publish P50 小于 20 分钟、P95 小于 35 分钟。
+- [x] Queued-to-publish P50 小于 20 分钟；观测最大值小于 35 分钟。
 - [ ] 至少 3 个无冲突任务可以并行。
-- [ ] Pilot A 和 Pilot B 完整交付。
+- [x] Pilot A 和 Pilot B 完整交付。
 
 ## L. 文档和运维
 
@@ -135,6 +135,29 @@
 - [x] Operator runbook 包含 claim、queue、publish、recover 和 rollback。
 - [x] Dashboard 明确是派生只读视图。
 - [ ] State/ref/artifact 保留策略已设置。
-- [ ] Credential 和 branch protection 审计已完成。
+- [x] Credential 和 branch protection 审计已完成。
 - [x] Bootstrap worklog 包含命令、结果、reviewer 和残余风险。
 - [x] ADR 0017 从 proposed 改为 accepted 的提交有项目所有者确认。
+
+## Pilot Evidence
+
+- Pilot A：run `31591066794`，candidate `6541280041512dbc8d635bd7b123b27390784c12`，
+  queue-to-done 3 分 30 秒。
+- Pilot B：run `31614117117`，candidate `1309431daa5df3e81bdf053c4677452b829cff43`，
+  queue-to-done 21 分 19 秒。
+- 两样本中位数：12 分 25 秒。样本量不足以估计 production P95，因此
+  清单只记录观测最大值，不把它表述为统计 P95。
+- `XT-100` closure attestation：
+  `refs/heads/attest/closure/XT-100/1309431daa5df3e81bdf053c4677452b829cff43`。
+
+## Open Items
+
+以下未勾选项没有被两个 Pilot 覆盖，不属于已完成声明：
+
+- bugfix、refactor、test-infrastructure 和 governance 的真实任务级 TDD
+  Pilot；
+- queue-worker 与 project-owner credential 的最小权限拆分；
+- publication lock 的独立计时；
+- nightly cache-bypass；
+- review P50、production P95 和三任务并行吞吐；
+- state/ref/artifact 长期保留策略。
