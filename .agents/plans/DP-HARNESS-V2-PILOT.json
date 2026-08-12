@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "id": "DP-HARNESS-V2-PILOT",
+  "title": "Harness V2 governed pilot delivery",
+  "status": "approved",
+  "source": {
+    "kind": "implementation_plan",
+    "path": "docs/harness-v2/implementation-plan.md"
+  },
+  "requirements": [
+    {
+      "id": "REQ-HV2-PILOT-FAST-LANE",
+      "statement": "A low-risk documentation change completes the V2 lifecycle with one Linux candidate run and immutable acceptance evidence.",
+      "criteria": [
+        {
+          "id": "CRIT-HV2-PILOT-FAST-LANE",
+          "statement": "The documentation pilot moves from ready through claim, submission, queue, hosted evidence, publication, and done without manual runtime-state edits.",
+          "negative_definitions": [
+            "A local-only Gate result does not qualify.",
+            "A candidate with more than one hosted workflow run does not qualify.",
+            "A manually edited state ref does not qualify."
+          ],
+          "evidence": {
+            "gates": [
+              "layout"
+            ],
+            "scenarios": [
+              "claim-submit-queue-publish",
+              "single-linux-matrix"
+            ],
+            "topology": "single_task_train_depth_1",
+            "platforms": [
+              "linux"
+            ],
+            "roles": [
+              "developer",
+              "queue-worker",
+              "publisher"
+            ],
+            "allow_skipped": false
+          }
+        }
+      ],
+      "implementation_tasks": [
+        "XT-098"
+      ],
+      "acceptance_owner": "XT-100"
+    },
+    {
+      "id": "REQ-HV2-PILOT-STORAGE-PATHS",
+      "statement": "Portable receive paths reject Windows reserved device aliases and components with trailing dots or spaces before filesystem access.",
+      "criteria": [
+        {
+          "id": "CRIT-HV2-PILOT-STORAGE-PATHS",
+          "statement": "The shared path validator rejects ASCII-case variants of CON, PRN, AUX, NUL, COM1 through COM9, and LPT1 through LPT9 with or without extensions, plus every component ending in an ASCII dot or space.",
+          "negative_definitions": [
+            "Rejecting only exact uppercase aliases does not qualify.",
+            "Rejecting an alias without rejecting the same alias with an extension does not qualify.",
+            "Relying on a Windows filesystem error after validation does not qualify.",
+            "Rejecting ordinary interior dots or spaces does not qualify.",
+            "A skipped platform Gate does not qualify."
+          ],
+          "evidence": {
+            "gates": [
+              "native_test",
+              "protocol_vectors"
+            ],
+            "scenarios": [
+              "reserved-device-name",
+              "reserved-device-name-with-extension",
+              "trailing-dot",
+              "trailing-space",
+              "ordinary-interior-dot-and-space"
+            ],
+            "topology": "single_process_pre_filesystem_validation",
+            "platforms": [
+              "linux",
+              "macos",
+              "windows"
+            ],
+            "roles": [
+              "sender",
+              "receiver"
+            ],
+            "allow_skipped": false
+          }
+        }
+      ],
+      "implementation_tasks": [
+        "XT-099"
+      ],
+      "acceptance_owner": "XT-100"
+    }
+  ],
+  "approval": {
+    "approved_by": "project-owner",
+    "approved_at": "2026-08-12T10:10:00Z",
+    "content_sha256": "a366b5d166ffe421545d9af793ce825b248d4f75c7900d48e983ab0dc87b4f65"
+  }
+}

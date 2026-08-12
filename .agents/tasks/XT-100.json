@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "id": "XT-100",
+  "title": "Close Harness V2 pilot evidence",
+  "plan": "DP-HARNESS-V2-PILOT",
+  "criteria": [
+    "CRIT-HV2-PILOT-FAST-LANE",
+    "CRIT-HV2-PILOT-STORAGE-PATHS"
+  ],
+  "depends_on": [
+    "XT-098",
+    "XT-099"
+  ],
+  "owned_paths": [
+    ".agents/tasks/XT-100.json"
+  ],
+  "type": "acceptance",
+  "workstream": "integration",
+  "risk": {
+    "functionality": "high",
+    "security": "none",
+    "performance": "none",
+    "compatibility": "none",
+    "concurrency": "medium",
+    "platform": "none",
+    "persistence": "medium"
+  },
+  "tdd": {
+    "mode": "evidence_closure",
+    "gate": null,
+    "proof_paths": [],
+    "oracle_paths": [],
+    "failure_fingerprints": []
+  },
+  "delivery": {
+    "commit_type": "chore",
+    "scope": "harness",
+    "summary": "close v2 pilot evidence",
+    "architecture_change": {
+      "mode": "none",
+      "modules": [],
+      "supersedes": {
+        "paths": [],
+        "symbols": [],
+        "targets": []
+      },
+      "temporary_leases": [],
+      "retires_leases": []
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "id": "XT-099",
+  "title": "Reject portable Windows path aliases",
+  "plan": "DP-HARNESS-V2-PILOT",
+  "criteria": [
+    "CRIT-HV2-PILOT-STORAGE-PATHS"
+  ],
+  "depends_on": [],
+  "owned_paths": [
+    "docs/adr/0018-portable-windows-path-aliases.md",
+    "protocol/spec/v1.md",
+    "protocol/testdata/v1/manifest/README.md",
+    "protocol/testdata/v1/manifest/vectors.json",
+    "protocol/testdata/v1/manifest/validate_vectors.py",
+    "native/include/xnn_transfer/core/storage/storage.hpp",
+    "native/src/storage/path_validator.cpp",
+    "native/tests/storage/storage_test.cpp"
+  ],
+  "type": "feature",
+  "workstream": "native_storage",
+  "risk": {
+    "functionality": "high",
+    "security": "critical",
+    "performance": "low",
+    "compatibility": "critical",
+    "concurrency": "none",
+    "platform": "high",
+    "persistence": "none"
+  },
+  "tdd": {
+    "mode": "red_green",
+    "gate": "native_test",
+    "proof_paths": [
+      "native/tests/storage/storage_test.cpp"
+    ],
+    "oracle_paths": [],
+    "failure_fingerprints": [
+      "FAILED: Windows reserved path aliases must fail before filesystem access"
+    ]
+  },
+  "delivery": {
+    "commit_type": "feat",
+    "scope": "storage",
+    "summary": "reject Windows reserved path aliases",
+    "architecture_change": {
+      "mode": "none",
+      "modules": [],
+      "supersedes": {
+        "paths": [],
+        "symbols": [],
+        "targets": []
+      },
+      "temporary_leases": [],
+      "retires_leases": []
+    }
+  }
+}

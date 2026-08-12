@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "XT-098",
+  "title": "Document the first governed V2 delivery",
+  "plan": "DP-HARNESS-V2-PILOT",
+  "criteria": [
+    "CRIT-HV2-PILOT-FAST-LANE"
+  ],
+  "depends_on": [],
+  "owned_paths": [
+    "docs/harness-v2/pilot-operations.md"
+  ],
+  "type": "documentation",
+  "workstream": "harness_operations",
+  "risk": {
+    "functionality": "low",
+    "security": "none",
+    "performance": "none",
+    "compatibility": "none",
+    "concurrency": "none",
+    "platform": "none",
+    "persistence": "none"
+  },
+  "tdd": {
+    "mode": "not_required",
+    "gate": null,
+    "proof_paths": [],
+    "oracle_paths": [],
+    "failure_fingerprints": []
+  },
+  "delivery": {
+    "commit_type": "docs",
+    "scope": "harness",
+    "summary": "document v2 pilot operations",
+    "architecture_change": {
+      "mode": "none",
+      "modules": [],
+      "supersedes": {
+        "paths": [],
+        "symbols": [],
+        "targets": []
+      },
+      "temporary_leases": [],
+      "retires_leases": []
+    }
+  }
+}
