@@ -191,6 +191,29 @@ class GateExecutorTest(unittest.TestCase):
         self.assertEqual(result.results[0].outcome, "output_limit")
         self.assertGreater(result.results[0].attestation["output_bytes"], 1024)
 
+    def test_failure_summary_includes_bounded_gate_diagnostic(self) -> None:
+        repository = GateRepository(self)
+        repository.configure_command(
+            "feature_test",
+            [
+                "python3",
+                "-c",
+                "import sys; print('HOSTED-FAILURE-DETAIL'); sys.exit(1)",
+            ],
+        )
+        repository.commit("chore: initialize")
+        plan = gates.single_gate_plan(
+            repository.load(), "XT-101", "review", "feature_test"
+        )
+        result = executor.GateExecutor(repository.load(), cache_enabled=False).execute(
+            plan
+        )
+        with self.assertRaisesRegex(
+            executor.GateExecutionError,
+            "HOSTED-FAILURE-DETAIL",
+        ):
+            result.require_success()
+
     def test_classifies_signal_exit_as_crash(self) -> None:
         if sys.platform == "win32":
             return

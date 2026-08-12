@@ -89,11 +89,29 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
 
+      - name: Prioritize Git Bash
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          git_bash="$(cygpath -w "$(dirname "$(command -v bash)")")"
+          printf '%s\n' "$git_bash" >> "$GITHUB_PATH"
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: 3.32.8
           channel: stable
           cache: true
+
+      - name: Bootstrap pinned vcpkg
+        shell: bash
+        run: tool/harness/vcpkg_bootstrap.sh
+
+      - name: Prepare native library for bootstrap tests
+        if: startsWith(github.ref_name, 'queue/bootstrap/')
+        shell: bash
+        run: |
+          cmake --preset dev
+          cmake --build --preset dev --target xnn_transfer_core
 
       - name: Execute exact candidate Gate plan
         shell: bash

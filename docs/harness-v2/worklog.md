@@ -561,3 +561,30 @@ publication timing 和两个 pilot。它们不能由以上本地结果替代。
 该模式只用于 ADR 0017 原子切换。Hosted run、artifact digest、branch
 protection 更新、bootstrap attestation 和 protected CAS 结果将在 run
 完成后追加。
+
+### Hosted attempt 1
+
+```text
+candidate: 08b4b51f3038bd5ff2a28a4c769e1e5214619741
+run: https://github.com/blackfrog638/XnnTransfer/actions/runs/31574684639
+result: failed/cancelled after decisive failures
+```
+
+- Candidate plan 与 Harness V2 jobs 通过；
+- macOS product Gate 在 fresh runner 缺少 pinned vcpkg，native leaf 失败，
+  Flutter 在 native library 不存在时报告 skip；
+- Windows runner 的 `PATH` 优先解析系统 `bash.exe`，所有 shell leaf
+  失败；
+- executor 当时只输出 outcome，未把已收集的 bounded diagnostic 带入
+  CI failure summary；
+- run 已无法作为 acceptance evidence，主动取消剩余 Linux/security
+  资源，未重用其部分结果。
+
+修复：
+
+- product job 在 executor 前 bootstrap pinned vcpkg；
+- bootstrap candidate 预建 native core，Flutter cross-layer tests 不依赖
+  并发 Gate 完成顺序；
+- Windows 将 Git Bash 目录写入 `GITHUB_PATH`；
+- `require_success` 输出每个失败 leaf 最后 4 KiB trusted diagnostic；
+- failed candidate 保留 archive ref，后续 attempt 使用新 SHA 和完整新 run。

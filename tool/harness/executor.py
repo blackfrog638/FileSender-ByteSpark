@@ -26,6 +26,7 @@ from model import ContractSet, canonical_sha256, load_json
 
 MAX_DIAGNOSTIC_BYTES = 64 * 1024
 MAX_OUTPUT_BYTES = 8 * 1024 * 1024
+MAX_ERROR_DIAGNOSTIC_CHARS = 4 * 1024
 SKIP_PATTERNS = (
     re.compile(r"(?im)\bskipped\s*=\s*[1-9][0-9]*\b"),
     re.compile(r"(?im)\b[1-9][0-9]*\s+tests?\s+skipped\b"),
@@ -63,13 +64,23 @@ class PlanResult:
         return all(result.outcome == "success" for result in self.results)
 
     def require_success(self) -> None:
-        failed = [
-            "{}={}".format(result.gate_id, result.outcome)
-            for result in self.results
-            if result.outcome != "success"
-        ]
+        failed = [result for result in self.results if result.outcome != "success"]
         if failed:
-            raise GateExecutionError("Gate plan failed: {}".format(", ".join(failed)))
+            summary = ", ".join(
+                "{}={}".format(result.gate_id, result.outcome) for result in failed
+            )
+            diagnostics = []
+            for result in failed:
+                diagnostic = result.diagnostic.strip()
+                if diagnostic:
+                    diagnostics.append(
+                        "[{}]\n{}".format(
+                            result.gate_id,
+                            diagnostic[-MAX_ERROR_DIAGNOSTIC_CHARS:],
+                        )
+                    )
+            detail = "\n\n" + "\n\n".join(diagnostics) if diagnostics else ""
+            raise GateExecutionError("Gate plan failed: {}{}".format(summary, detail))
 
 
 def _utc_now() -> str:
