@@ -119,6 +119,52 @@ archive/harness-v1/diagnostic/XT-097-red
 所有远端 ref 已用 `git ls-remote` 校验精确 SHA。原 branch 和 worktree
 仍然保留，未执行 cleanup。
 
+### 2026-08-12：WP1/WP2 契约、State 与 Workspace
+
+实现：
+
+```text
+tool/harness/model.py
+tool/harness/validate.py
+tool/harness/git_ops.py
+tool/harness/state.py
+tool/harness/workspace.py
+tool/harness/tests/test_model.py
+tool/harness/tests/test_state_workspace.py
+make harness-v2-test
+```
+
+实现决策：
+
+- 静态契约使用标准库可解析的严格 JSON；
+- 不依赖本机偶然安装的 PyYAML；
+- 重复 JSON key、未知字段和未规范化 ID fail closed；
+- Plan approval 从仓库配置的项目所有者 Git identity 解析，不接受
+  `--by` 自由文本；
+- State event 使用 Git object plumbing 写入独立 ref；
+- 每任务 ref 使用 append-only parent chain 和 compare-and-swap；
+- 远端 state push 使用 `--force-with-lease`，失败时回滚本地 ref；
+- Claim 失败会追加 `active -> ready` rollback event，不留下半 claim；
+- 只有相关 owned path 或绑定治理输入变化才判定 stale。
+
+验证：
+
+```text
+python3 -B -m unittest discover -s tool/harness/tests -p 'test_*.py' -v
+python3 -m py_compile <V2 modules and tests>
+git diff --check
+```
+
+结果：
+
+- 21 项测试全部通过；
+- 覆盖 approval spoof、stale digest、task command injection、Gate cycle、
+  risk downgrade、criterion closure、state tamper、CAS、remote state、
+  claim、dependency、rollback 和 stale path；
+- Python compile 和 whitespace 检查通过；
+- 未调用旧 Harness runtime；
+- 未修改 protected branch。
+
 ## 命令日志
 
 ### 2026-08-12：现状读取
