@@ -15,6 +15,7 @@
     "protocol/testdata/v1/manifest/validate_vectors.py",
     "native/include/xnn_transfer/core/storage/storage.hpp",
     "native/src/storage/path_validator.cpp",
+    "native/tests/storage/generate_manifest_fixture_cases.py",
     "native/tests/storage/storage_test.cpp"
   ],
   "type": "feature",
@@ -32,6 +33,8 @@
     "mode": "red_green",
     "gate": "native_test",
     "proof_paths": [
+      "protocol/testdata/v1/manifest/vectors.json",
+      "native/tests/storage/generate_manifest_fixture_cases.py",
       "native/tests/storage/storage_test.cpp"
     ],
     "oracle_paths": [],
