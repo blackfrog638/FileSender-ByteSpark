@@ -126,8 +126,28 @@ class GateExecutor:
         environment.update(command["environment"])
         return environment, canonical_sha256(environment)
 
+    def _resolved_argv(
+        self,
+        argv: List[str],
+        environment: Mapping[str, str],
+    ) -> List[str]:
+        result = list(argv)
+        bash_override = environment.get("XNN_TRANSFER_BASH", "")
+        if result[0] == "bash" and bash_override:
+            executable = Path(bash_override)
+            if not executable.is_absolute() or not executable.is_file():
+                raise GateExecutionError(
+                    "XNN_TRANSFER_BASH must name an absolute executable file"
+                )
+            result[0] = str(executable)
+        return result
+
     def _toolchain_digest(self, argv: List[str], environment: Mapping[str, str]) -> str:
-        executable = shutil.which(argv[0], path=environment.get("PATH"))
+        requested = Path(argv[0])
+        if requested.is_absolute() and requested.is_file():
+            executable = str(requested)
+        else:
+            executable = shutil.which(argv[0], path=environment.get("PATH"))
         executable_info: Dict[str, Any]
         if executable is None:
             executable_info = {"requested": argv[0], "resolved": None}
@@ -157,7 +177,7 @@ class GateExecutor:
 
     def _execution_context(
         self, gate_id: str, source_sha: str, source_tree: str
-    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
+    ) -> Tuple[Dict[str, Any], Dict[str, str], List[str]]:
         gate = self.contracts.gates[gate_id]
         command = gate["command"]
         if command is None:
@@ -168,13 +188,17 @@ class GateExecutor:
             )
         argv = list(command["argv"])
         environment, environment_sha = self._environment(command)
+        resolved_argv = self._resolved_argv(argv, environment)
         context = {
             "gate_id": gate_id,
             "source_sha": source_sha,
             "source_tree": source_tree,
             "command_sha256": canonical_sha256(command),
             "policy_sha256": canonical_sha256(self.contracts.gate_policy),
-            "toolchain_sha256": self._toolchain_digest(argv, environment),
+            "toolchain_sha256": self._toolchain_digest(
+                resolved_argv,
+                environment,
+            ),
             "environment_sha256": environment_sha,
             "platform": self.platform_label,
             "isolation_mode": self.isolation_mode,
@@ -183,7 +207,7 @@ class GateExecutor:
             key: value for key, value in context.items() if key != "source_sha"
         }
         context["cache_key"] = canonical_sha256(cache_context)
-        return context, environment
+        return context, environment, resolved_argv
 
     def _cache_path(self, cache_key: str) -> Path:
         return self.cache_root / cache_key[:2] / "{}.json".format(cache_key)
@@ -254,7 +278,11 @@ class GateExecutor:
         command = gate["command"]
         if command is None:
             raise GateExecutionError("{} is not executable".format(gate_id))
-        context, environment = self._execution_context(gate_id, source_sha, source_tree)
+        context, environment, resolved_argv = self._execution_context(
+            gate_id,
+            source_sha,
+            source_tree,
+        )
         cached = self._cached(context, phase)
         if cached is not None:
             return GateResult(gate_id, cached, True, "")
@@ -291,7 +319,7 @@ class GateExecutor:
 
             try:
                 process = subprocess.Popen(
-                    command["argv"],
+                    resolved_argv,
                     cwd=str(self.execution_root),
                     env=environment,
                     stdin=subprocess.DEVNULL,

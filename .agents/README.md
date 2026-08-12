@@ -50,6 +50,10 @@ tool/harness/agent.sh publish XT-NNN QUEUE_REF \
   --required-job "Harness V2" \
   --required-job "Product gates (linux)"
 tool/harness/agent.sh acceptance-close XT-ACCEPT
+tool/harness/agent.sh bootstrap-accept \
+  refs/heads/queue/bootstrap/CUTOVER_REF --at UTC_TIMESTAMP
+tool/harness/agent.sh bootstrap-publish \
+  refs/heads/queue/bootstrap/CUTOVER_REF
 ```
 
 The persistent lifecycle is:

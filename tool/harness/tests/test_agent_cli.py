@@ -11,6 +11,9 @@ from pathlib import Path
 
 from test_gates_tdd import GateRepository
 
+import gates
+import model
+
 
 AGENT = Path(__file__).resolve().parents[1] / "agent.py"
 
@@ -89,6 +92,10 @@ class AgentCliTest(unittest.TestCase):
         self.assertEqual(evidence["source_sha"], repository.git("rev-parse", "HEAD"))
         self.assertEqual(evidence["platform"], "linux")
         self.assertFalse(evidence["skipped"])
+        self.assertEqual(
+            evidence["plan_sha256"],
+            gates.global_gate_plan(model.load_contracts(repository.root)).digest,
+        )
         self.assertEqual(
             len(evidence["gate_ids"]),
             len(evidence["gate_attestations"]),

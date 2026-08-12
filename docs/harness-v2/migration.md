@@ -163,9 +163,11 @@ rebase。规划分支上的 V2 payload 通过 patch 迁移到该基线。
 3. 推送精确 V2 candidate ref；
 4. 使用 `queue/bootstrap/**` 固定 Linux/macOS/Windows matrix，运行完整
    旧质量 Gate 与全部 V2 Gate；
-5. 生成 bootstrap acceptance attestation；
+5. 使用 `agent.sh bootstrap-accept <queue-ref> --at <UTC>` 收集 exact run，
+   并生成 `attest/bootstrap/<candidate-sha>` acceptance attestation；
 6. 验证 candidate 没有未声明 payload；
-7. CAS fast-forward protected branch；
+7. 更新 required context 后使用 `agent.sh bootstrap-publish <queue-ref>`
+   CAS fast-forward protected branch，并复核远端 readback；
 8. 初始化 V2 migration/state refs；
 9. 禁用旧 candidate workflow；
 10. 记录远端 branch、attestation 和 ref 结果。

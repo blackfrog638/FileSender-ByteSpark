@@ -66,6 +66,7 @@ submit/XT-NNN/NNNNNN
 queue/TRAIN/NNN-XT-NNN
 attest/tdd/XT-NNN/SHA
 attest/acceptance/XT-NNN/SHA
+attest/bootstrap/SHA
 archive/...
 ```
 

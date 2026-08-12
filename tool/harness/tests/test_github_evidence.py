@@ -18,6 +18,7 @@ import github_evidence  # noqa: E402
 
 
 SHA = "a" * 40
+TREE = "e" * 40
 WORKFLOW_BLOB = "b" * 40
 
 
@@ -40,6 +41,32 @@ def artifact_zip(source_sha: str = SHA, unsafe: bool = False) -> bytes:
         )
         if unsafe:
             bundle.writestr("../escape.txt", "bad")
+    return output.getvalue()
+
+
+def bootstrap_artifact_zip(
+    source_sha: str = SHA,
+    source_tree: str = TREE,
+    skipped: bool = False,
+) -> bytes:
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w") as bundle:
+        bundle.writestr(
+            "evidence.json",
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "kind": "bootstrap_cutover",
+                    "source_sha": source_sha,
+                    "source_tree": source_tree,
+                    "platform": "linux",
+                    "plan_sha256": "f" * 64,
+                    "gate_ids": ["feature_test"],
+                    "gate_attestations": ["c" * 64],
+                    "skipped": skipped,
+                }
+            ),
+        )
     return output.getvalue()
 
 
@@ -128,6 +155,36 @@ class GitHubEvidenceTest(unittest.TestCase):
         self.assertEqual(len(evidence["jobs"]), 2)
         self.assertEqual(evidence["artifacts"][0]["source_sha"], SHA)
         self.assertEqual(len(evidence["artifacts"][0]["sha256"]), 64)
+
+    def test_collects_bound_bootstrap_artifact(self) -> None:
+        client = FakeClient()
+        client.archive = bootstrap_artifact_zip()
+        client.artifacts["artifacts"][0]["name"] = "candidate-evidence-linux"
+        evidence = github_evidence.collect_bootstrap_workflow_evidence(
+            client,
+            workflow_path=".github/workflows/merge-queue.yml",
+            workflow_blob=WORKFLOW_BLOB,
+            branch="queue/train/001-XT-101",
+            candidate_sha=SHA,
+            candidate_tree=TREE,
+            required_artifacts=["candidate-evidence-linux"],
+        )
+        artifact = evidence["artifacts"][0]
+        self.assertEqual(artifact["artifact_id"], 7)
+        self.assertEqual(artifact["source_tree"], TREE)
+        self.assertFalse(artifact["skipped"])
+
+        client.archive = bootstrap_artifact_zip(skipped=True)
+        with self.assertRaisesRegex(github_evidence.GitHubEvidenceError, "skipped"):
+            github_evidence.collect_bootstrap_workflow_evidence(
+                client,
+                workflow_path=".github/workflows/merge-queue.yml",
+                workflow_blob=WORKFLOW_BLOB,
+                branch="queue/train/001-XT-101",
+                candidate_sha=SHA,
+                candidate_tree=TREE,
+                required_artifacts=["candidate-evidence-linux"],
+            )
 
     def test_latest_attempt_must_succeed(self) -> None:
         client = FakeClient()

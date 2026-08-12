@@ -30,6 +30,10 @@ tool/harness/agent.sh queue-reopen XT-101 QUEUE_REF --reason "CI failed"
 tool/harness/agent.sh publish XT-101 QUEUE_REF --evidence evidence.json
 tool/harness/agent.sh recover XT-101 QUEUE_REF
 tool/harness/agent.sh acceptance-close XT-ACCEPT
+tool/harness/agent.sh bootstrap-accept \
+  refs/heads/queue/bootstrap/CUTOVER_REF --at UTC_TIMESTAMP
+tool/harness/agent.sh bootstrap-publish \
+  refs/heads/queue/bootstrap/CUTOVER_REF
 ```
 
 命令命名可以在实现时调整，但每个行为必须只有一个公开入口，禁止通过

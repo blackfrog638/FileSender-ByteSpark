@@ -25,6 +25,15 @@ class GitHubEvidenceError(RuntimeError):
     """Raised when hosted workflow evidence is unavailable or malformed."""
 
 
+def _reject_duplicate_pairs(pairs: Sequence[tuple[str, Any]]) -> Dict[str, Any]:
+    result: Dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise GitHubEvidenceError("duplicate JSON key: {}".format(key))
+        result[key] = value
+    return result
+
+
 def repository_slug(remote_url: str) -> str:
     patterns = (
         r"^https://github\.com/([^/]+/[^/]+?)(?:\.git)?$",
@@ -88,7 +97,10 @@ class GitHubClient:
     def json(self, url: str) -> Mapping[str, Any]:
         data = self._request(url, "application/vnd.github+json")
         try:
-            value = json.loads(data.decode("utf-8"))
+            value = json.loads(
+                data.decode("utf-8"),
+                object_pairs_hook=_reject_duplicate_pairs,
+            )
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise GitHubEvidenceError("GitHub API returned invalid JSON") from error
         if not isinstance(value, dict):
@@ -116,7 +128,7 @@ def _complete_array(
     return list(values)
 
 
-def _artifact_manifest(archive: bytes, expected_sha: str) -> Mapping[str, Any]:
+def _artifact_json(archive: bytes) -> Mapping[str, Any]:
     try:
         with zipfile.ZipFile(io.BytesIO(archive)) as bundle:
             entries = bundle.infolist()
@@ -138,9 +150,19 @@ def _artifact_manifest(archive: bytes, expected_sha: str) -> Mapping[str, Any]:
     except (zipfile.BadZipFile, KeyError) as error:
         raise GitHubEvidenceError("artifact is not a valid evidence ZIP") from error
     try:
-        manifest = json.loads(raw.decode("utf-8"))
+        manifest = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_pairs,
+        )
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise GitHubEvidenceError("artifact evidence is invalid JSON") from error
+    if not isinstance(manifest, dict):
+        raise GitHubEvidenceError("artifact evidence must be an object")
+    return manifest
+
+
+def _artifact_manifest(archive: bytes, expected_sha: str) -> Mapping[str, Any]:
+    manifest = _artifact_json(archive)
     if not isinstance(manifest, dict) or set(manifest) != {
         "schema_version",
         "source_sha",
@@ -178,15 +200,73 @@ def _artifact_manifest(archive: bytes, expected_sha: str) -> Mapping[str, Any]:
     return manifest
 
 
-def collect_workflow_evidence(
+def _bootstrap_artifact_manifest(
+    archive: bytes,
+    expected_sha: str,
+    expected_tree: str,
+) -> Mapping[str, Any]:
+    manifest = _artifact_json(archive)
+    if set(manifest) != {
+        "schema_version",
+        "kind",
+        "source_sha",
+        "source_tree",
+        "platform",
+        "plan_sha256",
+        "gate_ids",
+        "gate_attestations",
+        "skipped",
+    }:
+        raise GitHubEvidenceError("bootstrap artifact has invalid fields")
+    if (
+        manifest["schema_version"] != 1
+        or manifest["kind"] != "bootstrap_cutover"
+        or manifest["source_sha"] != expected_sha
+        or manifest["source_tree"] != expected_tree
+    ):
+        raise GitHubEvidenceError("bootstrap artifact has stale source identity")
+    if manifest["platform"] not in {"linux", "macos", "windows"}:
+        raise GitHubEvidenceError("bootstrap artifact platform is invalid")
+    if (
+        not isinstance(manifest["plan_sha256"], str)
+        or re.fullmatch(r"[0-9a-f]{64}", manifest["plan_sha256"]) is None
+    ):
+        raise GitHubEvidenceError("bootstrap artifact plan digest is invalid")
+    gate_ids = manifest["gate_ids"]
+    gate_attestations = manifest["gate_attestations"]
+    if (
+        not isinstance(gate_ids, list)
+        or not gate_ids
+        or len(gate_ids) != len(set(gate_ids))
+        or any(
+            not isinstance(gate_id, str)
+            or re.fullmatch(r"[a-z][a-z0-9_]*", gate_id) is None
+            for gate_id in gate_ids
+        )
+    ):
+        raise GitHubEvidenceError("bootstrap artifact Gate IDs are invalid")
+    if (
+        not isinstance(gate_attestations, list)
+        or len(gate_attestations) != len(gate_ids)
+        or len(gate_attestations) != len(set(gate_attestations))
+        or any(
+            not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+            for digest in gate_attestations
+        )
+    ):
+        raise GitHubEvidenceError("bootstrap artifact Gate evidence is invalid")
+    if manifest["skipped"] is not False:
+        raise GitHubEvidenceError("bootstrap artifact reports skipped execution")
+    return manifest
+
+
+def _collect_run(
     client: GitHubClient,
     *,
     workflow_path: str,
-    workflow_blob: str,
     branch: str,
     candidate_sha: str,
-    required_artifacts: Sequence[str],
-) -> Dict[str, Any]:
+) -> tuple[int, int, List[Dict[str, str]], Dict[str, Mapping[str, Any]]]:
     workflow_name = urllib.parse.quote(workflow_path, safe="")
     query = urllib.parse.urlencode({"branch": branch, "event": "push", "per_page": 100})
     runs_payload = client.json(
@@ -244,19 +324,46 @@ def collect_workflow_evidence(
         if not isinstance(name, str) or name in by_name:
             raise GitHubEvidenceError("artifact names are invalid")
         by_name[name] = artifact
+    return run_id, run_attempt, normalized_jobs, by_name
+
+
+def _download_artifact(
+    client: GitHubClient,
+    artifacts: Mapping[str, Mapping[str, Any]],
+    name: str,
+) -> tuple[bytes, int]:
+    if name not in artifacts:
+        raise GitHubEvidenceError("required artifact {} is missing".format(name))
+    artifact = artifacts[name]
+    if artifact.get("expired") is not False:
+        raise GitHubEvidenceError("required artifact {} is expired".format(name))
+    artifact_id = artifact.get("id")
+    if not isinstance(artifact_id, int) or artifact_id < 1:
+        raise GitHubEvidenceError("required artifact id is invalid")
+    archive = client.bytes(
+        "{}/actions/artifacts/{}/zip".format(client.base, artifact_id)
+    )
+    return archive, artifact_id
+
+
+def collect_workflow_evidence(
+    client: GitHubClient,
+    *,
+    workflow_path: str,
+    workflow_blob: str,
+    branch: str,
+    candidate_sha: str,
+    required_artifacts: Sequence[str],
+) -> Dict[str, Any]:
+    run_id, run_attempt, normalized_jobs, by_name = _collect_run(
+        client,
+        workflow_path=workflow_path,
+        branch=branch,
+        candidate_sha=candidate_sha,
+    )
     normalized_artifacts = []
     for name in required_artifacts:
-        if name not in by_name:
-            raise GitHubEvidenceError("required artifact {} is missing".format(name))
-        artifact = by_name[name]
-        if artifact.get("expired") is not False:
-            raise GitHubEvidenceError("required artifact {} is expired".format(name))
-        artifact_id = artifact.get("id")
-        if not isinstance(artifact_id, int) or artifact_id < 1:
-            raise GitHubEvidenceError("required artifact id is invalid")
-        archive = client.bytes(
-            "{}/actions/artifacts/{}/zip".format(client.base, artifact_id)
-        )
+        archive, _ = _download_artifact(client, by_name, name)
         manifest = _artifact_manifest(archive, candidate_sha)
         normalized_artifacts.append(
             {
@@ -268,6 +375,59 @@ def collect_workflow_evidence(
                 "gate_attestations": manifest["gate_attestations"],
                 "criterion_ids": manifest["criterion_ids"],
                 "criterion_evidence": manifest["criterion_evidence"],
+            }
+        )
+    return {
+        "repository": client.repository,
+        "workflow_path": workflow_path,
+        "workflow_blob": workflow_blob,
+        "run_id": run_id,
+        "run_attempt": run_attempt,
+        "head_sha": candidate_sha,
+        "head_branch": branch,
+        "event": "push",
+        "conclusion": "success",
+        "jobs": normalized_jobs,
+        "artifacts": normalized_artifacts,
+    }
+
+
+def collect_bootstrap_workflow_evidence(
+    client: GitHubClient,
+    *,
+    workflow_path: str,
+    workflow_blob: str,
+    branch: str,
+    candidate_sha: str,
+    candidate_tree: str,
+    required_artifacts: Sequence[str],
+) -> Dict[str, Any]:
+    run_id, run_attempt, normalized_jobs, by_name = _collect_run(
+        client,
+        workflow_path=workflow_path,
+        branch=branch,
+        candidate_sha=candidate_sha,
+    )
+    normalized_artifacts = []
+    for name in required_artifacts:
+        archive, artifact_id = _download_artifact(client, by_name, name)
+        manifest = _bootstrap_artifact_manifest(
+            archive,
+            candidate_sha,
+            candidate_tree,
+        )
+        normalized_artifacts.append(
+            {
+                "name": name,
+                "artifact_id": artifact_id,
+                "source_sha": manifest["source_sha"],
+                "source_tree": manifest["source_tree"],
+                "sha256": hashlib_sha256(archive),
+                "platform": manifest["platform"],
+                "plan_sha256": manifest["plan_sha256"],
+                "gate_ids": manifest["gate_ids"],
+                "gate_attestations": manifest["gate_attestations"],
+                "skipped": manifest["skipped"],
             }
         )
     return {

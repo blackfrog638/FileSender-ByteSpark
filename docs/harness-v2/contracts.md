@@ -436,3 +436,36 @@ criterion ID 覆盖，然后直接完成 acceptance task 的 `active -> done`。
 三平台 artifact 必须绑定同一 candidate/tree 和同一 Gate plan，无 skip。
 Linux 另有 sanitizer/fuzz job。Bootstrap evidence 只授权 ADR 0017 的原子
 cutover，不可被普通 task publication 或 criterion closure 复用。
+
+项目所有者使用唯一公开入口收集 exact run 并写 immutable acceptance ref：
+
+```bash
+tool/harness/agent.sh bootstrap-accept \
+  refs/heads/queue/bootstrap/harness-v2-cutover-NNN \
+  --at 2026-08-12T00:00:00Z
+```
+
+Collector 绑定 repository、workflow blob、run ID/attempt、candidate
+SHA/tree、全成功 job 集合、三平台 artifact archive digest、global Gate
+plan 和每个平台的精确 leaf 集合。结果写入：
+
+```text
+refs/heads/attest/bootstrap/<candidate-sha>
+```
+
+该 ref 中的 `bootstrap_acceptance` 记录还绑定当前 protected integration
+base、三平台 Gate attestation 并集、无 skipped job 以及项目所有者身份。
+缺少或过期 artifact、partial matrix、不同 plan digest、任一 skip/failure
+都会阻止 ref 创建。
+
+Branch protection context 切换完成后，只能通过以下命令发布：
+
+```bash
+tool/harness/agent.sh bootstrap-publish \
+  refs/heads/queue/bootstrap/harness-v2-cutover-NNN
+```
+
+Publisher 从远端重新读取 immutable bootstrap attestation，重算当前
+workflow blob、Gate plan 和 artifact binding，然后以 attested integration
+base 执行 protected ref CAS 并做远端 readback。重复调用只在远端已等于
+candidate 时返回 `already_published`；任何其他 base 漂移均失败。

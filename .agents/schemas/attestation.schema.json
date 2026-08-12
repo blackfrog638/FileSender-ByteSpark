@@ -11,6 +11,9 @@
     },
     {
       "$ref": "#/$defs/closure"
+    },
+    {
+      "$ref": "#/$defs/bootstrapAcceptance"
     }
   ],
   "$defs": {
@@ -286,6 +289,84 @@
               }
             }
           }
+        },
+        "created_by": {
+          "type": "object"
+        },
+        "created_at": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "bootstrapAcceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "candidate_sha",
+        "candidate_tree",
+        "integration_base",
+        "plan_sha256",
+        "workflow",
+        "required_jobs",
+        "required_artifacts",
+        "required_gate_attestations",
+        "platforms",
+        "skipped_jobs",
+        "created_by",
+        "created_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "kind": {
+          "const": "bootstrap_acceptance"
+        },
+        "candidate_sha": {
+          "$ref": "#/$defs/sha"
+        },
+        "candidate_tree": {
+          "$ref": "#/$defs/sha"
+        },
+        "integration_base": {
+          "$ref": "#/$defs/sha"
+        },
+        "plan_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "workflow": {
+          "type": "object"
+        },
+        "required_jobs": {
+          "$ref": "#/$defs/nonEmptyStrings"
+        },
+        "required_artifacts": {
+          "$ref": "#/$defs/nonEmptyStrings"
+        },
+        "required_gate_attestations": {
+          "$ref": "#/$defs/digests"
+        },
+        "platforms": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": "linux"
+            },
+            {
+              "const": "macos"
+            },
+            {
+              "const": "windows"
+            }
+          ],
+          "items": false
+        },
+        "skipped_jobs": {
+          "type": "array",
+          "maxItems": 0
         },
         "created_by": {
           "type": "object"

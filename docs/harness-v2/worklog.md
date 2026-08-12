@@ -633,3 +633,54 @@ result: failed with Linux and security qualification complete
 - 增加 `Candidate accepted` 稳定聚合 context；
 - attempt 2 candidate 保留 archive ref，Linux/security 部分结果不拼接
   到后续 candidate acceptance。
+
+### Bootstrap closure hardening
+
+Branch protection 审计同时发现两个 pre-publication 缺口：
+
+1. 计划声明 `attest/bootstrap/<SHA>`，但当时只有平台 evidence schema，
+   没有 hosted artifact collector、acceptance schema 或 immutable store；
+2. 普通 queue 的 cutover-only security job 会以 job-level `skipped`
+   出现，违反 acceptance collector 的 no-skip 规则。
+
+修复：
+
+- `bootstrap-accept` 绑定 repository、workflow blob、run/attempt、全部成功
+  jobs、candidate SHA/tree、三个 artifact archive digest、统一 global Gate
+  plan 和逐平台 leaf 集合；
+- immutable `bootstrap_acceptance` 写入
+  `refs/heads/attest/bootstrap/<candidate-sha>`，自由 approver 参数不可用；
+- `bootstrap-publish` 在发布前从远端重读 attestation 并重算合同绑定，
+  只允许 attested base 到 candidate 的 protected CAS，随后 readback；
+- cutover security job 对普通 queue 运行非 Gate policy marker 并成功结束，
+  bootstrap ref 才运行 sanitizer/fuzz，因此普通 workflow 不产生 skipped
+  job；
+- bootstrap 平台 artifacts 改为共享 global Gate plan digest，平台差异只
+  由各自 `gate_ids` 表示。
+
+早于该修复的 hosted attempt 仅作为诊断/平台资格记录，不能生成最终
+bootstrap acceptance。
+
+### Hosted attempt 3
+
+```text
+candidate: 69bbb9985087b6cf6e954c65782cdcd6c482a3da
+run: https://github.com/blackfrog638/XnnTransfer/actions/runs/31577702315
+result: failed/cancelled after Windows failure
+```
+
+- macOS 和 Linux exact product Gates 全部通过并上传 evidence；
+- Windows pinned vcpkg、native core 和 Git Bash workflow shell 均通过，
+  但 executor 的裸 `bash` 子进程仍解析到 Windows WSL launcher，所有
+  Bash leaf 报告“Windows Subsystem for Linux has no installed
+  distributions”；
+- candidate 已因 bootstrap closure hardening 发生 trust-root 变更而失效，
+  Windows 失败后取消剩余 security job，未拼接部分 evidence。
+
+修复：
+
+- workflow 写入绝对 `XNN_TRANSFER_BASH`，不再依赖 MSVC action 重建的
+  Windows `Path` 顺序；
+- executor 校验 override 为绝对文件路径，将 resolved argv 同时用于
+  toolchain digest 和实际 `Popen`，防止 attestation 与执行二进制不一致；
+- 新增 override path 与 executable-content digest 测试。

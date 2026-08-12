@@ -119,6 +119,7 @@ agent.py
   +-> gates.py ---------> executor.py
   +-> tdd.py -----------> executor.py + attestation.py
   +-> merge_queue.py ---> git_ops.py + executor.py + attestation.py
+  +-> bootstrap.py -----> github_evidence.py + git_ops.py
   +-> dashboard.py -----> read-only ports
 ```
 
@@ -129,6 +130,7 @@ agent.py
 - `executor.py` 只执行解析后的受信 Gate；
 - `merge_queue.py` 不能自行修改 TaskSpec 或 Gate policy；
 - `attestation.py` 不运行产品命令，只验证和封装结果；
+- `bootstrap.py` 只处理一次性 V2 cutover evidence，不能完成普通 task；
 - `dashboard.py` 只读，不写任何权威状态。
 
 ## 生命周期

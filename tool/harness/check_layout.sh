@@ -27,6 +27,7 @@ required=(
   "tool/harness/agent.py"
   "tool/harness/agent.sh"
   "tool/harness/approval.py"
+  "tool/harness/bootstrap.py"
   "tool/harness/closure.py"
   "tool/harness/model.py"
   "tool/harness/state.py"

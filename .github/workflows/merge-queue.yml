@@ -93,8 +93,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          git_bash="$(cygpath -w "$(dirname "$(command -v bash)")")"
-          printf '%s\n' "$git_bash" >> "$GITHUB_PATH"
+          git_bash_directory="$(cygpath -w "$(dirname "$(command -v bash)")")"
+          git_bash_executable="$(cygpath -w "$(command -v bash)")"
+          printf '%s\n' "$git_bash_directory" >> "$GITHUB_PATH"
+          printf 'XNN_TRANSFER_BASH=%s\n' \
+            "$git_bash_executable" >> "$GITHUB_ENV"
 
       - uses: subosito/flutter-action@v2
         with:
@@ -144,7 +147,6 @@ jobs:
 
   cutover-security:
     name: Cutover security
-    if: startsWith(github.ref_name, 'queue/bootstrap/')
     runs-on: ubuntu-latest
     env:
       CC: clang
@@ -152,8 +154,10 @@ jobs:
       XNN_TRANSFER_FUZZ_SECONDS: "15"
     steps:
       - uses: actions/checkout@v4
+        if: startsWith(github.ref_name, 'queue/bootstrap/')
 
       - name: Install security build dependencies
+        if: startsWith(github.ref_name, 'queue/bootstrap/')
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -161,11 +165,17 @@ jobs:
             libtool ninja-build pkg-config
 
       - name: Bootstrap pinned vcpkg
+        if: startsWith(github.ref_name, 'queue/bootstrap/')
         shell: bash
         run: tool/harness/vcpkg_bootstrap.sh
 
       - name: Sanitizer and fuzz Gate
+        if: startsWith(github.ref_name, 'queue/bootstrap/')
         run: make security-test
+
+      - name: Ordinary queue policy marker
+        if: ${{ !startsWith(github.ref_name, 'queue/bootstrap/') }}
+        run: echo "Cutover-only security Gate is not part of this candidate."
 
   candidate-accepted:
     name: Candidate accepted
@@ -191,5 +201,5 @@ jobs:
           if [[ "$GITHUB_REF_NAME" == queue/bootstrap/* ]]; then
             test "$SECURITY_RESULT" = success
           else
-            test "$SECURITY_RESULT" = skipped
+            test "$SECURITY_RESULT" = success
           fi

@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import attestation
 import approval
+import bootstrap
 import closure
 import git_ops
 import github_evidence
@@ -33,6 +34,7 @@ ROOT = Path(__file__).resolve().parents[2]
 ERRORS = (
     attestation.AttestationError,
     approval.ApprovalError,
+    bootstrap.BootstrapError,
     closure.ClosureError,
     GateExecutionError,
     GatePlanError,
@@ -43,6 +45,20 @@ ERRORS = (
     state.StateError,
     tdd.TddError,
     workspace.WorkspaceError,
+)
+BOOTSTRAP_JOBS = (
+    "Candidate plan",
+    "Harness V2",
+    "Product gates (linux)",
+    "Product gates (macos)",
+    "Product gates (windows)",
+    "Cutover security",
+    "Candidate accepted",
+)
+BOOTSTRAP_ARTIFACTS = (
+    "candidate-evidence-linux",
+    "candidate-evidence-macos",
+    "candidate-evidence-windows",
 )
 
 
@@ -196,6 +212,7 @@ def _required_jobs(contracts: model.ContractSet, task_ids: Sequence[str]) -> Lis
             "Product gates ({})".format(item["label"])
             for item in _platform_matrix(contracts, task_ids)
         ),
+        "Candidate accepted",
     ]
 
 
@@ -263,6 +280,19 @@ def _parser() -> argparse.ArgumentParser:
 
     close_acceptance = commands.add_parser("acceptance-close")
     close_acceptance.add_argument("task_id")
+
+    bootstrap_accept = commands.add_parser("bootstrap-accept")
+    bootstrap_accept.add_argument("queue_ref")
+    bootstrap_accept.add_argument(
+        "--workflow", default=".github/workflows/merge-queue.yml"
+    )
+    bootstrap_accept.add_argument("--at", required=True)
+
+    bootstrap_publish = commands.add_parser("bootstrap-publish")
+    bootstrap_publish.add_argument("queue_ref")
+    bootstrap_publish.add_argument(
+        "--workflow", default=".github/workflows/merge-queue.yml"
+    )
 
     collect = commands.add_parser("collect-evidence")
     collect.add_argument("task_id")
@@ -454,16 +484,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(json.dumps(artifact, sort_keys=True))
             return 0
         if args.command == "verify-all":
-            plan = plan_for_platform(
-                contracts, global_gate_plan(contracts), args.platform
-            )
+            global_plan = global_gate_plan(contracts)
+            plan = plan_for_platform(contracts, global_plan, args.platform)
             result = GateExecutor(
                 contracts,
                 platform_label=args.platform,
                 cache_enabled=not args.no_cache,
             ).execute(plan)
             result.require_success()
-            artifact = _bootstrap_verification_artifact(contracts, result, plan.digest)
+            artifact = _bootstrap_verification_artifact(
+                contracts, result, global_plan.digest
+            )
             if args.output is not None:
                 git_ops.atomic_write_json(args.output, artifact)
             print(json.dumps(artifact, sort_keys=True))
@@ -543,6 +574,172 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 contracts, store, manager, args.remote
             ).close(args.task_id)
             print(model.canonical_sha256(value))
+            return 0
+        if args.command == "bootstrap-accept":
+            if args.remote is None:
+                raise bootstrap.BootstrapError(
+                    "bootstrap acceptance requires an authoritative remote"
+                )
+            prefix = contracts.manifest["ref_namespaces"]["queue"] + "bootstrap/"
+            if not args.queue_ref.startswith(prefix):
+                raise bootstrap.BootstrapError(
+                    "bootstrap queue ref must be under {}".format(prefix)
+                )
+            candidate_sha = git_ops.fetch_remote_object(
+                root, args.remote, args.queue_ref
+            )
+            candidate_tree = git_ops.current_tree(root, candidate_sha)
+            protected_ref = "refs/heads/{}".format(
+                contracts.manifest["integration_branch"]
+            )
+            integration_base = git_ops.fetch_remote_object(
+                root, args.remote, protected_ref
+            )
+            if not git_ops.is_ancestor(root, integration_base, candidate_sha):
+                raise bootstrap.BootstrapError(
+                    "bootstrap candidate is not based on the protected head"
+                )
+            remote_url = git_ops.git_text(root, "remote", "get-url", args.remote)
+            repository = github_evidence.repository_slug(remote_url)
+            workflow_blob = git_ops.object_id(
+                root, "{}:{}".format(candidate_sha, args.workflow)
+            )
+            client = github_evidence.GitHubClient(
+                repository, github_evidence.credential_token(root)
+            )
+            branch = args.queue_ref[len("refs/heads/") :]
+            evidence = github_evidence.collect_bootstrap_workflow_evidence(
+                client,
+                workflow_path=args.workflow,
+                workflow_blob=workflow_blob,
+                branch=branch,
+                candidate_sha=candidate_sha,
+                candidate_tree=candidate_tree,
+                required_artifacts=BOOTSTRAP_ARTIFACTS,
+            )
+            global_plan = global_gate_plan(contracts)
+            expected_gates = {
+                platform: plan_for_platform(contracts, global_plan, platform).leaves
+                for platform in ("linux", "macos", "windows")
+            }
+            normalized = bootstrap.validate_workflow_evidence(
+                evidence,
+                repository=repository,
+                workflow_path=args.workflow,
+                workflow_blob=workflow_blob,
+                candidate_sha=candidate_sha,
+                candidate_tree=candidate_tree,
+                candidate_branch=branch,
+                required_jobs=BOOTSTRAP_JOBS,
+                required_artifacts=BOOTSTRAP_ARTIFACTS,
+                expected_plan_sha256=global_plan.digest,
+                expected_gates=expected_gates,
+            )
+            owner = contracts.manifest["project_owner"]
+            actual = state.git_actor(root)
+            if actual["name"] != owner["name"] or actual["email"] != owner["email"]:
+                raise bootstrap.BootstrapError(
+                    "current Git identity is not the configured project owner"
+                )
+            actor = {
+                "kind": "project-owner",
+                "id": owner["id"],
+                "name": owner["name"],
+                "email": owner["email"],
+            }
+            value = bootstrap.create_attestation(
+                candidate_sha=candidate_sha,
+                candidate_tree=candidate_tree,
+                integration_base=integration_base,
+                workflow=normalized,
+                required_jobs=BOOTSTRAP_JOBS,
+                required_artifacts=BOOTSTRAP_ARTIFACTS,
+                actor=actor,
+                created_at=args.at,
+            )
+            store = bootstrap.AcceptanceStore(contracts, args.remote)
+            commit = store.write(value)
+            print(
+                json.dumps(
+                    {
+                        "attestation_ref": store.ref(candidate_sha),
+                        "attestation_commit": commit,
+                        "attestation_sha256": model.canonical_sha256(value),
+                        "run_id": normalized["run_id"],
+                    },
+                    sort_keys=True,
+                )
+            )
+            return 0
+        if args.command == "bootstrap-publish":
+            if args.remote is None:
+                raise bootstrap.BootstrapError(
+                    "bootstrap publication requires an authoritative remote"
+                )
+            prefix = contracts.manifest["ref_namespaces"]["queue"] + "bootstrap/"
+            if not args.queue_ref.startswith(prefix):
+                raise bootstrap.BootstrapError(
+                    "bootstrap queue ref must be under {}".format(prefix)
+                )
+            candidate_sha = git_ops.fetch_remote_object(
+                root, args.remote, args.queue_ref
+            )
+            candidate_tree = git_ops.current_tree(root, candidate_sha)
+            remote_url = git_ops.git_text(root, "remote", "get-url", args.remote)
+            repository = github_evidence.repository_slug(remote_url)
+            workflow_blob = git_ops.object_id(
+                root, "{}:{}".format(candidate_sha, args.workflow)
+            )
+            branch = args.queue_ref[len("refs/heads/") :]
+            global_plan = global_gate_plan(contracts)
+            expected_gates = {
+                platform: plan_for_platform(contracts, global_plan, platform).leaves
+                for platform in ("linux", "macos", "windows")
+            }
+            store = bootstrap.AcceptanceStore(contracts, args.remote)
+            value = store.read(candidate_sha)
+            normalized = bootstrap.validate_workflow_evidence(
+                value["workflow"],
+                repository=repository,
+                workflow_path=args.workflow,
+                workflow_blob=workflow_blob,
+                candidate_sha=candidate_sha,
+                candidate_tree=candidate_tree,
+                candidate_branch=branch,
+                required_jobs=BOOTSTRAP_JOBS,
+                required_artifacts=BOOTSTRAP_ARTIFACTS,
+                expected_plan_sha256=global_plan.digest,
+                expected_gates=expected_gates,
+            )
+            rebuilt = bootstrap.create_attestation(
+                candidate_sha=candidate_sha,
+                candidate_tree=candidate_tree,
+                integration_base=value["integration_base"],
+                workflow=normalized,
+                required_jobs=BOOTSTRAP_JOBS,
+                required_artifacts=BOOTSTRAP_ARTIFACTS,
+                actor=value["created_by"],
+                created_at=value["created_at"],
+            )
+            if rebuilt != value:
+                raise bootstrap.BootstrapError(
+                    "bootstrap acceptance does not match current contracts"
+                )
+            result = bootstrap.publish_candidate(
+                contracts,
+                args.remote,
+                value,
+            )
+            print(
+                json.dumps(
+                    {
+                        "candidate_sha": candidate_sha,
+                        "protected_branch": contracts.manifest["integration_branch"],
+                        "result": result,
+                    },
+                    sort_keys=True,
+                )
+            )
             return 0
         if args.command == "collect-evidence":
             if args.remote is None:

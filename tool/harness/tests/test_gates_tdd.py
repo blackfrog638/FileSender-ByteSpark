@@ -271,6 +271,38 @@ class GateExecutorTest(unittest.TestCase):
         self.assertFalse(third.results[0].cached)
         self.assertEqual(counter.read_text(), "2")
 
+    def test_bash_override_is_absolute_and_bound_to_toolchain(self) -> None:
+        repository = GateRepository(self)
+        repository.commit("chore: initialize")
+        contracts = repository.load()
+        runner = executor.GateExecutor(contracts)
+        bash = repository.external / "bash"
+        bash.write_bytes(b"first")
+        bash.chmod(0o755)
+        environment = {
+            "PATH": os.environ.get("PATH", ""),
+            "XNN_TRANSFER_BASH": str(bash),
+        }
+        resolved = runner._resolved_argv(
+            ["bash", "tool/harness/check_layout.sh"],
+            environment,
+        )
+        self.assertEqual(resolved[0], str(bash))
+        first_digest = runner._toolchain_digest(resolved, environment)
+        bash.write_bytes(b"second")
+        self.assertNotEqual(
+            first_digest,
+            runner._toolchain_digest(resolved, environment),
+        )
+        with self.assertRaisesRegex(
+            executor.GateExecutionError,
+            "absolute executable",
+        ):
+            runner._resolved_argv(
+                ["bash", "tool/harness/check_layout.sh"],
+                {"XNN_TRANSFER_BASH": "relative/bash"},
+            )
+
     def test_failure_is_not_cached(self) -> None:
         repository = GateRepository(self)
         counter = repository.external / "failure-counter.txt"
