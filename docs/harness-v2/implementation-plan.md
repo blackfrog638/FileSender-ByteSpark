@@ -11,8 +11,7 @@
 当前进度：
 
 - HV2-WP0～WP6：实现完成；
-- HV2-WP7：本地原子替换和验证完成，等待 cutover commit 与 exact
-  candidate CI；
+- HV2-WP7：原子替换提交 `ec342d2` 已生成，等待 exact candidate CI；
 - HV2-WP8：本地恢复/安全门禁完成，远端三平台、ruleset 审计、性能基准
   和 pilot 待执行。
 

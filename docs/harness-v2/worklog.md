@@ -445,7 +445,7 @@ rollback: origin/bootstrap/harness-v2 at 89a8b252
 python3 -B tool/harness/agent.py validate
   PASS: gates=12, plans=0, tasks=0
 make harness-v2-test
-  PASS: 73 tests
+  PASS: 74 tests (final aggregate run)
 make architecture-test
   PASS: 17 tests and dependency matrix
 make commit-message-test
@@ -499,3 +499,43 @@ Reviewer/授权：
 - publication slot 小于 5 秒、cache P50/P95 和吞吐 SLO 尚未 benchmark；
 - Pilot A/Pilot B 尚未注册和交付；
 - protected `harness` 尚未执行最终 CAS，V1 archive 在发布完成前不清理。
+
+## 2026-08-12：HV2-WP8 本地 aggregate 与 cache baseline
+
+原子切换提交：
+
+```text
+ec342d2 feat(harness): replace v1 control plane atomically
+338 files changed, 6141 insertions, 43518 deletions
+```
+
+在 clean tree 上执行 V2 completion gate：
+
+```text
+/usr/bin/time -p make verify
+  PASS: 9 unique leaf Gate attestations
+  cold real: 93.64s
+
+/usr/bin/time -p make verify
+  PASS: same plan, success/no-skip cache reused
+  warm real: 0.27s
+```
+
+冷缓存单次 baseline 已低于 2 分钟目标，热缓存证明相同 tree 的 leaf Gate
+未重复构建。该数据不是跨任务 P50/P95；正式 SLO 仍需 pilot 样本。
+
+本地最终结果：
+
+- Harness V2 suite：74/74；
+- native CTest：28/28；
+- sanitizer CTest：27/27；
+- ABI compatibility：4/4；
+- Flutter analyze：0 issues；
+- Flutter tests：53 passed；
+- dependency policy：30 tests + pinned probe；
+- architecture policy：17 tests + dependency matrix；
+- `make verify`：passed。
+
+下一阶段只接受 exact hosted evidence：push 后的 Linux/macOS/Windows
+workflow、remote namespace ruleset、queue-worker credential boundary、CAS
+publication timing 和两个 pilot。它们不能由以上本地结果替代。
