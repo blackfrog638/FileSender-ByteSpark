@@ -1859,7 +1859,7 @@
     {
       "id": "XT-096",
       "title": "Schema-v4 lifecycle fixture isolation",
-      "readiness": "ready",
+      "readiness": "blocked",
       "risk_profile_required": true,
       "commit_policy_required": true,
       "architecture_contract_required": true,
@@ -1881,7 +1881,7 @@
     },
     {
       "id": "XT-097",
-      "title": "Pre-acceptance evidence binding",
+      "title": "Schema-v4 acceptance bootstrap",
       "readiness": "ready",
       "risk_profile_required": true,
       "commit_policy_required": true,
@@ -1893,7 +1893,10 @@
         ".agents/tasks/XT-097-pre-acceptance-evidence-binding.md",
         ".agents/handoffs/XT-097.md",
         "tool/harness/evidence.py",
-        "tool/harness/evidence_test.py"
+        "tool/harness/evidence_test.py",
+        "tool/harness/governance_test.sh",
+        "tool/harness/lifecycle_fixture.py",
+        "tool/harness/lifecycle_fixture_test.py"
       ],
       "delivery_plan": "DP-SCHEMA4-PREACCEPTANCE-EVIDENCE",
       "requirement_ids": [

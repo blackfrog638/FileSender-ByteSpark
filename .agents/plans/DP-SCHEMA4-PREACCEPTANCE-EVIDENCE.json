@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "id": "DP-SCHEMA4-PREACCEPTANCE-EVIDENCE",
-  "title": "Bind schema-v4 pre-acceptance evidence",
+  "title": "Bootstrap schema-v4 acceptance",
   "status": "approved",
   "source": {
     "kind": "governance",
@@ -11,7 +11,7 @@
     {
       "id": "REQ-SCHEMA4-PREACCEPTANCE-EVIDENCE",
       "source_ref": "HARNESS-SCHEMA4-PREACCEPTANCE-EVIDENCE",
-      "statement": "Schema-v4 acceptance collects criterion evidence from an exact integrated delivery before the acceptance record can bind its verified SHA, without trusting mutable worktree state or weakening exact-candidate validation.",
+      "statement": "Schema-v4 acceptance remains verifiable while a task is integrated and collects criterion evidence from that exact delivery before the acceptance record binds its verified SHA.",
       "criteria": [
         {
           "id": "CRIT-SCHEMA4-PREACCEPTANCE-EVIDENCE",
@@ -28,7 +28,7 @@
             {
               "id": "EVD-SCHEMA4-PREACCEPTANCE-EVIDENCE",
               "producer_task": "XT-097",
-              "gate": "evidence_test",
+              "gate": "governance_test",
               "level": "integration",
               "required_scenarios": [
                 "evidence.integrated_candidate_before_acceptance",
@@ -45,6 +45,39 @@
               "allow_skipped": false
             }
           ]
+        },
+        {
+          "id": "CRIT-SCHEMA4-BOOTSTRAP-LIFECYCLE",
+          "statement": "The governance lifecycle fixture restores inherited integrated records byte-for-byte from the delivery parent before running its synthetic lifecycle, without fabricating acceptance evidence or mutating the caller worktree.",
+          "negative_definitions": [
+            "Changing an inherited schema-v4 record to done without exact-candidate criterion evidence does not produce a valid fixture state.",
+            "Skipping governance validation, deleting inherited registration, mutating the caller worktree, or weakening schema-v4 evidence validation does not satisfy the criterion.",
+            "A fixture that passes only when no schema-v4 task is integrated does not preserve repository verification."
+          ],
+          "implementation_tasks": [
+            "XT-097"
+          ],
+          "evidence": [
+            {
+              "id": "EVD-SCHEMA4-BOOTSTRAP-LIFECYCLE",
+              "producer_task": "XT-097",
+              "gate": "governance_test",
+              "level": "integration",
+              "required_scenarios": [
+                "lifecycle_fixture.inherited_schema4_integrated",
+                "lifecycle_fixture.real_worktree_unchanged"
+              ],
+              "required_assertions": [
+                "inherited_record.restored_from_delivery_parent",
+                "criterion_evidence.not_fabricated",
+                "governance_fixture.completes"
+              ],
+              "required_platforms": [],
+              "required_roles": [],
+              "topology": "in_process",
+              "allow_skipped": false
+            }
+          ]
         }
       ],
       "acceptance_task": "XT-097"
@@ -52,8 +85,8 @@
   ],
   "approval": {
     "approved_by": "integration-owner",
-    "approved_at": "2026-08-12T00:56:14+00:00",
-    "content_sha256": "c08758af1de81044735159f43dc85b9e603b53c9a40945a850fe2ac4c4b3a800"
+    "approved_at": "2026-08-12T01:39:49+00:00",
+    "content_sha256": "f8bab849b9e0459f72ee21221a55bc4dd7a2a8df4853da8ac6649c61b39ca9bf"
   },
   "superseded_by": ""
 }

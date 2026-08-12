@@ -15,7 +15,7 @@
   "commit": {
     "type": "fix",
     "scope": "harness",
-    "summary": "bind pre-acceptance evidence candidates"
+    "summary": "bootstrap schema-v4 acceptance"
   },
   "architecture_change": {
     "mode": "none",
@@ -31,54 +31,54 @@
   "risks": {
     "functionality": {
       "level": "critical",
-      "rationale": "The current self-referential verified-SHA precondition prevents every schema-v4 task from completing acceptance after otherwise successful exact-candidate CI.",
+      "rationale": "Integrated schema-v4 records currently break the lifecycle fixture before CI, while the self-referential verified-SHA precondition blocks evidence collection after otherwise successful CI.",
       "gates": [
-        "evidence_test",
+        "governance_test",
         "verify"
       ]
     },
     "security": {
       "level": "critical",
-      "rationale": "The repair must replace an impossible self-reference with exact candidate-commit binding without trusting mutable worktree state or weakening remote run and artifact validation.",
+      "rationale": "The repair must isolate synthetic lifecycle state and replace an impossible self-reference with exact candidate binding without fabricating evidence or weakening remote validation.",
       "gates": [
-        "evidence_test",
+        "governance_test",
         "verify"
       ]
     },
     "performance": {
       "level": "low",
-      "rationale": "Collection adds bounded Git metadata and status reads once per schema-v4 acceptance.",
+      "rationale": "Collection and fixture setup add bounded Git metadata reads once per acceptance or governance fixture.",
       "gates": [
-        "evidence_test"
+        "governance_test"
       ]
     },
     "compatibility": {
       "level": "critical",
-      "rationale": "Integrated records intentionally keep verified_sha empty until acceptance, while accepted records and existing criterion bundles must retain their current validation contract.",
+      "rationale": "Integrated records keep verified_sha empty until acceptance, and inherited fixture records, accepted records, and existing bundles must retain their exact validation contract.",
       "gates": [
-        "evidence_test",
+        "governance_test",
         "verify"
       ]
     },
     "concurrency": {
       "level": "low",
-      "rationale": "Acceptance waits on remote CI while sharing the integration worktree, so collection must reject any intervening checkout or dirty-state change.",
+      "rationale": "Collection must reject intervening checkout changes while fixture rewriting must remain isolated from the caller worktree.",
       "gates": [
-        "evidence_test"
+        "governance_test"
       ]
     },
     "platform": {
       "level": "low",
-      "rationale": "The repair uses portable Git plumbing and Python already required by the acceptance harness.",
+      "rationale": "Both repairs use portable Git plumbing and Python already required by the acceptance harness.",
       "gates": [
-        "evidence_test"
+        "governance_test"
       ]
     },
     "persistence": {
       "level": "critical",
-      "rationale": "Criterion evidence becomes durable acceptance provenance, so its source record, workflow run, artifacts, and bundle must all bind one immutable candidate SHA.",
+      "rationale": "Fixture records must be restored verbatim and durable criterion evidence must bind its source record, workflow run, artifacts, and bundle to one immutable candidate SHA.",
       "gates": [
-        "evidence_test",
+        "governance_test",
         "verify"
       ]
     }
@@ -88,12 +88,12 @@
       "required": false,
       "status": "not_required",
       "references": [],
-      "rationale": "The task restores the approved exact-candidate acceptance order and changes no public contract or expensive-to-reverse architecture decision."
+      "rationale": "The task restores the approved schema-v4 fixture and exact-candidate acceptance order and changes no public contract or expensive-to-reverse decision."
     },
     "architecture": {
       "status": "not_required",
       "references": [],
-      "rationale": "The change is confined to the internal criterion-evidence collector and its tests."
+      "rationale": "The change is confined to internal lifecycle-fixture preparation and criterion-evidence collection."
     },
     "roadmap": {
       "status": "not_required",
@@ -109,11 +109,11 @@
   "verification": {
     "status": "pending",
     "gates": [
-      "evidence_test",
+      "governance_test",
       "verify"
     ],
     "commands": [
-      "make evidence-test",
+      "make governance-test",
       "make verify"
     ],
     "reference": ""
@@ -125,32 +125,36 @@
   },
   "test_contract": {
     "schema_version": 1,
-    "plan_content_sha256": "c08758af1de81044735159f43dc85b9e603b53c9a40945a850fe2ac4c4b3a800",
+    "plan_content_sha256": "f8bab849b9e0459f72ee21221a55bc4dd7a2a8df4853da8ac6649c61b39ca9bf",
     "criterion_ids": [
-      "CRIT-SCHEMA4-PREACCEPTANCE-EVIDENCE"
+      "CRIT-SCHEMA4-PREACCEPTANCE-EVIDENCE",
+      "CRIT-SCHEMA4-BOOTSTRAP-LIFECYCLE"
     ],
     "proof_mode": "regression",
     "executor": "deterministic",
-    "gate": "evidence_test",
+    "gate": "governance_test",
     "proof_surface": [
-      "tool/harness/evidence_test.py"
+      "tool/harness/evidence_test.py",
+      "tool/harness/governance_test.sh",
+      "tool/harness/lifecycle_fixture_test.py"
     ],
     "failure_fingerprints": [
-      "FAILED: integrated candidate evidence requires no precommitted verified SHA"
+      "FAILED: integrated candidate evidence requires no precommitted verified SHA",
+      "FAILED: integrated schema-v4 lifecycle state is not isolated"
     ],
     "allow_skipped": false
   },
   "defect": {
     "severity": "P1",
     "source": "test",
-    "symptom": "Schema-v4 acceptance reports 'record integration does not bind the source SHA' after the exact delivery workflow and criterion evidence job both pass.",
-    "expected_contract": "Acceptance collects exact-candidate evidence while the delivery record is integrated with empty verified_sha, then mark-accepted binds that verified SHA and the generated bundle atomically.",
-    "actual_behavior": "Evidence collection requires verified_sha to equal the delivery commit SHA before mark-accepted, creating an impossible requirement for a commit to contain its own SHA.",
-    "trigger": "Run agent.sh accept for any integrated schema-v4 squash or cherry-pick delivery whose remote CI and criterion artifact succeed.",
+    "symptom": "An integrated schema-v4 task first makes repository verification reject fabricated fixture state and, after fixture isolation, evidence collection rejects the empty pre-acceptance verified_sha even when remote CI passes.",
+    "expected_contract": "Repository verification isolates inherited integrated state, then acceptance collects exact-candidate evidence while verified_sha is empty and atomically binds the SHA and bundle.",
+    "actual_behavior": "The fixture fabricates done state without evidence and the collector then requires the delivery commit to contain its own SHA, so neither standalone repair can complete schema-v4 acceptance.",
+    "trigger": "Run make verify or agent.sh accept with any integrated schema-v4 squash or cherry-pick delivery.",
     "affected_since": "248774b0f029b82bd2246c58b99bc031112adafa",
     "proof_mode": "deterministic",
     "reproduction_commit": "",
-    "regression_gate": "evidence_test",
+    "regression_gate": "governance_test",
     "contract_disposition": "restore",
     "failure_fingerprint": "FAILED: integrated candidate evidence requires no precommitted verified SHA"
   }
