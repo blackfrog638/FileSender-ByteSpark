@@ -7,7 +7,6 @@ import shutil
 import os
 import subprocess
 import sys
-import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -305,23 +304,44 @@ class GateExecutorTest(unittest.TestCase):
 
     def test_independent_resource_groups_overlap(self) -> None:
         repository = GateRepository(self)
+        governance_times = repository.external / "governance-times.txt"
+        feature_times = repository.external / "feature-times.txt"
+
+        def timed_command(path: Path, label: str) -> list[str]:
+            code = (
+                "from pathlib import Path; import time; "
+                "p=Path({!r}); "
+                "p.write_text(str(time.monotonic_ns())+'\\n'); "
+                "time.sleep(0.35); "
+                "p.write_text(p.read_text()+str(time.monotonic_ns())+'\\n'); "
+                "print({!r})"
+            ).format(str(path), label)
+            return ["python3", "-c", code]
+
         repository.configure_command(
             "governance",
-            ["python3", "-c", "import time; time.sleep(0.35); print('governance')"],
+            timed_command(governance_times, "governance"),
         )
         repository.configure_command(
             "feature_test",
-            ["python3", "-c", "import time; time.sleep(0.35); print('feature')"],
+            timed_command(feature_times, "feature"),
             "native_build",
         )
         repository.commit("chore: initialize")
         contracts = repository.load()
         plan = gates.plan_gates(contracts, "XT-101", "review")
-        started = time.monotonic()
         result = executor.GateExecutor(contracts, cache_enabled=False).execute(plan)
-        elapsed = time.monotonic() - started
         self.assertTrue(result.passed)
-        self.assertLess(elapsed, 0.65)
+        governance_interval = tuple(
+            int(value) for value in governance_times.read_text().splitlines()
+        )
+        feature_interval = tuple(
+            int(value) for value in feature_times.read_text().splitlines()
+        )
+        self.assertLess(
+            max(governance_interval[0], feature_interval[0]),
+            min(governance_interval[1], feature_interval[1]),
+        )
 
 
 class TddTest(unittest.TestCase):

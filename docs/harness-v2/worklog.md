@@ -588,3 +588,48 @@ result: failed/cancelled after decisive failures
 - Windows 将 Git Bash 目录写入 `GITHUB_PATH`；
 - `require_success` 输出每个失败 leaf 最后 4 KiB trusted diagnostic；
 - failed candidate 保留 archive ref，后续 attempt 使用新 SHA 和完整新 run。
+
+### Branch protection context migration
+
+远端 `harness` 在 cutover 前启用 `strict`、`enforce_admins`、禁止 force
+push 和删除，并要求 11 个 V1 workflow contexts。V2 的 platform matrix
+由 TaskSpec criterion 和 risk routing 动态展开，不能把三个静态 platform
+job 名直接设为 required contexts，否则单平台合法 candidate 会永久阻塞。
+
+V2 workflow 增加稳定聚合 context `Candidate accepted`：
+
+- `Candidate plan`、`Harness V2` 和动态 `Product gates` 必须全部成功；
+- `queue/bootstrap/**` 还必须要求 `Cutover security` 成功；
+- 普通 queue 明确要求一次性 security job 为 `skipped`；
+- publisher 仍逐项验证 run identity、workflow blob、matrix、Gate
+  attestation 和 criterion artifact，聚合 context 不替代内容验证。
+
+最终 bootstrap run 通过后，远端 protection required context 将原子替换
+为 `Candidate accepted`，其余 strict/admin/force/delete 设置保持不降级。
+
+### Hosted attempt 2
+
+```text
+candidate: 86ddae3142fb3198fe3aac488b82e80a96663b61
+run: https://github.com/blackfrog638/XnnTransfer/actions/runs/31575945207
+result: failed with Linux and security qualification complete
+```
+
+- Candidate plan、Harness V2、Linux exact product Gate 和 Cutover security
+  全部通过；
+- Windows 已确认 Git Bash 生效，随后 `msvc-dev-cmd` 注入 Visual Studio
+  bundled `VCPKG_ROOT`，覆盖仓库 pinned checkout；
+- macOS 完成 pinned dependencies 和 native core 构建，唯一失败为并发
+  测试的 `0.65s` 墙钟阈值，两个 `0.35s` leaf 实测 `0.663s`；
+- bounded diagnostic 将 macOS 失败 leaf 和断言完整带到 job log，证明
+  attempt 1 的可观测性修复生效。
+
+修复：
+
+- product bootstrap 将仓库 checkout 以更高优先级的
+  `XNN_TRANSFER_VCPKG_ROOT` 写入后续 step 环境；
+- 并发测试改为记录两个子进程的 monotonic start/end 并断言区间重叠，
+  不再把 hosted runner 调度延迟误判为串行；
+- 增加 `Candidate accepted` 稳定聚合 context；
+- attempt 2 candidate 保留 archive ref，Linux/security 部分结果不拼接
+  到后续 candidate acceptance。

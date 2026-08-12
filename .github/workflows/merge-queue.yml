@@ -104,7 +104,13 @@ jobs:
 
       - name: Bootstrap pinned vcpkg
         shell: bash
-        run: tool/harness/vcpkg_bootstrap.sh
+        run: |
+          tool/harness/vcpkg_bootstrap.sh
+          vcpkg_root="$GITHUB_WORKSPACE/out/tools/vcpkg"
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            vcpkg_root="$(cygpath -w "$vcpkg_root")"
+          fi
+          printf 'XNN_TRANSFER_VCPKG_ROOT=%s\n' "$vcpkg_root" >> "$GITHUB_ENV"
 
       - name: Prepare native library for bootstrap tests
         if: startsWith(github.ref_name, 'queue/bootstrap/')
@@ -160,3 +166,30 @@ jobs:
 
       - name: Sanitizer and fuzz Gate
         run: make security-test
+
+  candidate-accepted:
+    name: Candidate accepted
+    if: always()
+    needs:
+      - candidate-plan
+      - harness-v2
+      - product-gates
+      - cutover-security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require complete candidate verification
+        shell: bash
+        env:
+          PLAN_RESULT: ${{ needs.candidate-plan.result }}
+          HARNESS_RESULT: ${{ needs.harness-v2.result }}
+          PRODUCT_RESULT: ${{ needs.product-gates.result }}
+          SECURITY_RESULT: ${{ needs.cutover-security.result }}
+        run: |
+          test "$PLAN_RESULT" = success
+          test "$HARNESS_RESULT" = success
+          test "$PRODUCT_RESULT" = success
+          if [[ "$GITHUB_REF_NAME" == queue/bootstrap/* ]]; then
+            test "$SECURITY_RESULT" = success
+          else
+            test "$SECURITY_RESULT" = skipped
+          fi
