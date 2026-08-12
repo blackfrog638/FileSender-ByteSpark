@@ -1,0 +1,98 @@
+name: Harness V2 Merge Queue
+
+on:
+  push:
+    branches:
+      - "queue/**"
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-plan:
+    name: Candidate plan
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate contracts
+        run: python3 -B tool/harness/agent.py --local validate
+
+      - name: Resolve risk matrix
+        id: plan
+        shell: bash
+        run: |
+          matrix="$(python3 -B tool/harness/agent.py --local matrix)"
+          printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
+
+  harness-v2:
+    name: Harness V2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compile Harness
+        run: python3 -m compileall -q tool/harness
+
+      - name: Harness contracts and adversarial tests
+        run: make harness-v2-test
+
+      - name: Commit policy
+        env:
+          XNN_TRANSFER_COMMIT_BASE: ${{ github.event.before }}
+          XNN_TRANSFER_COMMIT_HEAD: ${{ github.sha }}
+        run: make commit-message-test
+
+  product-gates:
+    name: Product gates (${{ matrix.label }})
+    needs:
+      - candidate-plan
+      - harness-v2
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.candidate-plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf autoconf-archive automake dbus-x11 gnome-keyring \
+            libgtk-3-dev libtool ninja-build pkg-config
+
+      - name: Install macOS build dependencies
+        if: runner.os == 'macOS'
+        run: brew install pkgconf
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.32.8
+          channel: stable
+          cache: true
+
+      - name: Execute exact candidate Gate plan
+        shell: bash
+        run: >-
+          python3 -B tool/harness/agent.py --local verify
+          --phase queue
+          --platform "${{ matrix.label }}"
+          --output out/candidate-evidence/evidence.json
+
+      - name: Upload exact candidate evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-evidence-${{ matrix.label }}
+          path: out/candidate-evidence/evidence.json
+          if-no-files-found: error
+          retention-days: 14

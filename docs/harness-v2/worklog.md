@@ -205,6 +205,63 @@ make harness-v2-test
 非幂等问题。修复 fixture 命令身份并将已有 attestation 检查提前后，
 31 项全部通过。
 
+### 2026-08-12：WP5/WP6 Submission、Merge Train 与 Publication
+
+实现：
+
+```text
+tool/harness/attestation.py
+tool/harness/merge_queue.py
+tool/harness/github_evidence.py
+tool/harness/agent.py
+tool/harness/tests/test_queue_attestation.py
+tool/harness/tests/test_github_evidence.py
+tool/harness/tests/test_agent_cli.py
+.github/workflows/review.yml
+.github/workflows/merge-queue.yml
+.github/workflows/nightly.yml
+```
+
+行为：
+
+- 独立 reviewer 生成 immutable submission ref；
+- high/critical task owner 不能同时充当 reviewer；
+- submission 绑定 source range、payload SHA-256、Plan、TaskSpec、Gate、
+  TDD 和 review attestations；
+- queued 后开发 worktree 释放，owned paths 继续保留；
+- merge train 构造 `base -> A -> A+B` 累积候选；
+- 每个 candidate patch 必须与对应 submission byte-equivalent；
+- queue candidate ref 可独立并行触发 CI；
+- GitHub collector 从 credential helper 获取 token；
+- hosted evidence 绑定 repository、workflow path/blob、run/attempt、branch、
+  candidate SHA、jobs 和下载后的 artifact；
+- skipped、wrong SHA、missing job、stale artifact、unsafe ZIP 和 incomplete
+  pagination fail closed；
+- acceptance attestation 在 candidate 外部 ref 保存；
+- protected branch 只做 parent-matched CAS；
+- publish 成功但 state finalization 失败可以从 branch + attestation 恢复；
+- 单一 `agent.py` 提供 validate/list/claim/TDD/verify/submit/queue/publish/
+  recover 命令；
+- queue platform matrix 由 TaskSpec 风险机械选择。
+
+验证：
+
+```text
+make harness-v2-test
+python3 -m py_compile <WP5/WP6 modules and tests>
+PyYAML safe_load .github/workflows/*.yml
+git diff --check
+```
+
+结果：
+
+- 首次加入队列模块后发现 `queue.py` 覆盖 Python 标准库 `queue`；
+- 模块改名为 `merge_queue.py`，未使用伪装标准库接口的兼容补丁；
+- 增加真实双任务 train 和 no-skip 负例后，共 46 项测试全部通过；
+- 4 个 workflow YAML 语法解析通过；
+- `actionlint` 本机不可用，未执行；CI/live smoke 在 WP8 验证；
+- 未修改 protected branch。
+
 ## 命令日志
 
 ### 2026-08-12：现状读取

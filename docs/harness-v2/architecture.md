@@ -37,7 +37,7 @@ XnnTransfer/
 │   ├── gates.py
 │   ├── executor.py
 │   ├── tdd.py
-│   ├── queue.py
+│   ├── merge_queue.py
 │   ├── attestation.py
 │   ├── dashboard.py
 │   └── tests/
@@ -115,7 +115,7 @@ agent.py
   +-> state.py ---------> git_ops.py
   +-> gates.py ---------> executor.py
   +-> tdd.py -----------> executor.py + attestation.py
-  +-> queue.py ---------> git_ops.py + executor.py + attestation.py
+  +-> merge_queue.py ---> git_ops.py + executor.py + attestation.py
   +-> dashboard.py -----> read-only ports
 ```
 
@@ -124,7 +124,7 @@ agent.py
 - `model.py` 不执行 Git、进程或网络操作；
 - `git_ops.py` 不解释业务状态；
 - `executor.py` 只执行解析后的受信 Gate；
-- `queue.py` 不能自行修改 TaskSpec 或 Gate policy；
+- `merge_queue.py` 不能自行修改 TaskSpec 或 Gate policy；
 - `attestation.py` 不运行产品命令，只验证和封装结果；
 - `dashboard.py` 只读，不写任何权威状态。
 

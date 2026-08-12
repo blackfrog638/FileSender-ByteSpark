@@ -214,7 +214,7 @@ tool/harness/tests/test_attestation.py
 Owned paths：
 
 ```text
-tool/harness/queue.py
+tool/harness/merge_queue.py
 tool/harness/tests/test_queue.py
 ```
 
@@ -250,7 +250,7 @@ Owned paths：
 .github/workflows/merge-queue.yml
 .github/workflows/nightly.yml
 tool/harness/attestation.py
-tool/harness/queue.py
+tool/harness/merge_queue.py
 tool/harness/tests/test_remote_contract.py
 ```
 

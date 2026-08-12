@@ -1,0 +1,60 @@
+name: Harness V2 Review
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  harness-v2:
+    name: Harness V2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compile Harness
+        run: >-
+          python3 -m compileall -q
+          tool/harness
+
+      - name: Harness contracts and adversarial tests
+        run: make harness-v2-test
+
+      - name: Validate active contracts
+        run: python3 -B tool/harness/agent.py --local validate
+
+  changed-product:
+    name: Changed product smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Whitespace
+        env:
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          base="${PR_BASE:-$(git rev-parse HEAD^)}"
+          git diff --check "$base...HEAD"
+
+      - name: Architecture
+        run: make architecture-test
+
+      - name: Commit policy
+        env:
+          XNN_TRANSFER_COMMIT_BASE: ${{ github.event.pull_request.base.sha }}
+          XNN_TRANSFER_COMMIT_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [[ -z "$XNN_TRANSFER_COMMIT_BASE" ]]; then
+            XNN_TRANSFER_COMMIT_BASE="$(git rev-parse HEAD^)"
+          fi
+          if [[ -z "$XNN_TRANSFER_COMMIT_HEAD" ]]; then
+            XNN_TRANSFER_COMMIT_HEAD="$(git rev-parse HEAD)"
+          fi
+          export XNN_TRANSFER_COMMIT_BASE XNN_TRANSFER_COMMIT_HEAD
+          make commit-message-test

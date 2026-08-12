@@ -265,7 +265,21 @@ class TddManager:
             "{} deterministic Red attestation".format(task_id),
             filename="attestation.json",
         )
-        git_ops.update_ref_cas(self.root, ref, commit, None)
+        try:
+            git_ops.update_ref_cas(self.root, ref, commit, None)
+            if self.states.remote is not None:
+                git_ops.push_ref_cas(
+                    self.root,
+                    self.states.remote,
+                    commit,
+                    ref,
+                    None,
+                )
+        except git_ops.GitError as error:
+            git_ops.run_git(
+                self.root, "update-ref", "-d", ref, commit, check=False
+            )
+            raise TddError(str(error)) from error
         return attestation
 
     def load_red(self, task_id: str, red_sha: str) -> Mapping[str, Any]:
