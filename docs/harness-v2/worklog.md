@@ -23,6 +23,28 @@
 - 不清理旧 branch/worktree/ref；
 - ADR 保持 proposed，等待项目所有者评审。
 
+### 2026-08-12：批准实施
+
+项目所有者在完整规划发布后明确指示：
+
+```text
+直接开始实行
+```
+
+该指令确认：
+
+- 接受 ADR 0017 的 V2 方向；
+- 允许状态和 attestation 移出产品历史；
+- 允许一次 candidate CI 取代双 CI；
+- 允许 speculative merge train；
+- 允许 V2 原子替换 V1；
+- 继续使用快速通道，不创建旧 XT/record；
+- 迁移 trusted base 使用规划开始时的远端
+  `origin/harness@5fa1a864e2304aea818aa7fb6d0a193a48fe67aa`。
+
+ADR 已改为 accepted，实施计划已改为 active。Pilot 具体内容在 WP8 前
+选择，不阻塞基础实现。
+
 ## 基线
 
 | 项目 | 值 |
@@ -57,17 +79,45 @@
 | --- | --- | --- |
 | D-001 | confirmed | 使用独立 bootstrap branch/worktree，不修改当前 harness |
 | D-002 | confirmed | 规划阶段绕过旧 XT/schema-v4 生命周期 |
-| D-003 | proposed | 静态契约只保留 Plan、TaskSpec 和 Gate policy |
-| D-004 | proposed | 运行状态迁移到每任务独立远端 state ref |
-| D-005 | proposed | Gate DAG 去重并并行执行 |
-| D-006 | proposed | Red attestation 可信时不在 review 默认重放 |
-| D-007 | proposed | 使用 immutable submission 和 speculative merge train |
-| D-008 | proposed | 一次 candidate CI + acceptance attestation |
-| D-009 | proposed | 删除 record-only acceptance commit 和全局 integrated slot |
-| D-010 | proposed | V2 原子替换 V1，不长期双写 |
+| D-003 | confirmed | 静态契约只保留 Plan、TaskSpec 和 Gate policy |
+| D-004 | confirmed | 运行状态迁移到每任务独立远端 state ref |
+| D-005 | confirmed | Gate DAG 去重并并行执行 |
+| D-006 | confirmed | Red attestation 可信时不在 review 默认重放 |
+| D-007 | confirmed | 使用 immutable submission 和 speculative merge train |
+| D-008 | confirmed | 一次 candidate CI + acceptance attestation |
+| D-009 | confirmed | 删除 record-only acceptance commit 和全局 integrated slot |
+| D-010 | confirmed | V2 原子替换 V1，不长期双写 |
 
-`confirmed` 只表示本次规划动作已获授权。`proposed` 必须经项目所有者
-评审 ADR 0017 后才能进入实现。
+`confirmed` 表示项目所有者已授权本次 bootstrap 使用该决策。后续新增
+或改变公共治理合同，仍需新的明确批准。
+
+### 2026-08-12：V1 冻结和归档
+
+检查结果：
+
+- 11 个相关 worktree 全部 clean；
+- GitHub 没有 queued 或 in-progress workflow；
+- `origin/harness` 是 local `harness` 的祖先；
+- local `harness` 比远端多一个旧治理提交。
+
+创建并推送：
+
+```text
+archive/harness-v1/protected-base
+archive/harness-v1/final-local
+archive/harness-v1/task/XT-070
+archive/harness-v1/task/XT-083
+archive/harness-v1/task/XT-093
+archive/harness-v1/task/XT-097
+archive/harness-v1/plan/async-delivery
+archive/harness-v1/plan/async-delivery-v3
+archive/harness-v1/plan/schema4-lifecycle-fixture-v2
+archive/harness-v1/plan/p1-transport-composition
+archive/harness-v1/diagnostic/XT-097-red
+```
+
+所有远端 ref 已用 `git ls-remote` 校验精确 SHA。原 branch 和 worktree
+仍然保留，未执行 cleanup。
 
 ## 命令日志
 

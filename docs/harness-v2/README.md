@@ -2,9 +2,9 @@
 
 ## 状态
 
-- 阶段：规划
-- 决策状态：待项目所有者评审
-- 实现状态：未开始
+- 阶段：实施
+- 决策状态：ADR 0017 已获项目所有者接受
+- 实现状态：WP0 进行中
 - 规划分支：`bootstrap/harness-v2`
 - 规划基线：`61bbdda590d4009dbcaa378ef827d0a7bf99aeff`
 - 快速通道：已授权绕过旧 Harness 的 XT、schema-v4 和
@@ -56,28 +56,28 @@ V2 只保留两个版本化事实来源：
 - [威胁模型](threat-model.md)：资产、攻击面和 fail-closed 策略。
 - [测试策略](testing-strategy.md)：风险路由、Gate DAG 和 CI 分层。
 - [迁移方案](migration.md)：基线、归档、切换和回滚。
+- [迁移清单](migration-inventory.md)：V1 refs、worktree 和 disposition。
 - [实施计划](implementation-plan.md)：工作包、依赖、交付物和阶段门。
 - [验收清单](acceptance-checklist.md)：V2 上线前的机械检查。
 - [工作日志](worklog.md)：授权、命令、决策和验证留痕。
 
-## 规划边界
+## 实施边界
 
-本分支只允许规划文档、ADR 和用于验证文档一致性的最小工具变更。
-在项目所有者明确批准 ADR、迁移基线和实施计划前，不得：
+项目所有者已授权直接实施。Bootstrap 分支可以实现 V2 runtime、测试、
+workflow 和迁移工具，但仍不得：
 
-- 修改当前 `harness` 分支；
-- 清理或重写旧任务分支和 worktree；
-- 发布新的 XT 或旧格式 Delivery Plan；
-- 实现 V2 runtime；
-- 将 ADR 状态改为 `accepted`；
-- 将任何 V2 任务标记为 `done`。
+- 直接修改当前 `harness` worktree；
+- 未归档清理或重写旧任务分支和 worktree；
+- 发布新的旧格式 XT、record 或 Delivery Plan；
+- 绕过 V2 测试和精确候选 CI 修改 protected branch；
+- 在切换验收前把任何 V2 pilot 标记为 `done`。
 
-## 评审所需决策
+## 已确认决策
 
-进入实现前需要项目所有者明确确认：
+1. 迁移可信产品基线为规划开始时的 `origin/harness@5fa1a86`；
+2. 运行状态和 attestation 移出产品历史；
+3. 一次候选 CI 取代 acceptance commit 的第二轮 CI；
+4. 采用 speculative merge train；
+5. V2 原子替换 V1，不长期双写。
 
-1. 哪个提交是 V2 迁移的可信产品基线；
-2. 是否接受运行状态和 attestation 移出产品历史；
-3. 是否接受一次候选 CI 取代 acceptance commit 的第二轮 CI；
-4. 是否采用 speculative merge train；
-5. 哪两个低风险变更作为首批试运行样本。
+Pilot 的具体变更在 WP8 开始前选择，不阻塞基础实现。

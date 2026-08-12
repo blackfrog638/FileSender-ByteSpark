@@ -2,15 +2,15 @@
 
 ## 计划状态
 
-- 状态：draft
-- 执行授权：未获得
+- 状态：active
+- 执行授权：项目所有者已于 2026-08-12 明确授权
 - 旧 Harness 快速通道：仅规划阶段已授权
 - 计划 owner：项目所有者
 - 实施协调：integration owner
 
 本文使用 `HV2-WP*` 作为工作包编号，不注册旧式 XT，不创建旧 records，
-也不进入旧 backlog。项目所有者批准后，工作包状态记录到 V2 bootstrap
-worklog，直到 V2 state refs 可用。
+也不进入旧 backlog。工作包状态记录到 V2 bootstrap worklog，直到 V2
+state refs 可用。
 
 ## 依赖图
 
