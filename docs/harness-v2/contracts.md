@@ -413,3 +413,26 @@ implementation task 发布后写入：
 
 Closure 校验 dependency state、acceptance ref digest、published ancestry 和
 criterion ID 覆盖，然后直接完成 acceptance task 的 `active -> done`。
+
+## Bootstrap Cutover Evidence
+
+一次性 `queue/bootstrap/**` candidate 没有 TaskSpec 或产品 criterion。它
+不能伪造普通 task artifact，而是为每个平台输出：
+
+```json
+{
+  "schema_version": 1,
+  "kind": "bootstrap_cutover",
+  "source_sha": "<exact-cutover-candidate>",
+  "source_tree": "<tree-object-id>",
+  "platform": "linux",
+  "plan_sha256": "<global-gate-plan-digest>",
+  "gate_ids": ["layout", "harness_v2"],
+  "gate_attestations": ["<digest>", "<digest>"],
+  "skipped": false
+}
+```
+
+三平台 artifact 必须绑定同一 candidate/tree 和同一 Gate plan，无 skip。
+Linux 另有 sanitizer/fuzz job。Bootstrap evidence 只授权 ADR 0017 的原子
+cutover，不可被普通 task publication 或 criterion closure 复用。

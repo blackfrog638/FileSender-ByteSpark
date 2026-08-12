@@ -71,6 +71,29 @@ class AgentCliTest(unittest.TestCase):
         self.assertTrue(evidence["gate_attestations"])
         self.assertTrue(evidence["criterion_evidence"])
 
+    def test_verify_all_emits_bootstrap_evidence(self) -> None:
+        repository = GateRepository(self)
+        repository.commit("chore: initialize")
+        output = repository.external / "bootstrap-evidence.json"
+        result = self._run(
+            repository,
+            "verify-all",
+            "--platform",
+            "linux",
+            "--output",
+            str(output),
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        evidence = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(evidence["kind"], "bootstrap_cutover")
+        self.assertEqual(evidence["source_sha"], repository.git("rev-parse", "HEAD"))
+        self.assertEqual(evidence["platform"], "linux")
+        self.assertFalse(evidence["skipped"])
+        self.assertEqual(
+            len(evidence["gate_ids"]),
+            len(evidence["gate_attestations"]),
+        )
+
     def test_cumulative_candidate_uses_all_task_risks_and_gates(self) -> None:
         repository = GateRepository(self)
         repository.fixture.implementation["risk"]["platform"] = "high"

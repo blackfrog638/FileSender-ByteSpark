@@ -14,6 +14,7 @@ required=(
   ".agents/tasks/README.md"
   ".agents/schemas/manifest.schema.json"
   ".agents/schemas/approval.schema.json"
+  ".agents/schemas/bootstrap-evidence.schema.json"
   ".agents/schemas/plan.schema.json"
   ".agents/schemas/task.schema.json"
   ".agents/schemas/gate.schema.json"

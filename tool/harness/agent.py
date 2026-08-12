@@ -152,6 +152,28 @@ def _verification_artifact(
     }
 
 
+def _bootstrap_verification_artifact(
+    contracts: model.ContractSet, result: Any, plan_digest: str
+) -> Dict[str, Any]:
+    gate_attestations = [
+        model.canonical_sha256(dict(item.attestation)) for item in result.results
+    ]
+    platforms = {str(item.attestation["platform"]) for item in result.results}
+    if len(platforms) != 1:
+        raise GateExecutionError("bootstrap artifact contains mixed platforms")
+    return {
+        "schema_version": 1,
+        "kind": "bootstrap_cutover",
+        "source_sha": git_ops.object_id(contracts.root, "HEAD"),
+        "source_tree": git_ops.current_tree(contracts.root, "HEAD"),
+        "platform": platforms.pop(),
+        "plan_sha256": plan_digest,
+        "gate_ids": [item.gate_id for item in result.results],
+        "gate_attestations": gate_attestations,
+        "skipped": any(item.attestation["skipped"] for item in result.results),
+    }
+
+
 def _platform_matrix(
     contracts: model.ContractSet, task_ids: Sequence[str]
 ) -> List[Dict[str, str]]:
@@ -219,6 +241,7 @@ def _parser() -> argparse.ArgumentParser:
 
     verify_all = commands.add_parser("verify-all")
     verify_all.add_argument("--platform", default="local")
+    verify_all.add_argument("--output", type=Path)
     verify_all.add_argument("--no-cache", action="store_true")
 
     matrix = commands.add_parser("matrix")
@@ -440,19 +463,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 cache_enabled=not args.no_cache,
             ).execute(plan)
             result.require_success()
-            print(
-                json.dumps(
-                    {
-                        "status": "passed",
-                        "plan_sha256": plan.digest,
-                        "gate_attestations": [
-                            model.canonical_sha256(dict(item.attestation))
-                            for item in result.results
-                        ],
-                    },
-                    sort_keys=True,
-                )
-            )
+            artifact = _bootstrap_verification_artifact(contracts, result, plan.digest)
+            if args.output is not None:
+                git_ops.atomic_write_json(args.output, artifact)
+            print(json.dumps(artifact, sort_keys=True))
             return 0
         if args.command == "matrix":
             if args.task_id is None:

@@ -26,7 +26,11 @@ jobs:
         id: plan
         shell: bash
         run: |
-          matrix="$(python3 -B tool/harness/agent.py matrix)"
+          if [[ "$GITHUB_REF_NAME" == queue/bootstrap/* ]]; then
+            matrix='{"include":[{"runner":"ubuntu-latest","label":"linux"},{"runner":"macos-latest","label":"macos"},{"runner":"windows-2022","label":"windows"}]}'
+          else
+            matrix="$(python3 -B tool/harness/agent.py matrix)"
+          fi
           printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
 
   harness-v2:
@@ -47,7 +51,14 @@ jobs:
         env:
           XNN_TRANSFER_COMMIT_BASE: ${{ github.event.before }}
           XNN_TRANSFER_COMMIT_HEAD: ${{ github.sha }}
-        run: make commit-message-test
+        shell: bash
+        run: |
+          if [[ "$XNN_TRANSFER_COMMIT_BASE" =~ ^0+$ ]]; then
+            git fetch --no-tags origin harness
+            XNN_TRANSFER_COMMIT_BASE="$(git merge-base origin/harness HEAD)"
+            export XNN_TRANSFER_COMMIT_BASE
+          fi
+          make commit-message-test
 
   product-gates:
     name: Product gates (${{ matrix.label }})
@@ -86,11 +97,18 @@ jobs:
 
       - name: Execute exact candidate Gate plan
         shell: bash
-        run: >-
-          python3 -B tool/harness/agent.py verify
-          --phase queue
-          --platform "${{ matrix.label }}"
-          --output out/candidate-evidence/evidence.json
+        run: |
+          if [[ "$GITHUB_REF_NAME" == queue/bootstrap/* ]]; then
+            python3 -B tool/harness/agent.py verify-all \
+              --no-cache \
+              --platform "${{ matrix.label }}" \
+              --output out/candidate-evidence/evidence.json
+          else
+            python3 -B tool/harness/agent.py verify \
+              --phase queue \
+              --platform "${{ matrix.label }}" \
+              --output out/candidate-evidence/evidence.json
+          fi
 
       - name: Upload exact candidate evidence
         uses: actions/upload-artifact@v4
@@ -99,3 +117,28 @@ jobs:
           path: out/candidate-evidence/evidence.json
           if-no-files-found: error
           retention-days: 14
+
+  cutover-security:
+    name: Cutover security
+    if: startsWith(github.ref_name, 'queue/bootstrap/')
+    runs-on: ubuntu-latest
+    env:
+      CC: clang
+      CXX: clang++
+      XNN_TRANSFER_FUZZ_SECONDS: "15"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install security build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf autoconf-archive automake dbus-x11 gnome-keyring \
+            libtool ninja-build pkg-config
+
+      - name: Bootstrap pinned vcpkg
+        shell: bash
+        run: tool/harness/vcpkg_bootstrap.sh
+
+      - name: Sanitizer and fuzz Gate
+        run: make security-test

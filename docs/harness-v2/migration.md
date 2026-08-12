@@ -161,7 +161,8 @@ rebase。规划分支上的 V2 payload 通过 patch 迁移到该基线。
 1. 项目所有者确认 ADR 0017 和切换 diff；
 2. 独立 reviewer 审查删除项、状态迁移和权限；
 3. 推送精确 V2 candidate ref；
-4. 运行完整旧质量 Gate 与全部 V2 Gate；
+4. 使用 `queue/bootstrap/**` 固定 Linux/macOS/Windows matrix，运行完整
+   旧质量 Gate 与全部 V2 Gate；
 5. 生成 bootstrap acceptance attestation；
 6. 验证 candidate 没有未声明 payload；
 7. CAS fast-forward protected branch；
@@ -170,6 +171,9 @@ rebase。规划分支上的 V2 payload 通过 patch 迁移到该基线。
 10. 记录远端 branch、attestation 和 ref 结果。
 
 该过程不创建旧 record-only acceptance commit。
+Bootstrap artifact 使用独立 schema，不声明不存在的 TaskSpec 或产品
+criterion；普通 `queue/**` 仍必须从 approved task contracts 机械推导
+matrix 和 evidence。
 
 ## 阶段 M7：试运行
 

@@ -539,3 +539,25 @@ ec342d2 feat(harness): replace v1 control plane atomically
 下一阶段只接受 exact hosted evidence：push 后的 Linux/macOS/Windows
 workflow、remote namespace ruleset、queue-worker credential boundary、CAS
 publication timing 和两个 pilot。它们不能由以上本地结果替代。
+
+## 2026-08-12：Bootstrap exact-candidate 路径
+
+审计发现普通 merge queue 不能合法承载 control-plane cutover：
+
+- active Plan/TaskSpec catalogue 为空；
+- cutover 修改 workflow、schemas、Harness 和其他 trust roots；
+- 给 bootstrap commit 添加虚构 `Xnn-Task` trailer 会伪造产品 provenance。
+
+因此在现有 merge-queue workflow 中增加受限的
+`queue/bootstrap/**` 模式：
+
+- matrix 固定为 Linux、macOS、Windows；
+- 每个平台执行 `verify-all --no-cache`；
+- artifact 使用独立 `bootstrap_cutover` schema，不包含产品 criterion；
+- Linux 额外执行 sanitizer 和 bounded fuzz；
+- 普通 `queue/**` 继续从 candidate TaskSpecs 推导 matrix 和 criterion
+  evidence，不接受 bootstrap artifact。
+
+该模式只用于 ADR 0017 原子切换。Hosted run、artifact digest、branch
+protection 更新、bootstrap attestation 和 protected CAS 结果将在 run
+完成后追加。
