@@ -1878,6 +1878,28 @@
         "REQ-SCHEMA4-LIFECYCLE-FIXTURE"
       ],
       "delivery_role": "implementation_acceptance"
+    },
+    {
+      "id": "XT-097",
+      "title": "Pre-acceptance evidence binding",
+      "readiness": "ready",
+      "risk_profile_required": true,
+      "commit_policy_required": true,
+      "architecture_contract_required": true,
+      "workstream": "integration",
+      "depends_on": [],
+      "owned_paths": [
+        ".agents/records/XT-097.json",
+        ".agents/tasks/XT-097-pre-acceptance-evidence-binding.md",
+        ".agents/handoffs/XT-097.md",
+        "tool/harness/evidence.py",
+        "tool/harness/evidence_test.py"
+      ],
+      "delivery_plan": "DP-SCHEMA4-PREACCEPTANCE-EVIDENCE",
+      "requirement_ids": [
+        "REQ-SCHEMA4-PREACCEPTANCE-EVIDENCE"
+      ],
+      "delivery_role": "implementation_acceptance"
     }
   ]
 }

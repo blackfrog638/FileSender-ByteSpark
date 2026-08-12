@@ -1,0 +1,59 @@
+{
+  "schema_version": 2,
+  "id": "DP-SCHEMA4-PREACCEPTANCE-EVIDENCE",
+  "title": "Bind schema-v4 pre-acceptance evidence",
+  "status": "approved",
+  "source": {
+    "kind": "governance",
+    "path": "tool/harness/evidence.py"
+  },
+  "requirements": [
+    {
+      "id": "REQ-SCHEMA4-PREACCEPTANCE-EVIDENCE",
+      "source_ref": "HARNESS-SCHEMA4-PREACCEPTANCE-EVIDENCE",
+      "statement": "Schema-v4 acceptance collects criterion evidence from an exact integrated delivery before the acceptance record can bind its verified SHA, without trusting mutable worktree state or weakening exact-candidate validation.",
+      "criteria": [
+        {
+          "id": "CRIT-SCHEMA4-PREACCEPTANCE-EVIDENCE",
+          "statement": "The evidence collector accepts an integrated candidate whose verified_sha is still empty, loads its task record from the exact candidate commit in a clean matching checkout, and binds the resulting bundle to the successful GitHub run and artifacts for that same SHA.",
+          "negative_definitions": [
+            "Writing the delivery commit's own SHA into its tracked record before creating that commit, bypassing criterion collection, or fabricating a verified_sha does not satisfy the criterion.",
+            "Collecting from a dirty or mismatched checkout, a non-integrated or already accepted record, a stale workflow run, or artifacts from another SHA does not satisfy the criterion.",
+            "Weakening post-acceptance bundle validation, run-head validation, artifact workflow-run validation, or the no-skip policy does not satisfy the criterion."
+          ],
+          "implementation_tasks": [
+            "XT-097"
+          ],
+          "evidence": [
+            {
+              "id": "EVD-SCHEMA4-PREACCEPTANCE-EVIDENCE",
+              "producer_task": "XT-097",
+              "gate": "evidence_test",
+              "level": "integration",
+              "required_scenarios": [
+                "evidence.integrated_candidate_before_acceptance",
+                "evidence.exact_candidate_checkout"
+              ],
+              "required_assertions": [
+                "verified_sha.not_prepopulated",
+                "candidate_record.loaded_from_source_commit",
+                "workflow_and_artifacts.bind_source_sha"
+              ],
+              "required_platforms": [],
+              "required_roles": [],
+              "topology": "in_process",
+              "allow_skipped": false
+            }
+          ]
+        }
+      ],
+      "acceptance_task": "XT-097"
+    }
+  ],
+  "approval": {
+    "approved_by": "integration-owner",
+    "approved_at": "2026-08-12T00:56:14+00:00",
+    "content_sha256": "c08758af1de81044735159f43dc85b9e603b53c9a40945a850fe2ac4c4b3a800"
+  },
+  "superseded_by": ""
+}

@@ -1,0 +1,157 @@
+{
+  "schema_version": 4,
+  "id": "XT-097",
+  "delivery_plan": "DP-SCHEMA4-PREACCEPTANCE-EVIDENCE",
+  "requirement_ids": [
+    "REQ-SCHEMA4-PREACCEPTANCE-EVIDENCE"
+  ],
+  "delivery_role": "implementation_acceptance",
+  "task_type": "bugfix",
+  "state": "ready",
+  "owner": "unassigned",
+  "base_sha": "",
+  "head_sha": "",
+  "handoff": ".agents/handoffs/XT-097.md",
+  "commit": {
+    "type": "fix",
+    "scope": "harness",
+    "summary": "bind pre-acceptance evidence candidates"
+  },
+  "architecture_change": {
+    "mode": "none",
+    "modules": [],
+    "supersedes": {
+      "paths": [],
+      "symbols": [],
+      "targets": []
+    },
+    "temporary_leases": [],
+    "retires_leases": []
+  },
+  "risks": {
+    "functionality": {
+      "level": "critical",
+      "rationale": "The current self-referential verified-SHA precondition prevents every schema-v4 task from completing acceptance after otherwise successful exact-candidate CI.",
+      "gates": [
+        "evidence_test",
+        "verify"
+      ]
+    },
+    "security": {
+      "level": "critical",
+      "rationale": "The repair must replace an impossible self-reference with exact candidate-commit binding without trusting mutable worktree state or weakening remote run and artifact validation.",
+      "gates": [
+        "evidence_test",
+        "verify"
+      ]
+    },
+    "performance": {
+      "level": "low",
+      "rationale": "Collection adds bounded Git metadata and status reads once per schema-v4 acceptance.",
+      "gates": [
+        "evidence_test"
+      ]
+    },
+    "compatibility": {
+      "level": "critical",
+      "rationale": "Integrated records intentionally keep verified_sha empty until acceptance, while accepted records and existing criterion bundles must retain their current validation contract.",
+      "gates": [
+        "evidence_test",
+        "verify"
+      ]
+    },
+    "concurrency": {
+      "level": "low",
+      "rationale": "Acceptance waits on remote CI while sharing the integration worktree, so collection must reject any intervening checkout or dirty-state change.",
+      "gates": [
+        "evidence_test"
+      ]
+    },
+    "platform": {
+      "level": "low",
+      "rationale": "The repair uses portable Git plumbing and Python already required by the acceptance harness.",
+      "gates": [
+        "evidence_test"
+      ]
+    },
+    "persistence": {
+      "level": "critical",
+      "rationale": "Criterion evidence becomes durable acceptance provenance, so its source record, workflow run, artifacts, and bundle must all bind one immutable candidate SHA.",
+      "gates": [
+        "evidence_test",
+        "verify"
+      ]
+    }
+  },
+  "impacts": {
+    "adr": {
+      "required": false,
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task restores the approved exact-candidate acceptance order and changes no public contract or expensive-to-reverse architecture decision."
+    },
+    "architecture": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The change is confined to the internal criterion-evidence collector and its tests."
+    },
+    "roadmap": {
+      "status": "not_required",
+      "references": [],
+      "rationale": "The task unblocks governed delivery and adds no product behavior or milestone."
+    }
+  },
+  "integration": {
+    "strategy": "",
+    "mappings": [],
+    "verified_sha": ""
+  },
+  "verification": {
+    "status": "pending",
+    "gates": [
+      "evidence_test",
+      "verify"
+    ],
+    "commands": [
+      "make evidence-test",
+      "make verify"
+    ],
+    "reference": ""
+  },
+  "acceptance": {
+    "accepted_by": "",
+    "accepted_at": "",
+    "note": ""
+  },
+  "test_contract": {
+    "schema_version": 1,
+    "plan_content_sha256": "c08758af1de81044735159f43dc85b9e603b53c9a40945a850fe2ac4c4b3a800",
+    "criterion_ids": [
+      "CRIT-SCHEMA4-PREACCEPTANCE-EVIDENCE"
+    ],
+    "proof_mode": "regression",
+    "executor": "deterministic",
+    "gate": "evidence_test",
+    "proof_surface": [
+      "tool/harness/evidence_test.py"
+    ],
+    "failure_fingerprints": [
+      "FAILED: integrated candidate evidence requires no precommitted verified SHA"
+    ],
+    "allow_skipped": false
+  },
+  "defect": {
+    "severity": "P1",
+    "source": "test",
+    "symptom": "Schema-v4 acceptance reports 'record integration does not bind the source SHA' after the exact delivery workflow and criterion evidence job both pass.",
+    "expected_contract": "Acceptance collects exact-candidate evidence while the delivery record is integrated with empty verified_sha, then mark-accepted binds that verified SHA and the generated bundle atomically.",
+    "actual_behavior": "Evidence collection requires verified_sha to equal the delivery commit SHA before mark-accepted, creating an impossible requirement for a commit to contain its own SHA.",
+    "trigger": "Run agent.sh accept for any integrated schema-v4 squash or cherry-pick delivery whose remote CI and criterion artifact succeed.",
+    "affected_since": "248774b0f029b82bd2246c58b99bc031112adafa",
+    "proof_mode": "deterministic",
+    "reproduction_commit": "",
+    "regression_gate": "evidence_test",
+    "contract_disposition": "restore",
+    "failure_fingerprint": "FAILED: integrated candidate evidence requires no precommitted verified SHA"
+  }
+}
