@@ -13,7 +13,6 @@ owned_paths:
   - tool/harness/evidence_test.py
   - tool/harness/governance_test.sh
   - tool/harness/lifecycle_fixture.py
-  - tool/harness/lifecycle_fixture_test.py
 delivery_plan: DP-SCHEMA4-PREACCEPTANCE-EVIDENCE
 requirement_ids:
   - REQ-SCHEMA4-PREACCEPTANCE-EVIDENCE
@@ -52,11 +51,13 @@ archived sources are combined here under one reviewed task and plan.
 
 ## TDD contract
 
-Before implementation edits, add only governance and evidence tests that fail
+Before implementation edits, add only evidence tests that fail
 with both exact lines
 `FAILED: integrated candidate evidence requires no precommitted verified SHA`
 and `FAILED: integrated schema-v4 lifecycle state is not isolated`.
 Checkpoint that Red revision with `agent.sh checkpoint XT-097 red`.
+Keep the helper tests in `evidence_test.py` so the focused gate remains a DAG
+leaf and does not recursively invoke `governance_test`.
 
 ## Constraints
 
@@ -84,7 +85,7 @@ bootstrap invariant and introduces no new runtime module or dependency.
 ## Risk profile
 
 The schema-v4 record binds critical functionality, security, compatibility,
-and persistence risk to `governance_test` and `verify`.
+and persistence risk to `evidence_test` and `verify`.
 
 ## Acceptance criteria
 
@@ -99,11 +100,11 @@ and persistence risk to `governance_test` and `verify`.
       evidence checks remain fail closed.
 - [ ] The lifecycle fixture restores inherited integrated records from the
       delivery parent without fabricating evidence or changing the caller.
-- [ ] `make governance-test` and `make verify` pass.
+- [ ] `make evidence-test` and `make verify` pass.
 
 ## Verification
 
 ```bash
-make governance-test
+make evidence-test
 make verify
 ```

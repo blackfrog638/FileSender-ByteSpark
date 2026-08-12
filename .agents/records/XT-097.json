@@ -33,7 +33,7 @@
       "level": "critical",
       "rationale": "Integrated schema-v4 records currently break the lifecycle fixture before CI, while the self-referential verified-SHA precondition blocks evidence collection after otherwise successful CI.",
       "gates": [
-        "governance_test",
+        "evidence_test",
         "verify"
       ]
     },
@@ -41,7 +41,7 @@
       "level": "critical",
       "rationale": "The repair must isolate synthetic lifecycle state and replace an impossible self-reference with exact candidate binding without fabricating evidence or weakening remote validation.",
       "gates": [
-        "governance_test",
+        "evidence_test",
         "verify"
       ]
     },
@@ -49,14 +49,14 @@
       "level": "low",
       "rationale": "Collection and fixture setup add bounded Git metadata reads once per acceptance or governance fixture.",
       "gates": [
-        "governance_test"
+        "evidence_test"
       ]
     },
     "compatibility": {
       "level": "critical",
       "rationale": "Integrated records keep verified_sha empty until acceptance, and inherited fixture records, accepted records, and existing bundles must retain their exact validation contract.",
       "gates": [
-        "governance_test",
+        "evidence_test",
         "verify"
       ]
     },
@@ -64,21 +64,21 @@
       "level": "low",
       "rationale": "Collection must reject intervening checkout changes while fixture rewriting must remain isolated from the caller worktree.",
       "gates": [
-        "governance_test"
+        "evidence_test"
       ]
     },
     "platform": {
       "level": "low",
       "rationale": "Both repairs use portable Git plumbing and Python already required by the acceptance harness.",
       "gates": [
-        "governance_test"
+        "evidence_test"
       ]
     },
     "persistence": {
       "level": "critical",
       "rationale": "Fixture records must be restored verbatim and durable criterion evidence must bind its source record, workflow run, artifacts, and bundle to one immutable candidate SHA.",
       "gates": [
-        "governance_test",
+        "evidence_test",
         "verify"
       ]
     }
@@ -109,11 +109,11 @@
   "verification": {
     "status": "pending",
     "gates": [
-      "governance_test",
+      "evidence_test",
       "verify"
     ],
     "commands": [
-      "make governance-test",
+      "make evidence-test",
       "make verify"
     ],
     "reference": ""
@@ -125,18 +125,16 @@
   },
   "test_contract": {
     "schema_version": 1,
-    "plan_content_sha256": "f8bab849b9e0459f72ee21221a55bc4dd7a2a8df4853da8ac6649c61b39ca9bf",
+    "plan_content_sha256": "507074b35ef8b513c731d3422fe08f666f2c118080fd810577751ee14b5d5ed5",
     "criterion_ids": [
       "CRIT-SCHEMA4-PREACCEPTANCE-EVIDENCE",
       "CRIT-SCHEMA4-BOOTSTRAP-LIFECYCLE"
     ],
     "proof_mode": "regression",
     "executor": "deterministic",
-    "gate": "governance_test",
+    "gate": "evidence_test",
     "proof_surface": [
-      "tool/harness/evidence_test.py",
-      "tool/harness/governance_test.sh",
-      "tool/harness/lifecycle_fixture_test.py"
+      "tool/harness/evidence_test.py"
     ],
     "failure_fingerprints": [
       "FAILED: integrated candidate evidence requires no precommitted verified SHA",
@@ -154,7 +152,7 @@
     "affected_since": "248774b0f029b82bd2246c58b99bc031112adafa",
     "proof_mode": "deterministic",
     "reproduction_commit": "",
-    "regression_gate": "governance_test",
+    "regression_gate": "evidence_test",
     "contract_disposition": "restore",
     "failure_fingerprint": "FAILED: integrated candidate evidence requires no precommitted verified SHA"
   }

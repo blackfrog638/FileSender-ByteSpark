@@ -1895,8 +1895,7 @@
         "tool/harness/evidence.py",
         "tool/harness/evidence_test.py",
         "tool/harness/governance_test.sh",
-        "tool/harness/lifecycle_fixture.py",
-        "tool/harness/lifecycle_fixture_test.py"
+        "tool/harness/lifecycle_fixture.py"
       ],
       "delivery_plan": "DP-SCHEMA4-PREACCEPTANCE-EVIDENCE",
       "requirement_ids": [

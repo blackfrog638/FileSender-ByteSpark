@@ -28,7 +28,7 @@
             {
               "id": "EVD-SCHEMA4-PREACCEPTANCE-EVIDENCE",
               "producer_task": "XT-097",
-              "gate": "governance_test",
+              "gate": "evidence_test",
               "level": "integration",
               "required_scenarios": [
                 "evidence.integrated_candidate_before_acceptance",
@@ -61,7 +61,7 @@
             {
               "id": "EVD-SCHEMA4-BOOTSTRAP-LIFECYCLE",
               "producer_task": "XT-097",
-              "gate": "governance_test",
+              "gate": "evidence_test",
               "level": "integration",
               "required_scenarios": [
                 "lifecycle_fixture.inherited_schema4_integrated",
@@ -85,8 +85,8 @@
   ],
   "approval": {
     "approved_by": "integration-owner",
-    "approved_at": "2026-08-12T01:39:49+00:00",
-    "content_sha256": "f8bab849b9e0459f72ee21221a55bc4dd7a2a8df4853da8ac6649c61b39ca9bf"
+    "approved_at": "2026-08-12T03:34:53+00:00",
+    "content_sha256": "507074b35ef8b513c731d3422fe08f666f2c118080fd810577751ee14b5d5ed5"
   },
   "superseded_by": ""
 }
