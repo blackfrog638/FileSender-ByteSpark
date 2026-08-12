@@ -27,6 +27,7 @@ class DependencyManifestTest(unittest.TestCase):
         for directory in ("cmake", "third_party"):
             shutil.copytree(REPOSITORY / directory, self.root / directory)
         for relative in (
+            ".gitattributes",
             "CMakeLists.txt",
             "vcpkg.json",
             "vcpkg-configuration.json",
@@ -124,6 +125,18 @@ class DependencyManifestTest(unittest.TestCase):
         path = self.root / "third_party/licenses/asio-1.38.2.txt"
         path.write_text("changed\n", encoding="utf-8")
         with self.assertRaisesRegex(dependency.DependencyError, "license hash"):
+            dependency.validate(self.root)
+
+    def test_rejects_platform_dependent_license_eol(self) -> None:
+        path = self.root / ".gitattributes"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "third_party/licenses/*.txt text eol=lf\n",
+                "",
+            ),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(dependency.DependencyError, "canonical LF"):
             dependency.validate(self.root)
 
     def test_rejects_libsecret_license_drift(self) -> None:

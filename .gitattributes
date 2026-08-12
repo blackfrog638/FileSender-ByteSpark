@@ -1,2 +1,3 @@
 cmake/vcpkg-overlay/**/*.patch -whitespace
 cmake/vcpkg-overlay/**/*.diff -whitespace
+third_party/licenses/*.txt text eol=lf

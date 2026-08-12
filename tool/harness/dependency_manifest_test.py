@@ -49,6 +49,7 @@ TRIPLETS = {
     "xnn-x64-osx-static.cmake",
     "xnn-x64-windows-static.cmake",
 }
+LICENSE_ATTRIBUTE = ("third_party/licenses/*.txt", "text", "eol=lf")
 
 
 class DependencyError(RuntimeError):
@@ -77,7 +78,24 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def validate_license_checkout_policy(root: Path) -> None:
+    try:
+        lines = (root / ".gitattributes").read_text(encoding="utf-8").splitlines()
+    except OSError as error:
+        raise DependencyError(f"cannot read .gitattributes: {error}") from error
+    rules = {
+        tuple(line.split())
+        for line in lines
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    require(
+        LICENSE_ATTRIBUTE in rules,
+        "dependency licenses must use canonical LF checkouts",
+    )
+
+
 def validate_manifest(root: Path) -> dict[str, dict[str, str]]:
+    validate_license_checkout_policy(root)
     versions = read_json(root / "cmake/dependencies/versions.json")
     vcpkg = versions.get("vcpkg")
     dependencies = versions.get("dependencies")

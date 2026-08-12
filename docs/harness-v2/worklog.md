@@ -684,3 +684,27 @@ result: failed/cancelled after Windows failure
 - executor 校验 override 为绝对文件路径，将 resolved argv 同时用于
   toolchain digest 和实际 `Popen`，防止 attestation 与执行二进制不一致；
 - 新增 override path 与 executable-content digest 测试。
+
+### Hosted attempt 4
+
+```text
+candidate: b0daffb57630f3340ba61146930660814841c17f
+run: https://github.com/blackfrog638/XnnTransfer/actions/runs/31579671755
+result: failed after Windows dependency Gate
+```
+
+- macOS exact product Gate 和 artifact 通过；
+- Windows absolute Git Bash、pinned vcpkg、native core 均通过，确认
+  attempt 3 的 WSL launcher 根因已关闭；
+- Windows dependency Gate 随后发现 license 文件 checkout 被 Git 从 LF
+  转为 CRLF，原始字节 SHA-256 因平台而漂移，mutation cases 被同一
+  前置错误遮蔽；
+- 该结果不视为依赖内容变更，也不复用部分 evidence。
+
+修复：
+
+- `.gitattributes` 将 `third_party/licenses/*.txt` 固定为 `text eol=lf`；
+- dependency validator 将 canonical LF checkout 声明纳入合同，并增加
+  删除该声明必须失败的负向测试；
+- license 内容仍按原始字节校验，不采用会掩盖未审查 CRLF 内容变更的
+  运行时归一化。
