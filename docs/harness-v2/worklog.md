@@ -145,6 +145,30 @@ git diff --cached --check
 - `make verify` 未运行：本次只有规划文档，且快速通道明确不使用旧
   Harness 对 V2 规划进行自审批。
 
+### 2026-08-12：规划发布
+
+规划内容提交：
+
+```text
+9fa059d95230ea4bd773bef90c36475fca21026c
+docs(harness): define v2 bootstrap plan
+```
+
+发布命令：
+
+```text
+git push -u origin bootstrap/harness-v2
+git ls-remote --heads origin refs/heads/bootstrap/harness-v2
+```
+
+结果：
+
+- 远端 `bootstrap/harness-v2` 创建成功；
+- 首次发布 ref 精确指向规划内容提交 `9fa059d`；
+- 未修改或发布到 `harness`；
+- 分支名不匹配现有 `main`、`harness`、`ci/**` workflow push 条件，
+  因此没有调用旧 Harness 验收。
+
 ## 待项目所有者确认
 
 1. Trusted product base SHA；
