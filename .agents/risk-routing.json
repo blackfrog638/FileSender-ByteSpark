@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "path_rules": [
+    {
+      "paths": [
+        ".agents/**",
+        "tool/harness/**",
+        ".github/workflows/**"
+      ],
+      "minimum_risk": {
+        "functionality": "high",
+        "concurrency": "medium",
+        "persistence": "medium"
+      },
+      "required_gates": [
+        "harness_v2",
+        "layout"
+      ]
+    },
+    {
+      "paths": [
+        "native/include/xnn_transfer/c_api.h",
+        "native/src/bridge/**",
+        "apps/desktop/lib/core/native/**"
+      ],
+      "minimum_risk": {
+        "compatibility": "critical",
+        "platform": "high"
+      },
+      "required_gates": [
+        "abi_compat",
+        "native_test",
+        "flutter_test"
+      ]
+    },
+    {
+      "paths": [
+        "native/**"
+      ],
+      "minimum_risk": {
+        "functionality": "high"
+      },
+      "required_gates": [
+        "native_test"
+      ]
+    },
+    {
+      "paths": [
+        "native/src/security/**",
+        "native/include/xnn_transfer/core/security/**",
+        "protocol/spec/**",
+        "protocol/testdata/security/**"
+      ],
+      "minimum_risk": {
+        "security": "critical",
+        "compatibility": "high"
+      },
+      "required_gates": [
+        "native_test",
+        "protocol_vectors",
+        "security_test"
+      ]
+    },
+    {
+      "paths": [
+        "protocol/**",
+        "native/src/protocol/**",
+        "native/include/xnn_transfer/protocol/**"
+      ],
+      "minimum_risk": {
+        "security": "high",
+        "compatibility": "critical"
+      },
+      "required_gates": [
+        "native_test",
+        "protocol_vectors"
+      ]
+    },
+    {
+      "paths": [
+        "apps/desktop/lib/**",
+        "apps/desktop/test/**",
+        "apps/desktop/pubspec.yaml"
+      ],
+      "minimum_risk": {
+        "functionality": "medium",
+        "platform": "medium"
+      },
+      "required_gates": [
+        "flutter_test"
+      ]
+    },
+    {
+      "paths": [
+        "vcpkg.json",
+        "vcpkg-configuration.json",
+        "cmake/dependencies/**",
+        "cmake/vcpkg-overlay/**",
+        "cmake/triplets/**"
+      ],
+      "minimum_risk": {
+        "compatibility": "high",
+        "platform": "high"
+      },
+      "required_gates": [
+        "dependency_test",
+        "native_test"
+      ]
+    }
+  ],
+  "phase_minimums": {
+    "review": [
+      "diff_check",
+      "architecture"
+    ],
+    "queue": [
+      "diff_check",
+      "layout",
+      "commit_policy",
+      "architecture"
+    ],
+    "release": [
+      "verify",
+      "security_test"
+    ]
+  }
+}

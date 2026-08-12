@@ -1,9 +1,10 @@
 # ADR 0016: Future task TDD governance
 
-- Status: proposed
+- Status: superseded
 - Date: 2026-08-11
 - Proposed by task: XT-078
 - Accepted by task: XT-082
+- Superseded by: ADR 0017 Harness V2 Control Plane
 
 ## Context
 

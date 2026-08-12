@@ -11,13 +11,16 @@ base="${XNN_TRANSFER_COMMIT_BASE:-}"
 head="${XNN_TRANSFER_COMMIT_HEAD:-HEAD}"
 if [[ -z "$base" ]]; then
   branch="$(git -C "$root" branch --show-current)"
-  if [[ "$branch" =~ ^task/(XT-[0-9]{3,})$ ]]; then
-    record="$root/.agents/records/${BASH_REMATCH[1]}.json"
-    if [[ -f "$record" ]]; then
+  if [[ "$branch" =~ ^work/XT-[0-9]{3,}$ ]]; then
+    integration_branch="$(
+      python3 -c \
+        'import json,sys; print(json.load(open(sys.argv[1]))["integration_branch"])' \
+        "$root/.agents/manifest.json"
+    )"
+    if git -C "$root" rev-parse \
+      --verify "refs/heads/$integration_branch" >/dev/null 2>&1; then
       base="$(
-        python3 -c \
-          'import json,sys; print(json.load(open(sys.argv[1]))["base_sha"])' \
-          "$record"
+        git -C "$root" merge-base "refs/heads/$integration_branch" "$head"
       )"
     fi
   fi

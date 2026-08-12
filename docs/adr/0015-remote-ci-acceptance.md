@@ -1,8 +1,9 @@
 # ADR 0015: Remote CI Acceptance
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-10
 - Decision owners: integration owner
+- Superseded by: ADR 0017 Harness V2 Control Plane
 
 ## Context
 

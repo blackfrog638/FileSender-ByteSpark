@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "harness_version": 2,
+  "project": "xnn-transfer",
+  "integration_branch": "harness",
+  "project_owner": {
+    "id": "project-owner",
+    "name": "blackfrog638",
+    "email": "blackfrog638@gmail.com"
+  },
+  "ref_namespaces": {
+    "approve": "refs/heads/approve/",
+    "state": "refs/heads/state/",
+    "submit": "refs/heads/submit/",
+    "queue": "refs/heads/queue/",
+    "attest": "refs/heads/attest/",
+    "archive": "refs/heads/archive/"
+  }
+}

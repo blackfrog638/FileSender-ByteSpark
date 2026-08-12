@@ -55,7 +55,9 @@ Protected branch
 控制：
 
 - approval 命令从认证上下文解析身份，不接受 `--by` 自由文本；
-- Plan digest 与审批事件独立记录；
+- Plan digest 与审批事件通过 immutable `approve/**` ref 独立记录；
+- production claim/queue/publish 从远端读取 approval ref，仓库 ruleset
+  只允许项目 owner 创建该 namespace；
 - 项目所有者交互确认是状态转换前置条件；
 - 测试 fixture 使用隔离 identity provider。
 
@@ -111,6 +113,24 @@ Protected branch
 - executor 不经 `bash -lc`；
 - policy blob 进入 cache 和 attestation digest；
 - 未知 Gate 和命令漂移 fail closed。
+
+### 候选自修改验证信任根
+
+威胁：Harness、Gate policy 或 merge-queue workflow 的候选修改使用修改后
+的代码验证自身，从而绕过原有规则。
+
+控制：
+
+- 标准 queue 拒绝 manifest、Gate/risk policy、schemas、module inventory、
+  commit identity、migration snapshot、`.github/workflows/**`、
+  `tool/harness/**`、`AGENTS.md` 和 `Makefile` payload；
+- Plan/TaskSpec 只能由 accepted base 上已存在的 governance TaskSpec
+  交付，且不得改写 active/queued 任务合同；
+- publisher 重新计算 parent-to-candidate patch、owned paths 和 trust-root
+  paths，不信任调用方传入的 TrainEntry；
+- candidate workflow blob 必须等于其 accepted parent 的 workflow blob；
+- 信任根变更只能走项目所有者明确批准的独立 bootstrap/governance
+  切换，不能由被修改的标准 queue 自证。
 
 ### 缓存污染
 
@@ -173,6 +193,18 @@ Protected branch
 - attestation 创建但未发布不会产生 `done`；
 - 发布后恢复不回退 accepted branch。
 
+### 虚假 acceptance closure
+
+威胁：acceptance owner 在 implementation 尚未发布或 criterion evidence
+不完整时直接完成。
+
+控制：
+
+- closure 不接受调用方传入的 evidence digest；
+- 从每个 implementation task 的远端 done state 和 acceptance ref 派生；
+- 校验 attestation digest、published SHA ancestry 和 criterion ID 覆盖；
+- closure 只写 external ref，不能修改 product branch。
+
 ### 工作日志泄密
 
 威胁：命令输出、环境变量、token 或用户内容进入 timing/event/artifact。
@@ -212,12 +244,15 @@ SBOM/provenance 和独立安全审查补充。
 V2 上线测试必须至少覆盖：
 
 - Agent 不能自行批准 Plan；
+- 缺失或伪造的远端 owner approval ref 被拒绝；
 - task-authored command 被拒绝；
 - 修改过的 submission ref 被拒绝；
 - stale/wrong-workflow CI 被拒绝；
+- candidate 自修改 workflow 或 Gate trust root 被拒绝；
 - skipped matrix 被拒绝；
 - cache key 任一字段变化都 miss；
 - 前序失败的 train 后代不能发布；
 - CAS 竞态只有一个 publisher 成功；
 - 发布成功但 state 写失败可恢复；
-- acceptance attestation 不要求 candidate 预知自身 SHA。
+- acceptance attestation 不要求 candidate 预知自身 SHA；
+- acceptance owner 在 criterion evidence 不完整时不能完成。

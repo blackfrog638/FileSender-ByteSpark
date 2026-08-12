@@ -302,7 +302,12 @@ class ModuleInventoryTests(unittest.TestCase):
 
     def repository(
         self, cmake: str, state: str = "ready"
-    ) -> tuple[tempfile.TemporaryDirectory[str], Path, Path]:
+    ) -> tuple[
+        tempfile.TemporaryDirectory[str],
+        Path,
+        Path,
+        dict[str, dict[str, str]],
+    ]:
         temporary = tempfile.TemporaryDirectory()
         root = Path(temporary.name)
         cmake_path = (
@@ -310,25 +315,20 @@ class ModuleInventoryTests(unittest.TestCase):
         )
         cmake_path.parent.mkdir(parents=True)
         cmake_path.write_text(cmake, encoding="utf-8")
-        record_path = root / ".agents" / "records" / "XT-023.json"
-        record_path.parent.mkdir(parents=True)
-        record_path.write_text(
-            json.dumps({"id": "XT-023", "state": state}) + "\n",
-            encoding="utf-8",
-        )
-        return temporary, root, cmake_path
+        records = {"XT-023": {"id": "XT-023", "state": state}}
+        return temporary, root, cmake_path, records
 
     def test_placeholder_must_be_replaced_after_task_starts(self) -> None:
-        temporary, root, cmake_path = self.repository(
+        temporary, root, cmake_path, records = self.repository(
             "add_library(xnn_transfer_tls INTERFACE)\n",
-            state="in_progress",
+            state="active",
         )
         with temporary:
             violations = architecture.validate_module_inventory(
                 root,
                 [self.module("XT-023")],
                 [cmake_path],
-                architecture.load_records(root),
+                records,
             )
         self.assertIn(
             "XT-023 started but xnn_transfer_tls is still an INTERFACE placeholder",
@@ -336,32 +336,32 @@ class ModuleInventoryTests(unittest.TestCase):
         )
 
     def test_concrete_replacement_is_accepted_in_progress(self) -> None:
-        temporary, root, cmake_path = self.repository(
+        temporary, root, cmake_path, records = self.repository(
             "add_library(xnn_transfer_tls STATIC tls.cpp)\n",
-            state="in_progress",
+            state="active",
         )
         with temporary:
             violations = architecture.validate_module_inventory(
                 root,
                 [self.module("XT-023")],
                 [cmake_path],
-                architecture.load_records(root),
+                records,
             )
         self.assertEqual(violations, [])
 
     def test_rejects_duplicate_and_undeclared_providers(self) -> None:
-        temporary, root, cmake_path = self.repository(
+        temporary, root, cmake_path, records = self.repository(
             "add_library(xnn_transfer_tls STATIC tls.cpp)\n"
             "add_library(xnn_transfer_tls STATIC duplicate.cpp)\n"
             "add_library(xnn_transfer_tls_v2 STATIC v2.cpp)\n",
-            state="in_progress",
+            state="active",
         )
         with temporary:
             violations = architecture.validate_module_inventory(
                 root,
                 [self.module("XT-023")],
                 [cmake_path],
-                architecture.load_records(root),
+                records,
             )
         rendered = messages(violations)
         self.assertTrue(
@@ -453,7 +453,7 @@ class TemporaryLeaseTests(unittest.TestCase):
     def test_accepts_declared_lease_retirement(self) -> None:
         temporary, root, records = self.repository(
             "",
-            removal_state="in_progress",
+            removal_state="active",
             retires=True,
         )
         with temporary:

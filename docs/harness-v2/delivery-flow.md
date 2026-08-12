@@ -19,16 +19,17 @@ Agent 可以提出 Plan、TaskSpec 和 ADR，但不能自行成为项目所有�
 V2 使用一个入口：
 
 ```bash
-python3 -m xnn_harness plan validate
-python3 -m xnn_harness task list
-python3 -m xnn_harness task claim XT-101 owner
-python3 -m xnn_harness task status XT-101
-python3 -m xnn_harness tdd red XT-101
-python3 -m xnn_harness verify XT-101 --phase review
-python3 -m xnn_harness submit XT-101 reviewer
-python3 -m xnn_harness queue build
-python3 -m xnn_harness queue publish
-python3 -m xnn_harness recover XT-101
+tool/harness/agent.sh validate
+tool/harness/agent.sh list
+tool/harness/agent.sh claim XT-101
+tool/harness/agent.sh tdd-red XT-101
+tool/harness/agent.sh verify XT-101 --phase review
+tool/harness/agent.sh submit XT-101 --red-sha SHA
+tool/harness/agent.sh queue-build XT-101 --train-id train-001
+tool/harness/agent.sh queue-reopen XT-101 QUEUE_REF --reason "CI failed"
+tool/harness/agent.sh publish XT-101 QUEUE_REF --evidence evidence.json
+tool/harness/agent.sh recover XT-101 QUEUE_REF
+tool/harness/agent.sh acceptance-close XT-ACCEPT
 ```
 
 命令命名可以在实现时调整，但每个行为必须只有一个公开入口，禁止通过
@@ -56,7 +57,8 @@ Plan approval 是独立的人类动作：
 2. 解析调用者的受信身份；
 3. 要求项目所有者确认；
 4. 写入 approval block；
-5. 提交 Plan。
+5. 创建 immutable `approve/<plan>/<content-digest>` ref；
+6. 提交 Plan。
 
 Agent 调用 CLI 时不得通过参数指定任意审批者。自动化测试使用隔离的
 fixture identity，不复用生产审批路径。
@@ -75,6 +77,8 @@ fixture identity，不复用生产审批路径。
 8. 写入本地非权威 worktree 映射。
 
 步骤 6 失败时删除临时 worktree，不保留半 claim 状态。
+进程在 state CAS 后、worktree 完成前退出时，`claim-recover` 只在 branch
+没有用户 commit 的情况下追加 `claim_rollback`。
 
 ## TDD
 
@@ -101,7 +105,7 @@ fixture identity，不复用生产审批路径。
 4. 区分 expected failure 与 infrastructure failure；
 5. 记录 Red commit、oracle blobs、Gate policy、命令和输出摘要；
 6. 创建 TDD attestation；
-7. 将 attestation digest 写入 state event，不创建产品 lifecycle commit。
+7. 将 attestation 写入 immutable TDD ref，不创建产品 lifecycle commit。
 
 以下结果不构成 Red：
 
@@ -183,7 +187,7 @@ Queue coordinator 选择满足以下条件的 submission：
 
 - parent 是前一个 candidate 或当前 protected head；
 - payload patch 与 submission 相同；
-- task record 不参与 patch；
+- TaskSpec 不作为运行态 record 写入 patch；
 - commit message 来自 TaskSpec delivery metadata；
 - trailers 绑定 task、submission 和 patch digest；
 - candidate manifest 存在 queue ref，不写入产品树。
@@ -213,7 +217,7 @@ Queue worker：
 6. CAS push candidate；
 7. 验证远端 protected branch 等于 candidate；
 8. 追加 `queued -> done` state event；
-9. 释放 owned paths，归档 submission 和 task branch。
+9. 释放 owned paths；submission、queue 和 attestation refs 保持可审计。
 
 只有步骤 6 持有全局 publication slot，其他任务可以继续开发和验证。
 
@@ -234,6 +238,16 @@ Queue worker：
 
 每次失败都保留 attempt、candidate ref、日志摘要和原因。恢复流程禁止在
 包含失败交付的 lineage 上直接 rebase。
+
+`queue-reopen` 保留原 queue ref，创建对应 archive ref，从 immutable
+submission source head 恢复开发 worktree，再执行 `queued -> active`。
+
+## Acceptance Closure
+
+Acceptance owner 不创建 candidate。`acceptance-close` 验证所有
+implementation task 的 done state、acceptance ref digest、published SHA
+ancestry 和 criterion ID 覆盖，随后写 external closure attestation，并以
+`active -> done` 完成验收任务。该操作不改变 protected product branch。
 
 ## 撤销与取消
 

@@ -1,9 +1,10 @@
 # ADR 0014: Delivery Plan governance
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-09
 - Proposed by task: XT-063
 - Accepted by task: XT-063
+- Superseded by: ADR 0017 Harness V2 Control Plane
 
 ## Context
 

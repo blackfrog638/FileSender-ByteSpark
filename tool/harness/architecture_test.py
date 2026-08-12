@@ -19,7 +19,7 @@ if str(HARNESS_DIR) not in sys.path:
 from module_inventory import (
     Module,
     Violation,
-    load_records,
+    load_task_records,
     parse_modules,
     schema_violation,
     target_links,
@@ -346,10 +346,10 @@ def scan_cmake_text(
 def scan_repository(root: Path) -> list[Violation]:
     modules, violations = parse_modules(root)
     try:
-        records = load_records(root)
-    except (OSError, json.JSONDecodeError) as error:
+        records = load_task_records(root)
+    except (OSError, json.JSONDecodeError, RuntimeError) as error:
         violations.append(
-            schema_violation(f"cannot read task records: {error}")
+            schema_violation(f"cannot read TaskSpecs and states: {error}")
         )
         records = {}
     runtime_links = target_links(modules)

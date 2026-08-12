@@ -6,15 +6,37 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 required=(
   "AGENTS.md"
-  ".agents/manifest.yaml"
-  ".agents/records/README.md"
-  ".agents/tasks/TASK_TEMPLATE.md"
+  ".agents/manifest.json"
+  ".agents/gates.json"
+  ".agents/risk-routing.json"
+  ".agents/migration-v1.json"
+  ".agents/plans/README.md"
+  ".agents/tasks/README.md"
+  ".agents/schemas/manifest.schema.json"
+  ".agents/schemas/approval.schema.json"
+  ".agents/schemas/plan.schema.json"
+  ".agents/schemas/task.schema.json"
+  ".agents/schemas/gate.schema.json"
+  ".agents/schemas/attestation.schema.json"
   "docs/architecture.md"
   "docs/roadmap.md"
   "protocol/spec/README.md"
   "native/include/xnn_transfer/c_api.h"
   "apps/desktop/pubspec.yaml"
+  "tool/harness/agent.py"
+  "tool/harness/agent.sh"
+  "tool/harness/approval.py"
+  "tool/harness/closure.py"
+  "tool/harness/model.py"
+  "tool/harness/state.py"
+  "tool/harness/gates.py"
+  "tool/harness/executor.py"
+  "tool/harness/tdd.py"
+  "tool/harness/merge_queue.py"
+  "tool/harness/attestation.py"
+  "tool/harness/github_evidence.py"
   "tool/harness/verify.sh"
+  "tool/harness/diff_check.sh"
   "tool/harness/abi_compat_test.sh"
   "tool/harness/architecture_test.py"
   "tool/harness/architecture_test_test.py"
@@ -22,8 +44,6 @@ required=(
   "tool/harness/dependency_manifest_test.py"
   "tool/harness/dependency_manifest_test_test.py"
   "tool/harness/dependency_test.sh"
-  "tool/harness/governance.py"
-  "tool/harness/governance_test.sh"
   "tool/harness/vcpkg_bootstrap.sh"
   "vcpkg-configuration.json"
   "vcpkg.json"
@@ -32,6 +52,24 @@ required=(
 for path in "${required[@]}"; do
   if [[ ! -f "$root/$path" ]]; then
     printf 'Required harness file is missing: %s\n' "$path" >&2
+    exit 1
+  fi
+done
+
+forbidden=(
+  ".agents/backlog.yaml"
+  ".agents/manifest.yaml"
+  ".agents/records"
+  ".agents/handoffs"
+  "tool/harness/governance.py"
+  "tool/harness/evidence.py"
+  "tool/harness/tdd_proof.py"
+  "tool/harness/github_ci.py"
+)
+
+for path in "${forbidden[@]}"; do
+  if [[ -e "$root/$path" ]]; then
+    printf 'Legacy Harness V1 path remains active: %s\n' "$path" >&2
     exit 1
   fi
 done

@@ -6,9 +6,6 @@ New commits use this form:
 type(scope): imperative summary
 
 Optional body explaining why the change is needed and any non-obvious limits.
-
-Xnn-Task: XT-NNN
-Xnn-Lifecycle: delivery
 ```
 
 The subject describes repository behavior, not task workflow. It is at most 72
@@ -43,17 +40,19 @@ chore(harness): address review comments
 ## Task provenance
 
 An XT identifier is audit metadata, not a description. Keep it out of the
-subject and ordinary body text. Task-related commits use a final contiguous
-trailer block:
+subject and ordinary body text. The merge train creates one product delivery
+commit from an immutable submission and adds a final contiguous trailer block:
 
 ```text
 Xnn-Task: XT-047
-Xnn-Lifecycle: review
+Xnn-Lifecycle: delivery
+Xnn-Submission-SHA256: <digest>
+Xnn-Payload-SHA256: <digest>
 ```
 
-The harness generates trailers for lifecycle, delivery, and acceptance
-commits. Squash delivery commits retain source range and patch provenance in
-additional `Xnn-*` trailers.
+Source commits may include `Xnn-Task`, but no lifecycle commit is added to the
+product branch. Runtime state, review, queue, and acceptance evidence are Git
+ref objects outside product history.
 
 ## Repository identity
 
@@ -84,7 +83,7 @@ hook validates the message, the identities reported by `git var`, and staged
 attempts to change the immutable policy. It gives immediate feedback but is
 not trusted as a gate because `git commit --no-verify` bypasses it.
 
-`make commit-message-test`, `make verify`, task review preparation, and CI
+`make commit-message-test`, `make verify`, submission review, and queue CI
 independently validate governed commit ranges from commit objects. Message and
 schema v1 identity enforcement retain their historical activation boundaries;
 immutable enforcement begins with the first schema v2 policy commit. Older

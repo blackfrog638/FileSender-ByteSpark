@@ -110,7 +110,7 @@ canonical target name. A second provider such as `*_v2`, `new_*`, or a parallel
 adapter is not a migration strategy; undeclared production targets fail
 `make architecture-test`.
 
-Architecture-governed task records declare one change mode:
+Architecture-governed TaskSpecs declare one change mode:
 
 - `none`: no canonical runtime boundary changes;
 - `add`: introduce a reviewed inventory module;
@@ -123,7 +123,7 @@ paths, symbols, and targets are absence claims: they must be gone before
 review. This is intentionally stronger than a deleted-line count, which can be
 gamed and does not prove that an obsolete path disappeared.
 
-Temporary production code uses `XNN-TEMPORARY(lease-id)` and a task-record
+Temporary production code uses `XNN-TEMPORARY(lease-id)` and a TaskSpec
 lease naming the exact path, rationale, and removal task. The removal task
 declares `retires_leases`. Missing, duplicate, unregistered, or overdue leases
 fail architecture verification. Unleased `TODO` and `FIXME` markers are not

@@ -1,44 +1,229 @@
 # Agent Engineering Contract
 
-This file is the canonical instruction entrypoint for every agent working in
-this repository. Read it together with `.agents/manifest.yaml` and the task
-file assigned to you before editing code.
+This file is the canonical instruction entrypoint for XnnTransfer contributors.
+Harness V2 separates static planning contracts, runtime refs, verification
+attestations, and product history.
 
 ## Non-negotiable rules
 
-1. One agent owns one active task and one primary module boundary.
-2. Do not edit another task's owned paths without a written handoff.
-3. Public cross-workstream interfaces are contracts. Changes to the C ABI,
-   wire protocol, persisted schema, security profile, or shared types crossing
-   workstream boundaries require an ADR and an integration-owner review.
-4. Do not claim unimplemented networking, security, or transfer behavior.
-5. Generated Flutter runner files are infrastructure, not business-logic
-   locations.
-6. Every handoff includes commands run, results, residual risks, and changed
-   contracts.
-7. `make verify` is the repository-level completion gate.
-8. `done` is an acceptance result, not an agent-controlled transition. Only
-   the integration owner may run `agent.sh accept` after integration.
-9. A bugfix restores or deliberately changes an existing contract. Missing
-   roadmap behavior is a feature, not a bug, and severity never removes gates.
-10. Active tasks must not own intersecting paths. A task with relevant
-    upstream product or governance changes must rebase and repeat review.
-11. Roadmap requirements become executable only through an approved Delivery
-    Plan. Draft-plan tasks and tasks with unaccepted dependencies cannot be
-    claimed.
-12. Tasks at or after `tdd_governance.required_from_task` bind approved
-    criterion-level test contracts before claim. Earlier tasks retain their
-    historical evidence and are not retroactively labeled as TDD.
+1. One active task owns one primary module boundary.
+2. Active or queued tasks must not own intersecting paths.
+3. Agents may draft plans and tasks; only the configured project owner may
+   approve a Delivery Plan.
+4. TaskSpec may reference trusted Gate IDs but may not define commands.
+5. Review freezes the complete source payload. Any later source, Plan,
+   TaskSpec, Gate, or proof change requires a new submission attempt.
+6. Queue candidates must be byte-equivalent to their immutable submissions.
+7. Only successful exact-candidate CI and acceptance attestation may authorize
+   a protected-branch compare-and-swap.
+8. Runtime state never enters product commits.
+9. Failed attempts are archived. Do not continue delivery on a lineage that
+   contains a failed candidate.
+10. Public ABI, wire protocol, security profile, persisted format, compatibility
+    policy, or expensive architecture changes require an ADR.
+11. Do not claim unimplemented networking, security, persistence, or transfer
+    behavior.
+12. Missing or skipped required tools are failures, not passing evidence.
+13. Standard queue tasks may not modify the Harness verification trust root.
+    Those changes require a separately approved bootstrap/governance cutover.
+
+## Sources of truth
+
+```text
+.agents/manifest.json       Harness version, owner, branch, ref namespaces
+.agents/gates.json          Trusted Gate DAG and commands
+.agents/risk-routing.json   Minimum risk and Gate routing
+.agents/plans/DP-*.json     Requirements and criteria
+.agents/tasks/XT-*.json     Dependencies, ownership, risk, and TDD
+.agents/migration-v1.json   Read-only V1 acceptance/deferred snapshot
+.agents/architecture/       Canonical product module inventory
+docs/adr/                   Reviewed architecture decisions
+```
+
+There is no backlog/record/handoff mirror. Dashboard and handoff output are
+derived views.
+
+## Runtime state
+
+The persistent lifecycle is:
+
+```text
+ready -> active -> queued -> done
+           ^          |
+           +----------+
+```
+
+Wait reasons are event metadata, not extra states. Acceptance tasks alone may
+use `active -> done` after external evidence
+closure; they never create a queue candidate.
+
+Runtime refs are:
+
+```text
+approve/DP-NAME/DIGEST
+state/XT-NNN
+submit/XT-NNN/NNNNNN
+queue/TRAIN/NNN-XT-NNN
+attest/tdd/XT-NNN/SHA
+attest/acceptance/XT-NNN/SHA
+archive/...
+```
+
+Every state update is append-only and compare-and-swap. Local cache under the
+common Git directory is disposable and never sufficient for `done`.
+
+## Task workflow
+
+### Planning
+
+1. Add or update one Delivery Plan under `.agents/plans/`.
+2. Give every criterion a stable ID, observable statement, negative
+   definitions, and required evidence.
+3. Add one TaskSpec per implementation or acceptance owner.
+4. Run `tool/harness/agent.sh validate`.
+5. The project owner reviews and approves the canonical plan digest.
+
+Approval identity comes from `.agents/manifest.json`, repository Git identity,
+and an immutable remote `approve/DP-NAME/DIGEST` ref. A caller cannot pass an
+arbitrary approver string. Production ref rules permit only the project owner
+to create `approve/**`; `--local` approval is non-authoritative.
+
+Plans and TaskSpecs must be present on the accepted integration base before
+claim. A pre-existing governance task may deliver new approved Plans and
+TaskSpecs, but may not change active/queued contracts. Manifest, Gate/risk
+policy, schemas, module inventory, commit identity, workflows, Harness code,
+`AGENTS.md`, and `Makefile` require a separate owner-approved cutover because
+a candidate may not redefine the verifier that authorizes itself.
+
+### Claim
+
+```bash
+tool/harness/agent.sh claim XT-NNN
+```
+
+Claim checks approved planning, accepted dependencies, owned-path conflicts,
+the integration base, and unresolved placeholders. It then creates an isolated
+`work/XT-NNN` branch/worktree and appends `ready -> active`.
+
+Work only in the returned worktree and only in TaskSpec owned paths.
+If claim state was persisted but worktree creation was interrupted, run
+`tool/harness/agent.sh claim-recover XT-NNN`.
+
+### TDD
+
+Behavior work uses the mode selected by task type:
+
+- feature: Red-Green;
+- bugfix: deterministic regression;
+- refactor: characterization/equivalence;
+- test infrastructure: mutation/sentinel;
+- governance: adversarial fixture;
+- documentation: static validation without fabricated Red;
+- acceptance: evidence closure without product changes;
+- investigation: bounded evidence that cannot close product criteria.
+
+For Red-based work:
+
+```bash
+tool/harness/agent.sh tdd-red XT-NNN
+```
+
+Only proof paths may appear before Red. Compiler errors, missing tools, timeout,
+crash, skip, and unrelated failures do not qualify. The immutable Red
+attestation is reused during review when its oracle and governance context are
+unchanged; review executes Green, not Red again.
+
+### Submit
+
+```bash
+tool/harness/agent.sh submit XT-NNN --red-sha SHA
+```
+
+Submit runs the deduplicated review Gate plan, requires independent review for
+high/critical work, freezes source and proof digests, writes an immutable
+submission ref, appends `active -> queued`, and releases the development
+worktree. Owned paths remain reserved.
+
+### Queue and publish
+
+```bash
+tool/harness/agent.sh queue-build XT-NNN --train-id train-001
+```
+
+The queue builds cumulative exact candidates against the latest protected
+base. Non-conflicting candidates may validate concurrently. Publication order
+follows the train prefix.
+
+If exact candidate CI fails, preserve and reopen it with:
+
+```bash
+tool/harness/agent.sh queue-reopen XT-NNN QUEUE_REF \
+  --reason "exact candidate CI failed"
+```
+
+The merge-queue workflow emits exact candidate artifacts. The queue worker
+collects GitHub evidence, validates repository/workflow/run/SHA/jobs/artifacts,
+creates an external acceptance attestation, then advances the protected branch
+with one compare-and-swap. There is no acceptance commit and no second complete
+CI run.
+
+Acceptance-owner tasks create no product payload. After every implementation
+task is durably published, run:
+
+```bash
+tool/harness/agent.sh acceptance-close XT-ACCEPT
+```
+
+This validates implementation acceptance refs, criterion IDs, and protected
+ancestry, then writes an external closure attestation and completes the
+acceptance task directly from `active`.
+
+If publication succeeds but the final state event fails, use:
+
+```bash
+tool/harness/agent.sh recover XT-NNN QUEUE_REF \
+  --required-job "Harness V2" \
+  --required-job "Product gates (linux)"
+```
+
+## Verification
+
+`make verify` expands the trusted `verify` aggregate into unique leaf Gates.
+The executor runs independent resource groups concurrently and caches only
+successful no-skip evidence bound to:
+
+- source tree;
+- command and Gate policy;
+- toolchain and controlled environment;
+- platform and isolation mode.
+
+Task review and queue phases use the union of criterion, TDD, path-risk, and
+phase minimum Gates. A generic aggregate cannot replace ABI, protocol,
+security, persistence, E2E, reliability, or performance evidence.
+
+Common commands:
+
+```bash
+make harness-v2-test
+make contract-test
+make architecture-test
+make abi-compat-test
+make native-test
+make flutter-test
+make security-test
+make verify
+```
 
 ## Architecture boundaries
 
 - `native/include/xnn_transfer/c_api.h` is the only Flutter-facing native API.
 - C++ implementation details stay under `native/src/`.
-- Flutter features depend on abstractions in `domain/` and `application/`;
-  presentation code must not call `dart:ffi` directly.
+- Flutter presentation depends on application/domain abstractions and never
+  imports `dart:ffi` outside `lib/core/native/`.
 - Wire behavior is specified under `protocol/spec/` before implementation.
-- Discovery data is untrusted input. File paths, sizes, peer metadata, and
-  protocol frames must be validated at the native boundary.
+- Discovery, peer metadata, paths, sizes, and frames are hostile input.
+- Canonical modules evolve in place according to
+  `.agents/architecture/modules.json`; do not create parallel providers.
 
 Allowed dependency direction:
 
@@ -49,201 +234,20 @@ Flutter presentation -> Flutter application -> native adapter -> C ABI
 C ABI bridge -> C++ application -> C++ domain <- C++ infrastructure
 ```
 
-`make architecture-test` mechanically enforces the reviewed Flutter import,
-native include, and production CMake target dependency matrices. A new module
-or legal dependency requires updating that gate and its positive and negative
-fixtures in the same reviewed task.
+## Git and recovery
 
-`.agents/architecture/modules.json` assigns each runtime capability one
-canonical target and implementation boundary. Replace placeholders in place;
-do not add parallel providers. Architecture-governed tasks declare
-`none`, `add`, `replace`, `remove`, or `refactor`, affected modules, and
-concrete supersession claims. Temporary production code requires an
-`XNN-TEMPORARY(lease-id)` marker and a task-record removal lease.
+- Use meaningful Conventional Commit subjects.
+- Keep XT IDs in trailers, not subjects.
+- Product history contains delivery commits, not lifecycle metadata.
+- Never use destructive reset or checkout on unarchived user work.
+- Archive failed refs and reconstruct payload from the latest accepted base.
+- A published error is corrected by a reviewed revert, not history rewrite.
 
-## Task workflow
+## Legacy V1
 
-1. Run `tool/harness/agent.sh list` from the integration worktree.
-2. Claim one ready, non-conflicting task with
-   `tool/harness/agent.sh claim <task-id> <owner>`.
-3. Give the output of `tool/harness/agent.sh prompt <task-id>` to the agent.
-4. The agent works only in the generated task worktree and moves the runtime
-   state to `in_progress` before code changes.
-5. Keep changes inside the owned paths. Request a handoff for shared files.
-6. Rebase when the harness reports a relevant stale base, then run focused
-   tests while developing and `make verify`.
-7. Complete `.agents/handoffs/HANDOFF_TEMPLATE.md` in the task file or PR and
-   move the runtime state to `review`.
-8. The integration owner runs `agent.sh integrate <task>`, then
-   `agent.sh accept <task> <reviewer>`. Acceptance stages the immutable
-   delivery and acceptance SHAs on `ci/XT-NNN`, requires the complete GitHub
-   Actions workflow to pass for both, and only then advances the protected
-   integration branch. A required integration fix returns the task to
-   `in_progress` for a new reviewed source range.
-9. Run `agent.sh cleanup <task>` only after the durable record is `done`.
+Harness V1 records, plans, handoffs, stopped tasks, and failed diagnostics are
+historical only. They remain under `archive/harness-v1/*` and are summarized by
+`.agents/migration-v1.json`.
 
-All new commits follow `docs/commit-policy.md`. Subjects use
-`type(scope): imperative summary` and describe repository impact without an XT
-identifier. Task IDs remain available in the final `Xnn-Task` trailer block.
-Run `make commit-message-test` for the focused gate; `make verify`, review
-preparation, and CI also enforce governed commit ranges.
-
-The backlog is a reviewed catalogue. `.agents/records/XT-NNN.json` is the
-versioned source of truth for lifecycle, verification, document impact,
-integration provenance, and acceptance. Git task branches and worktrees provide
-single-clone claim isolation. Local branch configuration is only a scheduler
-cache and must agree with the tracked record while a task is active.
-
-## Delivery planning
-
-`docs/roadmap.md` owns product milestones. Versioned JSON documents under
-`.agents/plans/` own the reviewed conversion from stable requirement IDs to XT
-implementation and acceptance tasks. The backlog remains the only task
-dependency and ownership graph; task records and active branches remain the
-only runtime state.
-
-Tasks at or after the manifest's `delivery_plans.required_from_task` threshold
-declare matching `delivery_plan`, `requirement_ids`, and `delivery_role`
-metadata in the backlog, task-spec front matter, and task record. A draft plan
-may reserve future task IDs, but its registered tasks remain blocked. The
-integration owner approves a complete plan with:
-
-```bash
-python3 tool/harness/delivery_plan.py validate
-python3 tool/harness/delivery_plan.py approve \
-  DP-NAME --by integration-owner
-```
-
-Approval requires bidirectional requirement coverage, an acyclic backlog,
-task-spec metadata parity, and an acceptance task that transitively depends on
-every implementation task. Claim repeats plan approval and accepted-dependency
-checks before creating a branch or worktree. Plans never store derived runtime
-status.
-
-Only these task states are valid:
-
-```text
-ready -> claimed -> in_progress -> review -> integrated -> done
-                         \-> blocked
-review -> in_progress
-blocked -> in_progress
-```
-
-New records use schema version 3 task types: `feature`, `bugfix`, `refactor`,
-`investigation`, `test`, or `governance`. Bugfix records bind an existing
-contract, reproduction commit, trusted regression gate, proof mode, and
-stable failure fingerprint, plus a `restore`, `preserve`, or `change`
-disposition. Investigation records define a bounded question and must resolve
-to `bugfix`, `feature`, or `no_change` before review; they do not claim a
-product fix.
-
-Claim, review, and integration resolve in-flight state from local task branches
-and reject explicit `owned_paths` that can intersect another active task. The
-claim check and branch creation share one recoverable Git-ref lock. Review and
-integration reject a base that diverged from the integration branch or is
-behind relevant owned or global-governance changes. Unrelated product changes
-may remain parallel.
-
-Beginning with XT-083, generated task records use schema version 4 and an
-approved schema-v2 Delivery Plan. The record binds exact criterion IDs, plan
-digest, task-type proof mode, one trusted focused gate, allowed Red paths,
-stable failure fingerprints where applicable, and a no-skip policy. Generated
-placeholders remain blocked and unclaimable. `agent.sh prompt` prints the
-approved criterion statements, negative definitions, proof mode, focused gate,
-and Red scope before implementation.
-
-For deterministic Red-Green, regression, mutation, and equivalence work, commit
-only the declared test surface, run `agent.sh checkpoint <task> red`, then
-implement. Review replays the focused gate at the task base, Red revision, and
-reviewed head and freezes the governance context and proof surface. Acceptance
-collects criterion evidence from the exact integrated candidate and rejects
-missing, skipped, stale, partial-matrix, or generic evidence. Changes to the
-bound plan, task registration/spec, manifest, workflow, or proof/evidence
-runners require rebase and a fresh checkpoint and review.
-
-Squash is the standard task integration strategy. `agent.sh integrate` records
-the complete ordered source range and proves that its aggregate payload patch
-matches one delivery commit. The generated record for the current task is
-excluded from that patch comparison and validated as structured provenance.
-Integration also proves that the current payload is byte-equivalent to the
-payload submitted for review. Any post-review handoff or product change returns
-the task to `in_progress` for a fresh review.
-`agent.sh accept` records the delivery SHA and GitHub Actions run URL after
-local and remote verification in a separate acceptance commit. That commit
-must pass the same remote workflow before the protected integration branch
-advances and the task becomes `done`. Local-only verification references are
-not valid for tasks at or after XT-068.
-
-An integration owner may explicitly select `--strategy cherry-pick` only when
-individual commit topology is a reviewed delivery requirement. A hand-written
-squash or cherry-pick is not sufficient evidence.
-
-## Verification policy
-
-- Risk-governed task records declare functionality, security, performance,
-  compatibility, concurrency, platform, and persistence risk. New tasks name
-  trusted gate IDs from `.agents/manifest.yaml`; the harness resolves their
-  commands and rejects task-authored shell. Legacy commands remain valid only
-  while they exactly match a registered command. Every task includes the
-  repository-level `verify` gate.
-- Bugfix regression evidence names a trusted gate ID that is also executed by
-  the task. A deterministic bugfix review runs the exact resolved gate at task
-  base, reproduction commit, and reviewed head. Base and head must pass.
-  Reproduction must fail with the declared exact fingerprint as a complete
-  output line. The reproduction is strictly within the task range, and
-  generated proof binds the command, fingerprint, output, revisions, and exit
-  codes into the record. Detached gates use the task worktree's pinned tool
-  root.
-  `mark-review` executes this proof at the state-mutation boundary; prefilled
-  evidence cannot bypass execution. Accepted legacy records retain their
-  original evidence shape. Unsupported proof modes fail closed. A `change`
-  disposition requires an ADR; emergency severity changes scheduling only.
-- Commit-governed task records declare the delivery `type`, `scope`, and
-  imperative `summary`. Harness lifecycle commits derive meaningful subjects
-  from that metadata instead of using the task number as the message.
-- Architecture-governed task records declare affected canonical modules,
-  superseded paths/symbols/targets, temporary leases, and lease retirements.
-  Review rejects declarations that do not match the diff or leave claimed
-  obsolete code behind.
-- A passing generic repository gate is not evidence for a specialized claim.
-  Reviewers must reject security, performance, interoperability, or recovery
-  gates that do not exercise the behavior named in the risk rationale.
-- Native changes: build and run native tests on the current platform.
-- Flutter changes: `flutter analyze` and `flutter test`.
-- Protocol changes: update the versioned specification and compatibility
-  section; add parser or golden tests with the implementation.
-- C ABI changes: preserve struct-size/version negotiation and pass
-  `make abi-compat-test`, which compiles the frozen v1 caller, checks layout
-  prefixes and signatures, and resolves required exports from the built library.
-- Security-sensitive changes: document trust boundaries and negative tests.
-
-If a required SDK is unavailable, report the skipped gate explicitly. A
-skipped gate is not equivalent to a passing gate.
-
-## Decision and documentation policy
-
-An ADR is required for a new or changed public cross-workstream contract,
-security profile, persisted format, compatibility policy, or architecture
-choice that is expensive to reverse. Internal implementation, tests, fixtures,
-CI wiring, and interfaces contained within one workstream do not require an ADR
-unless they change one of those decisions.
-
-Every task record declares ADR, architecture, and roadmap impact. Each impact
-must name updated documents or state `not_required` with a concrete rationale.
-The task author proposes the disposition; the integration owner accepts it.
-Architecture describes durable current boundaries, while the roadmap tracks
-delivery milestones. Neither document is a per-commit changelog.
-
-## Shared-file policy
-
-The following files are integration-owned and should change rarely:
-
-- `AGENTS.md`
-- `.agents/manifest.yaml`
-- root `CMakeLists.txt`
-- `apps/desktop/pubspec.yaml`
-- `native/include/xnn_transfer/c_api.h`
-- files under `protocol/spec/`
-
-Keep generated files, editor state, secrets, build output, and machine-specific
-paths out of commits.
+Do not restore V1 write paths, schema-v4 records, `integrated` state, tracked
+acceptance records, or two-stage acceptance CI.

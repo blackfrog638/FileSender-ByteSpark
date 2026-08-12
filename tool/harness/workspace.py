@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+import approval
 import git_ops
 from model import ContractSet, patterns_overlap
 from state import StateError, StateStore
@@ -33,15 +34,16 @@ class WorkspaceManager:
         self.integration_branch = contracts.manifest["integration_branch"]
 
     def _integration_sha(self) -> str:
+        protected_ref = "refs/heads/{}".format(self.integration_branch)
         try:
-            return git_ops.object_id(
-                self.root, "refs/heads/{}".format(self.integration_branch)
-            )
+            if self.states.remote is not None:
+                return git_ops.fetch_remote_object(
+                    self.root, self.states.remote, protected_ref
+                )
+            return git_ops.object_id(self.root, protected_ref)
         except git_ops.GitError as error:
             raise WorkspaceError(
-                "integration branch {} is unavailable".format(
-                    self.integration_branch
-                )
+                "integration branch {} is unavailable".format(self.integration_branch)
             ) from error
 
     def _task_branch(self, task_id: str) -> str:
@@ -53,14 +55,19 @@ class WorkspaceManager:
         return primary.parent / "{}-{}".format(primary.name, task_id)
 
     def _check_dependencies(self, task_id: str) -> None:
+        if self.states.remote is not None:
+            try:
+                approval.require_task_plan(self.contracts, task_id, self.states.remote)
+            except approval.ApprovalError as error:
+                raise WorkspaceError(str(error)) from error
         task = self.contracts.tasks[task_id]
         for dependency in task["depends_on"]:
+            if dependency in self.contracts.legacy_accepted:
+                continue
             snapshot = self.states.read(dependency)
             if snapshot.state != "done":
                 raise WorkspaceError(
-                    "{} dependency {} is {}".format(
-                        task_id, dependency, snapshot.state
-                    )
+                    "{} dependency {} is {}".format(task_id, dependency, snapshot.state)
                 )
 
     def _check_runtime_conflicts(self, task_id: str) -> None:
@@ -78,9 +85,7 @@ class WorkspaceManager:
                             )
                         )
 
-    def claim(
-        self, task_id: str, path: Optional[Path] = None
-    ) -> ClaimedWorkspace:
+    def claim(self, task_id: str, path: Optional[Path] = None) -> ClaimedWorkspace:
         if task_id not in self.contracts.tasks:
             raise WorkspaceError("unknown task {}".format(task_id))
         snapshot = self.states.read(task_id)
@@ -165,6 +170,45 @@ class WorkspaceManager:
             snapshot.commit,
         )
 
+    def recover_claim(self, task_id: str) -> Optional[ClaimedWorkspace]:
+        snapshot = self.states.read(task_id)
+        if snapshot.state != "active" or snapshot.event is None:
+            raise WorkspaceError("{} has no active claim to recover".format(task_id))
+        details = snapshot.event["details"]
+        required = {"base_sha", "branch", "worktree", "owner"}
+        if not required.issubset(details):
+            raise WorkspaceError("{} active event is incomplete".format(task_id))
+        path = Path(details["worktree"])
+        branch_ref = "refs/heads/{}".format(details["branch"])
+        branch_sha = git_ops.ref_sha(self.root, branch_ref)
+        if path.exists():
+            return self.active_workspace(task_id)
+        if branch_sha is not None:
+            if branch_sha != details["base_sha"]:
+                raise WorkspaceError(
+                    "{} missing worktree has a branch with user commits".format(task_id)
+                )
+            git_ops.run_git(
+                self.root,
+                "update-ref",
+                "-d",
+                branch_ref,
+                branch_sha,
+            )
+        rolled_back = self.states.transition(
+            task_id,
+            "active",
+            "ready",
+            "claim_rollback",
+            details={
+                "recovered_state_commit": snapshot.commit,
+                "missing_worktree": str(path),
+            },
+        )
+        if rolled_back.state != "ready":
+            raise WorkspaceError("{} claim rollback did not complete".format(task_id))
+        return None
+
     def stale_reasons(self, task_id: str) -> List[str]:
         workspace = self.active_workspace(task_id)
         current = self._integration_sha()
@@ -193,9 +237,7 @@ class WorkspaceManager:
     def require_fresh(self, task_id: str) -> None:
         reasons = self.stale_reasons(task_id)
         if reasons:
-            raise WorkspaceError(
-                "{} is stale:\n{}".format(task_id, "\n".join(reasons))
-            )
+            raise WorkspaceError("{} is stale:\n{}".format(task_id, "\n".join(reasons)))
 
     def release_queued_worktree(self, task_id: str) -> Path:
         snapshot = self.states.read(task_id)

@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import shutil
+import os
 import subprocess
 import sys
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 HARNESS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HARNESS))
@@ -30,7 +32,9 @@ class GateRepository:
         self.external = Path(self.fixture.temporary.name + "-external")
         self.external.mkdir()
         testcase.addCleanup(lambda: shutil.rmtree(self.external, ignore_errors=True))
-        subprocess.run(["git", "init", "-q", "-b", "harness", str(self.root)], check=True)
+        subprocess.run(
+            ["git", "init", "-q", "-b", "harness", str(self.root)], check=True
+        )
         self.git("config", "user.name", "Project Owner")
         self.git("config", "user.email", "owner@example.com")
         (self.root / "docs").mkdir()
@@ -56,7 +60,9 @@ class GateRepository:
         self.git(*arguments)
         return self.git("rev-parse", "HEAD")
 
-    def configure_command(self, gate_id: str, argv: list, group: str = "lightweight") -> None:
+    def configure_command(
+        self, gate_id: str, argv: list, group: str = "lightweight"
+    ) -> None:
         gate = self.fixture.gates["gates"][gate_id]
         gate["command"]["argv"] = argv
         gate["resource_group"] = group
@@ -95,8 +101,116 @@ class GatePlanTest(unittest.TestCase):
         right = gates.plan_gates(contracts, "XT-101", "review")
         self.assertEqual(left.digest, right.digest)
 
+    def test_candidate_prefix_unions_task_gate_reasons(self) -> None:
+        repository = GateRepository(self)
+        repository.commit("chore: initialize")
+        plan = gates.plan_task_set(
+            repository.load(),
+            ["XT-101", "XT-102"],
+            "queue",
+            ["native/src/feature.cpp"],
+        )
+        self.assertEqual(set(plan.leaves), {"feature_test", "governance"})
+        self.assertIn("task:XT-101", plan.reasons["feature_test"])
+        self.assertIn("task:XT-102", plan.reasons["feature_test"])
+        self.assertEqual(len(plan.leaves), len(set(plan.leaves)))
+
+    def test_platform_plan_filters_unsupported_leaves(self) -> None:
+        repository = GateRepository(self)
+        repository.fixture.gates["gates"]["governance"]["platforms"] = [
+            "local",
+            "linux",
+        ]
+        repository.fixture.gates["gates"]["feature_test"]["platforms"] = [
+            "local",
+            "linux",
+            "macos",
+        ]
+        repository.fixture.write()
+        repository.commit("chore: initialize")
+        plan = gates.plan_gates(repository.load(), "XT-101", "queue")
+        macos = gates.plan_for_platform(repository.load(), plan, "macos")
+        self.assertEqual(macos.leaves, ("feature_test",))
+
 
 class GateExecutorTest(unittest.TestCase):
+    def test_reported_skip_is_not_success_or_cacheable(self) -> None:
+        repository = GateRepository(self)
+        repository.configure_command(
+            "feature_test",
+            ["python3", "-c", "print('OK (skipped=2)')"],
+        )
+        repository.commit("chore: initialize")
+        contracts = repository.load()
+        plan = gates.single_gate_plan(contracts, "XT-101", "review", "feature_test")
+        first = executor.GateExecutor(contracts).execute(plan)
+        second = executor.GateExecutor(contracts).execute(plan)
+        self.assertEqual(first.results[0].outcome, "skipped")
+        self.assertTrue(first.results[0].attestation["skipped"])
+        self.assertFalse(first.results[0].cached)
+        self.assertFalse(second.results[0].cached)
+
+    def test_inherited_environment_changes_cache_key(self) -> None:
+        repository = GateRepository(self)
+        repository.configure_command(
+            "feature_test",
+            [
+                "python3",
+                "-c",
+                "import os; print(os.environ['XNN_DYNAMIC_TEST'])",
+            ],
+        )
+        repository.commit("chore: initialize")
+        contracts = repository.load()
+        plan = gates.single_gate_plan(contracts, "XT-101", "review", "feature_test")
+        with mock.patch.dict(os.environ, {"XNN_DYNAMIC_TEST": "first"}):
+            first = executor.GateExecutor(contracts).execute(plan)
+        with mock.patch.dict(os.environ, {"XNN_DYNAMIC_TEST": "second"}):
+            second = executor.GateExecutor(contracts).execute(plan)
+        self.assertFalse(first.results[0].cached)
+        self.assertFalse(second.results[0].cached)
+        self.assertNotEqual(
+            first.results[0].attestation["environment_sha256"],
+            second.results[0].attestation["environment_sha256"],
+        )
+
+    def test_bounds_output_and_classifies_limit(self) -> None:
+        repository = GateRepository(self)
+        repository.configure_command(
+            "feature_test",
+            ["python3", "-c", "print('x' * 4096)"],
+        )
+        repository.commit("chore: initialize")
+        plan = gates.single_gate_plan(
+            repository.load(), "XT-101", "review", "feature_test"
+        )
+        with mock.patch.object(executor, "MAX_OUTPUT_BYTES", 1024):
+            result = executor.GateExecutor(
+                repository.load(), cache_enabled=False
+            ).execute(plan)
+        self.assertEqual(result.results[0].outcome, "output_limit")
+        self.assertGreater(result.results[0].attestation["output_bytes"], 1024)
+
+    def test_classifies_signal_exit_as_crash(self) -> None:
+        if sys.platform == "win32":
+            return
+        repository = GateRepository(self)
+        repository.configure_command(
+            "feature_test",
+            [
+                "python3",
+                "-c",
+                "import os, signal; os.kill(os.getpid(), signal.SIGKILL)",
+            ],
+        )
+        repository.commit("chore: initialize")
+        result = executor.GateExecutor(repository.load(), cache_enabled=False).execute(
+            gates.single_gate_plan(
+                repository.load(), "XT-101", "review", "feature_test"
+            )
+        )
+        self.assertEqual(result.results[0].outcome, "crash")
+
     def test_success_cache_reuses_same_tree_across_commit_sha(self) -> None:
         repository = GateRepository(self)
         counter = repository.external / "counter.txt"
@@ -110,9 +224,7 @@ class GateExecutorTest(unittest.TestCase):
         repository.configure_command("feature_test", ["python3", "-c", code])
         repository.commit("chore: initialize")
         contracts = repository.load()
-        plan = gates.single_gate_plan(
-            contracts, "XT-101", "review", "feature_test"
-        )
+        plan = gates.single_gate_plan(contracts, "XT-101", "review", "feature_test")
         first = executor.GateExecutor(contracts).execute(plan)
         self.assertTrue(first.passed)
         self.assertFalse(first.results[0].cached)
@@ -150,9 +262,7 @@ class GateExecutorTest(unittest.TestCase):
         repository.configure_command("feature_test", ["python3", "-c", code])
         repository.commit("chore: initialize")
         contracts = repository.load()
-        plan = gates.single_gate_plan(
-            contracts, "XT-101", "review", "feature_test"
-        )
+        plan = gates.single_gate_plan(contracts, "XT-101", "review", "feature_test")
         first = executor.GateExecutor(contracts).execute(plan)
         second = executor.GateExecutor(contracts).execute(plan)
         self.assertEqual(first.results[0].outcome, "failure")
@@ -166,9 +276,7 @@ class GateExecutorTest(unittest.TestCase):
         repository.commit("chore: initialize")
         contracts = repository.load()
         (repository.root / "dirty.txt").write_text("dirty\n", encoding="utf-8")
-        plan = gates.single_gate_plan(
-            contracts, "XT-101", "review", "feature_test"
-        )
+        plan = gates.single_gate_plan(contracts, "XT-101", "review", "feature_test")
         with self.assertRaisesRegex(executor.GateExecutionError, "clean worktree"):
             executor.GateExecutor(contracts).execute(plan)
 
@@ -187,9 +295,7 @@ class GateExecutorTest(unittest.TestCase):
         contracts = repository.load()
         plan = gates.plan_gates(contracts, "XT-101", "review")
         started = time.monotonic()
-        result = executor.GateExecutor(
-            contracts, cache_enabled=False
-        ).execute(plan)
+        result = executor.GateExecutor(contracts, cache_enabled=False).execute(plan)
         elapsed = time.monotonic() - started
         self.assertTrue(result.passed)
         self.assertLess(elapsed, 0.65)
@@ -304,6 +410,31 @@ class TddTest(unittest.TestCase):
         )
         self._commit(worktree, "test: add red")
         with self.assertRaisesRegex(tdd.TddError, "does not pass at base"):
+            tdd.TddManager(contracts, store, manager).record_red("XT-101")
+
+    def test_rejects_failure_with_skipped_test_as_red(self) -> None:
+        repository = GateRepository(self)
+        fingerprint = "FAILED: expected feature behavior is unavailable"
+        code = (
+            "from pathlib import Path; import sys; "
+            "red=Path('native/tests/red.txt').exists(); "
+            "print({!r}) if red else None; "
+            "print('1 skipped') if red else None; "
+            "sys.exit(1 if red else 0)"
+        ).format(fingerprint)
+        repository.configure_command("feature_test", ["python3", "-c", code])
+        repository.commit("chore: initialize")
+        contracts = repository.load()
+        store = state.StateStore(contracts, actor=ACTOR)
+        manager = workspace.WorkspaceManager(contracts, store)
+        worktree = Path(repository.fixture.temporary.name + "-XT-101")
+        self.addCleanup(lambda: shutil.rmtree(worktree, ignore_errors=True))
+        manager.claim("XT-101", worktree)
+        (worktree / "native" / "tests" / "red.txt").write_text(
+            "red\n", encoding="utf-8"
+        )
+        self._commit(worktree, "test: add partially skipped red")
+        with self.assertRaisesRegex(tdd.TddError, "attributed assertion failure"):
             tdd.TddManager(contracts, store, manager).record_red("XT-101")
 
 

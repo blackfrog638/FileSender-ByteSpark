@@ -76,9 +76,7 @@ def _gate_payload(result: GateResult) -> Dict[str, Any]:
     return dict(result.attestation)
 
 
-def _exact_fingerprint(
-    diagnostic: str, fingerprints: Sequence[str]
-) -> Optional[str]:
+def _exact_fingerprint(diagnostic: str, fingerprints: Sequence[str]) -> Optional[str]:
     lines = set(diagnostic.splitlines())
     for fingerprint in fingerprints:
         if fingerprint in lines:
@@ -101,6 +99,16 @@ class TddManager:
 
     def _red_ref(self, task_id: str, red_sha: str) -> str:
         return "{}tdd/{}/{}".format(self.attest_prefix, task_id, red_sha)
+
+    def _sync_red_ref(self, ref: str) -> None:
+        if self.states.remote is None:
+            return
+        if git_ops.remote_ref_sha(self.root, self.states.remote, ref) is None:
+            return
+        try:
+            git_ops.fetch_immutable_ref(self.root, self.states.remote, ref)
+        except git_ops.GitError as error:
+            raise TddError(str(error)) from error
 
     def _run_at_commit(
         self,
@@ -125,9 +133,7 @@ class TddManager:
                 execution_root=worktree,
                 cache_enabled=True,
             )
-            plan = single_gate_plan(
-                self.contracts, task_id, phase, gate_id
-            )
+            plan = single_gate_plan(self.contracts, task_id, phase, gate_id)
             result = executor.execute(plan)
             if len(result.results) != 1:
                 raise TddError("focused TDD Gate must resolve to one leaf")
@@ -147,9 +153,7 @@ class TddManager:
     def _contract_blobs(self, task_id: str) -> Tuple[str, str]:
         task = self.contracts.tasks[task_id]
         return (
-            git_ops.object_id(
-                self.root, "HEAD:.agents/tasks/{}.json".format(task_id)
-            ),
+            git_ops.object_id(self.root, "HEAD:.agents/tasks/{}.json".format(task_id)),
             git_ops.object_id(
                 self.root,
                 "HEAD:.agents/plans/{}.json".format(task["plan"]),
@@ -172,6 +176,7 @@ class TddManager:
         proof_paths = list(tdd["proof_paths"])
         task_blob, plan_blob = self._contract_blobs(task_id)
         ref = self._red_ref(task_id, red_sha)
+        self._sync_red_ref(ref)
         existing = git_ops.ref_sha(self.root, ref)
         if existing is not None:
             existing_attestation = self.load_red(task_id, red_sha)
@@ -186,8 +191,7 @@ class TddManager:
                 or existing_attestation["plan_blob"] != plan_blob
                 or existing_attestation["gate_policy_sha256"]
                 != canonical_sha256(self.contracts.gate_policy)
-                or existing_attestation["frozen_surface_sha256"]
-                != current_surface
+                or existing_attestation["frozen_surface_sha256"] != current_surface
             ):
                 raise TddError(
                     "{} existing Red attestation context differs".format(task_id)
@@ -202,9 +206,7 @@ class TddManager:
                         )
                     )
         gate_id = tdd["gate"]
-        base_result = self._run_at_commit(
-            task_id, gate_id, "tdd_base", active.base_sha
-        )
+        base_result = self._run_at_commit(task_id, gate_id, "tdd_base", active.base_sha)
         if base_result.outcome != "success":
             raise TddError(
                 "{} focused Gate does not pass at base: {}".format(
@@ -216,14 +218,15 @@ class TddManager:
             execution_root=active.path,
             cache_enabled=False,
         )
-        red_plan = single_gate_plan(
-            self.contracts, task_id, "tdd_red", gate_id
-        )
+        red_plan = single_gate_plan(self.contracts, task_id, "tdd_red", gate_id)
         red_execution = red_executor.execute(red_plan)
         if len(red_execution.results) != 1:
             raise TddError("focused TDD Gate must resolve to one leaf")
         red_result = red_execution.results[0]
-        if red_result.outcome != "failure":
+        if (
+            red_result.outcome != "failure"
+            or red_result.attestation["skipped"] is not False
+        ):
             raise TddError(
                 "{} Red must be an attributed assertion failure, got {}".format(
                     task_id, red_result.outcome
@@ -243,9 +246,7 @@ class TddManager:
             "gate_id": gate_id,
             "task_spec_blob": task_blob,
             "plan_blob": plan_blob,
-            "gate_policy_sha256": canonical_sha256(
-                self.contracts.gate_policy
-            ),
+            "gate_policy_sha256": canonical_sha256(self.contracts.gate_policy),
             "proof_paths": proof_paths,
             "oracle_paths": list(tdd["oracle_paths"]),
             "frozen_surface_sha256": surface_sha256(
@@ -276,29 +277,24 @@ class TddManager:
                     None,
                 )
         except git_ops.GitError as error:
-            git_ops.run_git(
-                self.root, "update-ref", "-d", ref, commit, check=False
-            )
+            git_ops.run_git(self.root, "update-ref", "-d", ref, commit, check=False)
             raise TddError(str(error)) from error
         return attestation
 
     def load_red(self, task_id: str, red_sha: str) -> Mapping[str, Any]:
         ref = self._red_ref(task_id, red_sha)
+        self._sync_red_ref(ref)
         commit = git_ops.ref_sha(self.root, ref)
         if commit is None:
             raise TddError("{} has no Red attestation for {}".format(task_id, red_sha))
-        attestation = git_ops.read_json_object(
-            self.root, commit, "attestation.json"
-        )
+        attestation = git_ops.read_json_object(self.root, commit, "attestation.json")
         if set(attestation) != ATTESTATION_FIELDS:
             raise TddError("{} Red attestation has invalid fields".format(task_id))
         if attestation["task_id"] != task_id or attestation["red_sha"] != red_sha:
             raise TddError("{} Red attestation identity is invalid".format(task_id))
         return attestation
 
-    def review_green(
-        self, task_id: str, red_sha: str
-    ) -> Mapping[str, Any]:
+    def review_green(self, task_id: str, red_sha: str) -> Mapping[str, Any]:
         active = self.workspaces.active_workspace(task_id)
         if not git_ops.is_clean(active.path):
             raise TddError("{} worktree must be clean for Green".format(task_id))
@@ -310,8 +306,7 @@ class TddManager:
         if (
             red["task_spec_blob"] != task_blob
             or red["plan_blob"] != plan_blob
-            or red["gate_policy_sha256"]
-            != canonical_sha256(self.contracts.gate_policy)
+            or red["gate_policy_sha256"] != canonical_sha256(self.contracts.gate_policy)
         ):
             raise TddError("{} Red governance context is stale".format(task_id))
         frozen_patterns = list(red["proof_paths"]) + list(red["oracle_paths"])
@@ -336,9 +331,7 @@ class TddManager:
             execution_root=active.path,
             cache_enabled=True,
         )
-        plan = single_gate_plan(
-            self.contracts, task_id, "tdd_green", red["gate_id"]
-        )
+        plan = single_gate_plan(self.contracts, task_id, "tdd_green", red["gate_id"])
         execution = executor.execute(plan)
         if len(execution.results) != 1:
             raise TddError("focused TDD Gate must resolve to one leaf")

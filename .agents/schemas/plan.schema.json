@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xnntransfer.dev/schemas/harness-v2/plan.schema.json",
+  "title": "Harness V2 Delivery Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "status",
+    "source",
+    "requirements",
+    "approval"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^DP-[A-Z0-9-]+$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "approved"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "path"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/requirement"
+      }
+    },
+    "approval": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/approval"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "statement",
+        "criteria",
+        "implementation_tasks",
+        "acceptance_owner"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^REQ-[A-Z0-9-]+$"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/criterion"
+          }
+        },
+        "implementation_tasks": {
+          "$ref": "#/$defs/taskIds"
+        },
+        "acceptance_owner": {
+          "$ref": "#/$defs/taskId"
+        }
+      }
+    },
+    "criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "statement",
+        "negative_definitions",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^CRIT-[A-Z0-9-]+$"
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "negative_definitions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "gates",
+            "scenarios",
+            "topology",
+            "platforms",
+            "roles",
+            "allow_skipped"
+          ],
+          "properties": {
+            "gates": {
+              "$ref": "#/$defs/nonEmptyStrings"
+            },
+            "scenarios": {
+              "$ref": "#/$defs/nonEmptyStrings"
+            },
+            "topology": {
+              "type": "string",
+              "minLength": 1
+            },
+            "platforms": {
+              "$ref": "#/$defs/strings"
+            },
+            "roles": {
+              "$ref": "#/$defs/strings"
+            },
+            "allow_skipped": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approved_by",
+        "approved_at",
+        "content_sha256"
+      ],
+      "properties": {
+        "approved_by": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approved_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "taskId": {
+      "type": "string",
+      "pattern": "^XT-[0-9]{3,}$"
+    },
+    "taskIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/taskId"
+      }
+    },
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "nonEmptyStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

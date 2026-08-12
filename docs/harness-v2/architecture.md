@@ -14,13 +14,13 @@
 ```text
 XnnTransfer/
 ├── .agents/
-│   ├── manifest.yaml
-│   ├── gates.yaml
-│   ├── risk-routing.yaml
+│   ├── manifest.json
+│   ├── gates.json
+│   ├── risk-routing.json
 │   ├── plans/
-│   │   └── DP-*.yaml
+│   │   └── DP-*.json
 │   ├── tasks/
-│   │   └── XT-NNN.yaml
+│   │   └── XT-NNN.json
 │   └── schemas/
 │       ├── plan.schema.json
 │       ├── task.schema.json
@@ -57,11 +57,11 @@ XnnTransfer/
 
 保存在产品仓库并参与 code review：
 
-- `.agents/manifest.yaml`：V2 版本和全局策略；
+- `.agents/manifest.json`：V2 版本和全局策略；
 - `.agents/plans/`：需求、criterion、负例、验收 owner；
 - `.agents/tasks/`：任务依赖、owned paths、风险和交付合同；
-- `.agents/gates.yaml`：受信命令、Gate DAG、输入和资源组；
-- `.agents/risk-routing.yaml`：风险到 Gate 的最低映射；
+- `.agents/gates.json`：受信命令、Gate DAG、输入和资源组；
+- `.agents/risk-routing.json`：风险到 Gate 的最低映射；
 - `.agents/schemas/`：所有机器可读格式。
 
 版本化契约不包含 owner、runtime state、candidate SHA、CI URL 或时间戳。
@@ -71,17 +71,20 @@ XnnTransfer/
 每个 ref 都指向不可变 JSON event 或 manifest commit：
 
 ```text
+refs/heads/approve/DP-P1/<content-digest>
 refs/heads/state/XT-101
-refs/heads/submit/XT-101
-refs/heads/queue/train-000042/001
-refs/heads/queue/train-000042/002
-refs/heads/attest/XT-101
+refs/heads/submit/XT-101/000001
+refs/heads/queue/train-000042/001-XT-101
+refs/heads/queue/train-000042/002-XT-102
+refs/heads/attest/tdd/XT-101/<red-sha>
+refs/heads/attest/acceptance/XT-101/<candidate-sha>
 refs/heads/archive/XT-101/<attempt>
 ```
 
 约束：
 
 - `state/*` 只能 compare-and-swap；
+- `approve/*` 只能由项目所有者创建，创建后不可重写；
 - `submit/*` 创建后不可重写，同一任务新评审产生新 attempt；
 - `queue/*` 是临时候选，可由 worker 回收；
 - `attest/*` 只允许受信 CI/queue 身份创建；
@@ -138,7 +141,9 @@ ready -> active -> queued -> done
            +----------+
 ```
 
-`queued -> active` 只发生在需要修改 source payload 时。
+`queued -> active` 只发生在失败候选已归档、需要修改 source payload 时。
+`active -> done` 只允许 acceptance task 在 external criterion evidence
+closure 完成后使用，不生成 candidate。
 
 以下内容是状态事件的 reason，不是额外状态：
 
@@ -155,7 +160,7 @@ ready -> active -> queued -> done
 
 `task claim` 对 `state/<task>` 执行 CAS，并创建 worktree。claim 校验：
 
-- TaskSpec 和 Plan 已批准；
+- TaskSpec、Plan 和远端 owner approval ref 已批准；
 - dependencies 已发布；
 - owned paths 不与 `active` 或 `queued` 任务相交；
 - base 是 accepted branch 的祖先；

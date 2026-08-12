@@ -1,101 +1,84 @@
-# Multi-agent harness
+# Harness V2
 
-The harness makes ownership, contracts, and verification visible to every
-contributor. It intentionally uses plain Markdown and YAML so it works with
-different agent runtimes.
+Harness V2 separates reviewed contracts, runtime state, verification evidence,
+and product history.
 
-## List and claim a task
-
-```bash
-tool/harness/agent.sh list
-tool/harness/agent.sh claim XT-001 alice
-tool/harness/agent.sh prompt XT-001
-```
-
-The backlog is the reviewed task catalogue. Each task also has:
-
-- a human-readable specification under `.agents/tasks/`;
-- a machine-readable durable record under `.agents/records/`;
-- a unique `task/XT-NNN` branch and worktree while active.
-
-Branch creation is atomic, so two agents cannot claim the same task in one
-clone. The tracked record preserves owner, state, verification, document
-impact, integration provenance, and acceptance after cleanup.
-
-Claims require a clean, committed base. Give the generated prompt to a new
-agent and make sure that agent operates only in the printed worktree.
-
-For a requirement not yet represented in the backlog, create or update a
-Delivery Plan first. The plan binds stable requirement IDs to implementation
-and acceptance tasks without duplicating backlog dependencies:
-
-```bash
-python3 tool/harness/delivery_plan.py init \
-  DP-EXAMPLE "Example delivery" \
-  --source-kind roadmap \
-  --source-path docs/roadmap.md
-```
-
-After the draft reserves the task ID, create and review its specification:
-
-```bash
-tool/harness/new_task.sh XT-064 example-delivery native_core \
-  --delivery-plan DP-EXAMPLE \
-  --requirement-id REQ-EXAMPLE \
-  --delivery-role implementation \
-  --commit-type feat \
-  --commit-scope native \
-  --commit-summary 'implement example delivery' \
-  --architecture-mode none \
-  --owned 'native/src/example/**'
-```
-
-Resolve the generated specification and record, validate the complete plan,
-then have the integration owner approve it. Plan-bound tasks remain blocked
-until approval. `agent.sh claim` also requires every declared dependency to be
-accepted.
-
-Parallel tasks should have disjoint owned paths. When two tasks need the same
-shared contract, serialize the contract change through the integration owner,
-then let both tasks build against the accepted interface.
-
-## Move, integrate, and finish a task
-
-```bash
-tool/harness/agent.sh transition XT-001 in_progress
-tool/harness/agent.sh transition XT-001 review
-tool/harness/agent.sh integrate XT-001
-tool/harness/agent.sh accept XT-001 integration-owner
-tool/harness/agent.sh cleanup XT-001
-```
-
-Commit implementation and handoff changes before requesting review. The review
-transition requires a clean worktree, validates owned paths and handoff fields,
-and executes the verification commands in the task record.
-
-`integrate` must run from the configured integration branch. It uses
-one squash delivery commit by default and records the ordered source range plus
-aggregate source/result payload patch IDs. If a squash conflicts, stage the
-resolved source-equivalent patch and rerun `integrate XT-NNN --continue`.
-Integration fixes that change the reviewed patch must return to
-`in_progress`.
-
-Use `--strategy cherry-pick` only when commit topology is an explicit review
-requirement. Existing cherry-pick records remain valid.
-
-`accept` reruns the recorded commands, fills the delivery and verified SHAs,
-and is the only path to `done`. `cleanup` refuses to remove a branch whose
-commits do not exactly match its squash source list or legacy mappings. A
-normal requirement therefore adds three commits to `harness`: planning, one
-delivery, and acceptance.
-
-The valid runtime path is:
+## Tracked contracts
 
 ```text
-ready -> claimed -> in_progress -> review -> integrated -> done
-                         \-> blocked -> in_progress
-review -> in_progress
+.agents/manifest.json       Project owner, integration branch, ref namespaces
+.agents/gates.json          Trusted Gate DAG and commands
+.agents/risk-routing.json   Mechanical path/risk Gate minimums
+.agents/plans/DP-*.json     Requirements and criteria
+.agents/tasks/XT-*.json     Dependencies, ownership, risk, and TDD
+.agents/migration-v1.json   Read-only legacy acceptance/deferred snapshot
+.agents/schemas/            Machine-readable formats
 ```
 
-Local Git configuration accelerates single-clone scheduling but is not durable
-state. `.agents/records/XT-NNN.json` is authoritative for audit and CI.
+Plans and TaskSpecs are static. They never contain runtime owner, state, source
+SHA, CI URL, or acceptance evidence.
+
+## Runtime refs
+
+```text
+approve/DP-NAME/DIGEST         Immutable project-owner Plan approval
+state/XT-NNN                  Append-only task state events
+submit/XT-NNN/NNNNNN         Immutable reviewed submissions
+queue/TRAIN/NNN-XT-NNN       Exact cumulative candidates
+attest/tdd/XT-NNN/SHA        Red attestations
+attest/acceptance/XT-NNN/SHA Acceptance attestations
+archive/...                   Failed and legacy attempts
+```
+
+State transitions use compare-and-swap. Deleting local
+`.git/xnn-harness/` cache does not remove authoritative state.
+
+## Commands
+
+```bash
+tool/harness/agent.sh validate
+tool/harness/agent.sh list
+tool/harness/agent.sh claim XT-NNN
+tool/harness/agent.sh claim-recover XT-NNN
+tool/harness/agent.sh tdd-red XT-NNN
+tool/harness/agent.sh submit XT-NNN --red-sha SHA
+tool/harness/agent.sh queue-build XT-NNN --train-id train-001
+tool/harness/agent.sh queue-reopen XT-NNN QUEUE_REF --reason "CI failed"
+tool/harness/agent.sh collect-evidence XT-NNN QUEUE_REF --output evidence.json
+tool/harness/agent.sh publish XT-NNN QUEUE_REF \
+  --evidence evidence.json \
+  --required-job "Harness V2" \
+  --required-job "Product gates (linux)"
+tool/harness/agent.sh acceptance-close XT-ACCEPT
+```
+
+The persistent lifecycle is:
+
+```text
+ready -> active -> queued -> done
+           ^          |
+           +----------+
+```
+
+`queued -> active` is used only when source repair is required. Wait reasons
+such as dependency, review, CI, retry, and publication are event metadata, not
+additional authoritative states. Acceptance tasks alone use `active -> done`
+after payload-free evidence closure.
+
+Production claim requires the matching remote `approve/**` ref. `--local`
+commands are useful for isolated tests but are not authoritative approval or
+publication evidence.
+
+## Delivery
+
+Review creates an immutable submission and releases the development worktree.
+Owned paths remain reserved. The merge queue builds cumulative candidates from
+the current accepted base. Only the final protected-ref compare-and-swap is
+serialized.
+
+The exact candidate runs one required CI workflow. Acceptance evidence is
+stored outside the candidate, so there is no record-only acceptance commit and
+no second complete CI run.
+
+Legacy V1 records, plans, handoffs, and stopped worktrees remain recoverable
+from `archive/harness-v1/*`; they are not active V2 state.

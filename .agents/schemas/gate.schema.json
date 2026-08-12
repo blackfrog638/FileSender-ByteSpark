@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xnntransfer.dev/schemas/harness-v2/gate.schema.json",
+  "title": "Harness V2 Gate policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "resource_groups",
+    "gates"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "resource_groups": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "max_parallel"
+        ],
+        "properties": {
+          "max_parallel": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32
+          }
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/gate"
+      }
+    }
+  },
+  "$defs": {
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "aggregate",
+        "inputs",
+        "resource_group",
+        "platforms",
+        "cache"
+      ],
+      "properties": {
+        "command": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/command"
+            }
+          ]
+        },
+        "aggregate": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/nonEmptyStrings"
+            }
+          ]
+        },
+        "inputs": {
+          "$ref": "#/$defs/strings"
+        },
+        "resource_group": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "platforms": {
+          "$ref": "#/$defs/nonEmptyStrings"
+        },
+        "cache": {
+          "enum": [
+            "disabled",
+            "success_only"
+          ]
+        }
+      }
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "argv",
+        "timeout_seconds",
+        "environment"
+      ],
+      "properties": {
+        "argv": {
+          "$ref": "#/$defs/nonEmptyStrings"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "propertyNames": {
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          }
+        }
+      }
+    },
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "nonEmptyStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

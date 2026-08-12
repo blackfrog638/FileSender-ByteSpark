@@ -133,8 +133,7 @@ def plan_gates(
         "requested": list(requested),
         "leaves": leaves,
         "reasons": {
-            gate_id: list(values)
-            for gate_id, values in canonical_reasons.items()
+            gate_id: list(values) for gate_id, values in canonical_reasons.items()
         },
     }
     return GatePlan(
@@ -143,6 +142,92 @@ def plan_gates(
         requested=requested,
         leaves=tuple(leaves),
         reasons=canonical_reasons,
+        digest=canonical_sha256(payload),
+    )
+
+
+def plan_task_set(
+    contracts: ContractSet,
+    task_ids: Sequence[str],
+    phase: str,
+    changed_paths: Optional[Sequence[str]] = None,
+) -> GatePlan:
+    ordered = tuple(task_ids)
+    if not ordered or len(ordered) != len(set(ordered)):
+        raise GatePlanError("candidate task set is empty or duplicated")
+    reasons: Dict[str, Set[str]] = {}
+    for task_id in ordered:
+        for gate_id, gate_reasons in required_gates(
+            contracts, task_id, phase, changed_paths
+        ).items():
+            reasons.setdefault(gate_id, set()).update(
+                set(gate_reasons) | {"task:{}".format(task_id)}
+            )
+    requested = tuple(sorted(reasons))
+    leaves: List[str] = []
+    seen: Set[str] = set()
+    for gate_id in requested:
+        _expand_gate(gate_id, contracts.gates, set(), leaves, seen)
+    leaf_reasons: Dict[str, Set[str]] = {gate_id: set() for gate_id in leaves}
+    for requested_gate, requested_reasons in reasons.items():
+        requested_leaves: List[str] = []
+        _expand_gate(
+            requested_gate,
+            contracts.gates,
+            set(),
+            requested_leaves,
+            set(),
+        )
+        for leaf in requested_leaves:
+            leaf_reasons[leaf].update(requested_reasons)
+            if leaf != requested_gate:
+                leaf_reasons[leaf].add("aggregate:{}".format(requested_gate))
+    canonical_reasons = {
+        gate_id: tuple(sorted(values))
+        for gate_id, values in sorted(leaf_reasons.items())
+    }
+    payload = {
+        "task_ids": list(ordered),
+        "phase": phase,
+        "requested": list(requested),
+        "leaves": leaves,
+        "reasons": {
+            gate_id: list(values) for gate_id, values in canonical_reasons.items()
+        },
+    }
+    return GatePlan(
+        task_id="+".join(ordered),
+        phase=phase,
+        requested=requested,
+        leaves=tuple(leaves),
+        reasons=canonical_reasons,
+        digest=canonical_sha256(payload),
+    )
+
+
+def plan_for_platform(
+    contracts: ContractSet, plan: GatePlan, platform: str
+) -> GatePlan:
+    leaves = tuple(
+        gate_id
+        for gate_id in plan.leaves
+        if platform in contracts.gates[gate_id]["platforms"]
+    )
+    if not leaves:
+        raise GatePlanError("Gate plan has no leaves for platform {}".format(platform))
+    reasons = {gate_id: plan.reasons[gate_id] for gate_id in leaves}
+    payload = {
+        "source_plan_sha256": plan.digest,
+        "platform": platform,
+        "leaves": list(leaves),
+        "reasons": {gate_id: list(values) for gate_id, values in reasons.items()},
+    }
+    return GatePlan(
+        task_id=plan.task_id,
+        phase=plan.phase,
+        requested=plan.requested,
+        leaves=leaves,
+        reasons=reasons,
         digest=canonical_sha256(payload),
     )
 
@@ -163,6 +248,27 @@ def single_gate_plan(
     return GatePlan(
         task_id,
         phase,
+        (gate_id,),
+        tuple(leaves),
+        reasons,
+        canonical_sha256(payload),
+    )
+
+
+def global_gate_plan(contracts: ContractSet, gate_id: str = "verify") -> GatePlan:
+    leaves: List[str] = []
+    _expand_gate(gate_id, contracts.gates, set(), leaves, set())
+    reasons = {leaf: ("aggregate:{}".format(gate_id),) for leaf in leaves}
+    payload = {
+        "task_id": "_repository",
+        "phase": "global",
+        "requested": [gate_id],
+        "leaves": leaves,
+        "reasons": {key: list(value) for key, value in reasons.items()},
+    }
+    return GatePlan(
+        "_repository",
+        "global",
         (gate_id,),
         tuple(leaves),
         reasons,

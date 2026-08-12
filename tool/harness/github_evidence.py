@@ -110,9 +110,7 @@ def _complete_array(
     if not isinstance(values, list) or not isinstance(total, int):
         raise GitHubEvidenceError("{} response is malformed".format(key))
     if total != len(values):
-        raise GitHubEvidenceError(
-            "{} response is paginated or incomplete".format(key)
-        )
+        raise GitHubEvidenceError("{} response is paginated or incomplete".format(key))
     if not all(isinstance(item, dict) for item in values):
         raise GitHubEvidenceError("{} entries are malformed".format(key))
     return list(values)
@@ -128,11 +126,7 @@ def _artifact_manifest(archive: bytes, expected_sha: str) -> Mapping[str, Any]:
             names = set()
             for entry in entries:
                 path = PurePosixPath(entry.filename)
-                if (
-                    path.is_absolute()
-                    or ".." in path.parts
-                    or entry.filename in names
-                ):
+                if path.is_absolute() or ".." in path.parts or entry.filename in names:
                     raise GitHubEvidenceError("artifact contains an unsafe path")
                 names.add(entry.filename)
                 total += entry.file_size
@@ -150,20 +144,37 @@ def _artifact_manifest(archive: bytes, expected_sha: str) -> Mapping[str, Any]:
     if not isinstance(manifest, dict) or set(manifest) != {
         "schema_version",
         "source_sha",
+        "platform",
+        "gate_ids",
         "gate_attestations",
+        "criterion_ids",
         "criterion_evidence",
     }:
         raise GitHubEvidenceError("artifact evidence has invalid fields")
     if manifest["schema_version"] != 1 or manifest["source_sha"] != expected_sha:
         raise GitHubEvidenceError("artifact evidence has stale source SHA")
+    if manifest["platform"] not in {"linux", "macos", "windows"}:
+        raise GitHubEvidenceError("artifact platform is invalid")
+    for field in ("gate_ids", "criterion_ids"):
+        values = manifest[field]
+        if (
+            not isinstance(values, list)
+            or not values
+            or len(values) != len(set(values))
+            or any(not isinstance(item, str) or not item for item in values)
+        ):
+            raise GitHubEvidenceError("artifact {} is invalid".format(field))
     for field in ("gate_attestations", "criterion_evidence"):
         values = manifest[field]
         if not isinstance(values, list) or any(
-            not isinstance(item, str)
-            or re.fullmatch(r"[0-9a-f]{64}", item) is None
+            not isinstance(item, str) or re.fullmatch(r"[0-9a-f]{64}", item) is None
             for item in values
         ):
             raise GitHubEvidenceError("artifact {} is invalid".format(field))
+    if len(manifest["gate_ids"]) != len(manifest["gate_attestations"]):
+        raise GitHubEvidenceError("artifact Gate identities are incomplete")
+    if len(manifest["criterion_ids"]) != len(manifest["criterion_evidence"]):
+        raise GitHubEvidenceError("artifact criterion identities are incomplete")
     return manifest
 
 
@@ -177,13 +188,9 @@ def collect_workflow_evidence(
     required_artifacts: Sequence[str],
 ) -> Dict[str, Any]:
     workflow_name = urllib.parse.quote(workflow_path, safe="")
-    query = urllib.parse.urlencode(
-        {"branch": branch, "event": "push", "per_page": 100}
-    )
+    query = urllib.parse.urlencode({"branch": branch, "event": "push", "per_page": 100})
     runs_payload = client.json(
-        "{}/actions/workflows/{}/runs?{}".format(
-            client.base, workflow_name, query
-        )
+        "{}/actions/workflows/{}/runs?{}".format(client.base, workflow_name, query)
     )
     runs = _complete_array(runs_payload, "workflow_runs", "total_count")
     candidates = [
@@ -228,13 +235,9 @@ def collect_workflow_evidence(
             raise GitHubEvidenceError("workflow job is malformed")
         normalized_jobs.append({"name": name, "conclusion": conclusion})
     artifacts_payload = client.json(
-        "{}/actions/runs/{}/artifacts?per_page=100".format(
-            client.base, run_id
-        )
+        "{}/actions/runs/{}/artifacts?per_page=100".format(client.base, run_id)
     )
-    artifacts = _complete_array(
-        artifacts_payload, "artifacts", "total_count"
-    )
+    artifacts = _complete_array(artifacts_payload, "artifacts", "total_count")
     by_name: Dict[str, Mapping[str, Any]] = {}
     for artifact in artifacts:
         name = artifact.get("name")
@@ -260,7 +263,10 @@ def collect_workflow_evidence(
                 "name": name,
                 "source_sha": manifest["source_sha"],
                 "sha256": hashlib_sha256(archive),
+                "platform": manifest["platform"],
+                "gate_ids": manifest["gate_ids"],
                 "gate_attestations": manifest["gate_attestations"],
+                "criterion_ids": manifest["criterion_ids"],
                 "criterion_evidence": manifest["criterion_evidence"],
             }
         )

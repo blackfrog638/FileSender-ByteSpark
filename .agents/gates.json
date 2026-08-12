@@ -1,0 +1,312 @@
+{
+  "schema_version": 1,
+  "resource_groups": {
+    "lightweight": {
+      "max_parallel": 8
+    },
+    "native_build": {
+      "max_parallel": 1
+    },
+    "flutter_sdk": {
+      "max_parallel": 1
+    },
+    "security_build": {
+      "max_parallel": 1
+    }
+  },
+  "gates": {
+    "diff_check": {
+      "command": {
+        "argv": [
+          "bash",
+          "tool/harness/diff_check.sh"
+        ],
+        "timeout_seconds": 60,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [],
+      "resource_group": "lightweight",
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "success_only"
+    },
+    "layout": {
+      "command": {
+        "argv": [
+          "bash",
+          "tool/harness/check_layout.sh"
+        ],
+        "timeout_seconds": 120,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [
+        ".agents/**",
+        "tool/harness/**",
+        "apps/desktop/lib/**"
+      ],
+      "resource_group": "lightweight",
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "success_only"
+    },
+    "commit_policy": {
+      "command": {
+        "argv": [
+          "bash",
+          "tool/harness/commit_message_test.sh"
+        ],
+        "timeout_seconds": 120,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [
+        ".agents/commit-identity.json",
+        "docs/commit-policy.md",
+        "tool/harness/commit_message.py",
+        "tool/harness/commit_message_test.py"
+      ],
+      "resource_group": "lightweight",
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "success_only"
+    },
+    "harness_v2": {
+      "command": {
+        "argv": [
+          "python3",
+          "-B",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tool/harness/tests",
+          "-p",
+          "test_*.py"
+        ],
+        "timeout_seconds": 300,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [
+        ".agents/**",
+        "tool/harness/**",
+        ".github/workflows/**"
+      ],
+      "resource_group": "lightweight",
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "success_only"
+    },
+    "dependency_test": {
+      "command": {
+        "argv": [
+          "bash",
+          "tool/harness/dependency_test.sh"
+        ],
+        "timeout_seconds": 900,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [
+        "vcpkg.json",
+        "vcpkg-configuration.json",
+        "cmake/dependencies/**",
+        "cmake/vcpkg-overlay/**",
+        "cmake/triplets/**"
+      ],
+      "resource_group": "native_build",
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "success_only"
+    },
+    "architecture": {
+      "command": {
+        "argv": [
+          "bash",
+          "tool/harness/architecture_test.sh"
+        ],
+        "timeout_seconds": 180,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [
+        ".agents/architecture/**",
+        "native/**",
+        "apps/desktop/lib/**",
+        "CMakeLists.txt"
+      ],
+      "resource_group": "lightweight",
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "success_only"
+    },
+    "abi_compat": {
+      "command": {
+        "argv": [
+          "bash",
+          "tool/harness/abi_compat_test.sh"
+        ],
+        "timeout_seconds": 900,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [
+        "native/include/xnn_transfer/c_api.h",
+        "native/src/bridge/**",
+        "native/tests/abi/**"
+      ],
+      "resource_group": "native_build",
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "success_only"
+    },
+    "native_test": {
+      "command": {
+        "argv": [
+          "bash",
+          "tool/harness/native_test.sh"
+        ],
+        "timeout_seconds": 1200,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [
+        "native/**",
+        "protocol/**",
+        "CMakeLists.txt",
+        "cmake/**"
+      ],
+      "resource_group": "native_build",
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "success_only"
+    },
+    "flutter_test": {
+      "command": {
+        "argv": [
+          "bash",
+          "tool/harness/flutter_test.sh"
+        ],
+        "timeout_seconds": 900,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [
+        "apps/desktop/lib/**",
+        "apps/desktop/test/**",
+        "apps/desktop/pubspec.yaml"
+      ],
+      "resource_group": "flutter_sdk",
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "success_only"
+    },
+    "protocol_vectors": {
+      "command": {
+        "argv": [
+          "python3",
+          "protocol/testdata/v1/validate_vectors.py"
+        ],
+        "timeout_seconds": 120,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [
+        "protocol/spec/**",
+        "protocol/testdata/v1/**",
+        "native/src/protocol/**"
+      ],
+      "resource_group": "lightweight",
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "success_only"
+    },
+    "security_test": {
+      "command": {
+        "argv": [
+          "bash",
+          "tool/harness/security_test.sh"
+        ],
+        "timeout_seconds": 1800,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [
+        "native/**",
+        "protocol/**",
+        "tool/harness/security_test.sh"
+      ],
+      "resource_group": "security_build",
+      "platforms": [
+        "local",
+        "linux"
+      ],
+      "cache": "disabled"
+    },
+    "verify": {
+      "command": null,
+      "aggregate": [
+        "diff_check",
+        "layout",
+        "commit_policy",
+        "harness_v2",
+        "dependency_test",
+        "architecture",
+        "abi_compat",
+        "native_test",
+        "flutter_test"
+      ],
+      "inputs": [],
+      "resource_group": null,
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "disabled"
+    }
+  }
+}

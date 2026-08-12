@@ -397,3 +397,105 @@ git ls-remote --heads origin refs/heads/bootstrap/harness-v2
 - 项目所有者阶段门决定。
 
 禁止覆盖历史日志条目；更正使用新条目说明。
+
+## 2026-08-12：HV2-WP7 原子替换候选
+
+基线：
+
+```text
+source: 89a8b252785e3627524f0d7b66e972e87f07cfbd
+branch: bootstrap/harness-v2
+rollback: origin/bootstrap/harness-v2 at 89a8b252
+```
+
+实施结果：
+
+- 删除 V1 backlog、records、handoffs、schema-v4 task specs、runtime
+  writers、旧 CI workflow 和并行 provider；
+- 写入只读 migration snapshot：67 accepted、20 deferred；
+- 激活 strict Plan/TaskSpec/Gate contracts、CAS state refs、immutable
+  submissions、cumulative merge train、external attestations；
+- 增加 remote immutable Plan approval ref，production claim/queue/publish
+  必须读取 owner approval；
+- 增加 `claim-recover`、`queue-reopen`、publication recovery 和
+  payload-free `acceptance-close`；
+- submission commit 以 source head 为 parent，fresh queue worker 可从
+  remote submission ref 取得 source objects；
+- publisher 重算 candidate parent、payload、workflow、platform Gate 和
+  criterion closure，并按 train predecessor state 顺序发布；
+- executor 检测 unittest/pytest/CTest/GTest/Flutter skip 输出，skip 不成功、
+  不缓存、不能作为 TDD Red；
+- criterion evidence 绑定完整 criterion contract、candidate SHA 和 Gate
+  attestation digests；
+- trust-root changes 不能通过普通 task queue 自行授权。
+
+恢复测试覆盖：
+
+- claim 在 state CAS 后崩溃；
+- fresh worker 缺少本地 source/state/submission objects；
+- queue CI 失败后 archive/reopen；
+- predecessor 未持久化 done；
+- acceptance ref 已写但 protected CAS 失败后重试；
+- protected CAS 成功但 state finalization 失败；
+- acceptance owner 零 payload criterion closure。
+
+本地命令和结果：
+
+```text
+python3 -B tool/harness/agent.py validate
+  PASS: gates=12, plans=0, tasks=0
+make harness-v2-test
+  PASS: 73 tests
+make architecture-test
+  PASS: 17 tests and dependency matrix
+make commit-message-test
+  PASS: 19 tests and current range
+make contract-test
+  PASS
+make abi-compat-test
+  PASS: 4/4
+make security-test
+  PASS: sanitizer CTest 27/27 and both bounded fuzzers
+make native-test
+  PASS: CTest 28/28
+make flutter-test
+  PASS: analyze clean, 53 tests
+make dependency-test
+  PASS: 30 policy tests and pinned dependency probe
+make diff-check
+  PASS
+python3 -B -m py_compile tool/harness/*.py tool/harness/tests/*.py
+  PASS
+PyYAML safe_load .github/workflows/*.yml
+  PASS
+git diff --check
+  PASS
+```
+
+首次 ABI/security 执行在 configure 前失败，因为新 worktree 不存在 pinned
+vcpkg。执行 `make vcpkg-bootstrap` 后重新运行，两项均通过；该首次结果不
+计为产品 Gate failure。
+
+Reviewer/授权：
+
+- 项目所有者已明确接受 ADR 0017 并指示直接实施；
+- 本地实现完成自审和 adversarial suite；
+- exact candidate 的 hosted reviewer/CI evidence 尚未生成。
+
+保留的 archive/rollback：
+
+- `archive/harness-v1/final-local`；
+- `archive/harness-v1/protected-base`；
+- 全部已盘点 V1 task/plan/diagnostic refs；
+- cutover commit 前远端 bootstrap rollback point `89a8b252`。
+
+未完成和残余风险：
+
+- `actionlint`、JSON Schema meta-validator 本机不可用；workflow 已通过
+  PyYAML，runtime schema 通过 semantic validator；
+- Linux/macOS/Windows exact candidate CI 尚未运行；
+- `approve/**`、state/submit/queue/attest/archive ruleset 与 queue-worker
+  最小权限尚未在远端审计；
+- publication slot 小于 5 秒、cache P50/P95 和吞吐 SLO 尚未 benchmark；
+- Pilot A/Pilot B 尚未注册和交付；
+- protected `harness` 尚未执行最终 CAS，V1 archive 在发布完成前不清理。

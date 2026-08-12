@@ -50,25 +50,19 @@ do not overlap.
 
 ## Current delivery status
 
-Runtime snapshots are deliberately not checked into this document. Generate
-the current requirement and task view from the approved Delivery Plan,
-backlog, and durable task records:
+Runtime snapshots are deliberately not checked into this document. Harness V2
+derives the current view from approved Delivery Plans, TaskSpecs, and remote
+state refs:
 
 ```bash
-python3 tool/harness/delivery_plan.py status DP-P1-DELIVERY
 tool/harness/agent.sh list
+make dashboard
 ```
 
-The generated view reports each requirement as `planned`, `in-progress`,
-`partially-delivered`, `acceptance-ready`, or `accepted`. Ready tasks are
-reported as `claimable` only when every declared dependency is durably `done`;
-otherwise they are `dependency-blocked`. `agent.sh list` additionally resolves
-active task branches.
-
-`DP-P1-DELIVERY` is the reviewed requirement-to-task mapping. The backlog is
-the only dependency graph. XT-032 uniquely accepts the vertical slice, and
-XT-039 uniquely accepts production P1 behavior; only those tasks may close the
-corresponding checkboxes above after cross-platform evidence passes.
+The active V2 Plan/TaskSpec catalogue is intentionally empty immediately after
+the Harness migration. Legacy V1 plans and tasks remain archived and are not
+automatically claimable. Product delivery resumes only after a new or migrated
+V2 Plan is explicitly approved.
 
 ## P2: hardening and release
 
@@ -101,5 +95,7 @@ corresponding checkboxes above after cross-platform evidence passes.
 | XT-016 | protocol | host-independent security word-list validation | done |
 | XT-017 | integration | auditable squash task integration | done |
 
-Task state and acceptance evidence live under `.agents/records/`. Roadmap
-checkboxes describe product milestones and are not the runtime task state.
+Legacy completion evidence is summarized by `.agents/migration-v1.json` and
+remains readable from `archive/harness-v1/*`. New task state and acceptance
+attestations live in independent refs. Roadmap checkboxes describe product
+milestones and are not runtime task state.

@@ -92,7 +92,17 @@ def task(
             "commit_type": "feat" if task_type == "feature" else "test",
             "scope": "harness",
             "summary": "deliver {}".format(task_id.lower()),
-            "architecture_change": {"mode": "none", "modules": []},
+            "architecture_change": {
+                "mode": "none",
+                "modules": [],
+                "supersedes": {
+                    "paths": [],
+                    "symbols": [],
+                    "targets": [],
+                },
+                "temporary_leases": [],
+                "retires_leases": [],
+            },
         },
     }
 
@@ -109,6 +119,7 @@ def valid_documents() -> Tuple[Dict[str, Any], ...]:
             "email": "owner@example.com",
         },
         "ref_namespaces": {
+            "approve": "refs/heads/approve/",
             "state": "refs/heads/state/",
             "submit": "refs/heads/submit/",
             "queue": "refs/heads/queue/",
@@ -162,9 +173,7 @@ def valid_documents() -> Tuple[Dict[str, Any], ...]:
                     {
                         "id": "CRIT-EXAMPLE-BEHAVIOR",
                         "statement": "The example behavior is observable.",
-                        "negative_definitions": [
-                            "A skipped test does not qualify."
-                        ],
+                        "negative_definitions": ["A skipped test does not qualify."],
                         "evidence": {
                             "gates": ["feature_test"],
                             "scenarios": ["positive", "negative"],
@@ -204,6 +213,7 @@ class ContractFixture:
         agents = self.root / ".agents"
         (agents / "plans").mkdir(parents=True)
         (agents / "tasks").mkdir()
+        (agents / "architecture").mkdir()
         (
             self.manifest,
             self.gates,
@@ -223,8 +233,21 @@ class ContractFixture:
     def write(self) -> None:
         agents = self.root / ".agents"
         self._dump(agents / "manifest.json", self.manifest)
+        self._dump(
+            agents / "commit-identity.json",
+            {
+                "schema_version": 2,
+                "name": "Project Owner",
+                "email": "owner@example.com",
+                "immutable": True,
+            },
+        )
         self._dump(agents / "gates.json", self.gates)
         self._dump(agents / "risk-routing.json", self.routing)
+        self._dump(
+            agents / "architecture" / "modules.json",
+            {"schema_version": 1, "modules": []},
+        )
         self._dump(agents / "plans" / "DP-EXAMPLE.json", self.plan)
         self._dump(agents / "tasks" / "XT-101.json", self.implementation)
         self._dump(agents / "tasks" / "XT-102.json", self.acceptance)
@@ -236,6 +259,16 @@ class ModelTest(unittest.TestCase):
         contracts = model.load_contracts(fixture.root)
         self.assertEqual(set(contracts.tasks), {"XT-101", "XT-102"})
         self.assertEqual(set(contracts.gates), {"governance", "feature_test", "verify"})
+
+    def test_allows_empty_active_plan_and_task_catalogue(self) -> None:
+        fixture = ContractFixture(self)
+        for path in (fixture.root / ".agents" / "plans").glob("*.json"):
+            path.unlink()
+        for path in (fixture.root / ".agents" / "tasks").glob("*.json"):
+            path.unlink()
+        contracts = model.load_contracts(fixture.root)
+        self.assertEqual(contracts.plans, {})
+        self.assertEqual(contracts.tasks, {})
 
     def test_canonical_digest_is_order_independent(self) -> None:
         left = {"a": 1, "b": {"c": ["é", False]}}
@@ -291,6 +324,18 @@ class ModelTest(unittest.TestCase):
         with self.assertRaisesRegex(model.ContractError, "unknown gate"):
             model.load_contracts(fixture.root)
 
+    def test_rejects_criterion_platform_unsupported_by_gate(self) -> None:
+        fixture = ContractFixture(self)
+        fixture.plan["requirements"][0]["criteria"][0]["evidence"]["platforms"] = [
+            "windows"
+        ]
+        fixture.plan["approval"]["content_sha256"] = model.plan_content_sha256(
+            fixture.plan
+        )
+        fixture.write()
+        with self.assertRaisesRegex(model.ContractError, "cannot produce windows"):
+            model.load_contracts(fixture.root)
+
     def test_rejects_stale_approval_digest_and_free_text_approver(self) -> None:
         fixture = ContractFixture(self)
         fixture.plan["title"] = "Changed after approval"
@@ -314,11 +359,41 @@ class ModelTest(unittest.TestCase):
         with self.assertRaisesRegex(model.ContractError, "does not depend"):
             model.load_contracts(fixture.root)
 
+    def test_rejects_requirement_task_mapping_gaps(self) -> None:
+        fixture = ContractFixture(self)
+        criterion = fixture.plan["requirements"][0]["criteria"][0]
+        criterion["id"] = "CRIT-OTHER-BEHAVIOR"
+        fixture.plan["approval"]["content_sha256"] = model.plan_content_sha256(
+            fixture.plan
+        )
+        fixture.write()
+        with self.assertRaisesRegex(
+            model.ContractError, "maps no requirement criterion"
+        ):
+            model.load_contracts(fixture.root)
+
+        fixture = ContractFixture(self)
+        extra = task(
+            "XT-103",
+            "acceptance",
+            ["XT-101"],
+            [".agents/tasks/XT-103.json"],
+        )
+        fixture._dump(
+            fixture.root / ".agents" / "tasks" / "XT-103.json",
+            extra,
+        )
+        with self.assertRaisesRegex(model.ContractError, "is not assigned"):
+            model.load_contracts(fixture.root)
+
     def test_rejects_foreign_or_unmapped_criterion(self) -> None:
         fixture = ContractFixture(self)
         fixture.implementation["criteria"] = ["CRIT-FOREIGN"]
         fixture.write()
-        with self.assertRaisesRegex(model.ContractError, "unknown or foreign"):
+        with self.assertRaisesRegex(
+            model.ContractError,
+            "maps no requirement criterion|unknown or foreign",
+        ):
             model.load_contracts(fixture.root)
 
         fixture = ContractFixture(self)
@@ -329,14 +404,37 @@ class ModelTest(unittest.TestCase):
 
     def test_rejects_unordered_overlapping_task_paths(self) -> None:
         fixture = ContractFixture(self)
-        fixture.acceptance["owned_paths"] = ["native/tests/**"]
-        fixture.acceptance["risk"]["security"] = "high"
+        second = copy.deepcopy(fixture.implementation)
+        second["id"] = "XT-103"
+        second["title"] = "Task XT-103"
+        second["depends_on"] = ["XT-101"]
+        second["owned_paths"] = ["native/tests/**"]
+        second["delivery"]["summary"] = "deliver xt-103"
+        requirement = fixture.plan["requirements"][0]
+        requirement["implementation_tasks"].append("XT-103")
+        fixture.acceptance["depends_on"].append("XT-103")
+        fixture.plan["approval"]["content_sha256"] = model.plan_content_sha256(
+            fixture.plan
+        )
         fixture.write()
-        # XT-102 depends on XT-101, so the overlap is ordered and legal.
+        task_path = fixture.root / ".agents" / "tasks" / "XT-103.json"
+        fixture._dump(task_path, second)
+        # XT-103 depends on XT-101, so the overlap is ordered and legal.
         model.load_contracts(fixture.root)
-        fixture.acceptance["depends_on"] = []
+        second["depends_on"] = []
+        fixture._dump(task_path, second)
+        with self.assertRaisesRegex(model.ContractError, "overlap"):
+            model.load_contracts(fixture.root)
+
+    def test_allows_dot_directories_but_rejects_git_internals(self) -> None:
+        fixture = ContractFixture(self)
+        fixture.gates["gates"]["governance"]["inputs"] = [".github/**"]
         fixture.write()
-        with self.assertRaises(model.ContractError):
+        model.load_contracts(fixture.root)
+
+        fixture.gates["gates"]["governance"]["inputs"] = [".git/**"]
+        fixture.write()
+        with self.assertRaisesRegex(model.ContractError, "outside the repository"):
             model.load_contracts(fixture.root)
 
     def test_approval_uses_configured_git_identity(self) -> None:
@@ -346,7 +444,14 @@ class ModelTest(unittest.TestCase):
         fixture.write()
         subprocess.run(["git", "init", "-q", str(fixture.root)], check=True)
         subprocess.run(
-            ["git", "-C", str(fixture.root), "config", "user.email", "owner@example.com"],
+            [
+                "git",
+                "-C",
+                str(fixture.root),
+                "config",
+                "user.email",
+                "owner@example.com",
+            ],
             check=True,
         )
         digest = model.approve_plan(
@@ -367,7 +472,14 @@ class ModelTest(unittest.TestCase):
         fixture.write()
         subprocess.run(["git", "init", "-q", str(fixture.root)], check=True)
         subprocess.run(
-            ["git", "-C", str(fixture.root), "config", "user.email", "agent@example.com"],
+            [
+                "git",
+                "-C",
+                str(fixture.root),
+                "config",
+                "user.email",
+                "agent@example.com",
+            ],
             check=True,
         )
         with self.assertRaisesRegex(model.ContractError, "not the configured"):

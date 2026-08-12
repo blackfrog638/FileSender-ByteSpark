@@ -24,56 +24,55 @@ The harness phase has real checks for:
 - an informational native lifecycle microbenchmark;
 - Flutter formatting, static analysis, transfer application-state tests, and
   the real packaged native callback boundary;
-- task record, handoff, integration provenance, acceptance, and cleanup
-  governance.
+- Harness V2 contracts, CAS state refs, Gate DAG execution, TDD chronology,
+  merge trains, exact workflow evidence, publication, and recovery.
 
 This is not file-transfer coverage. Discovery, protected identity storage, and
 the TLS provider have focused executable coverage, but authenticated sessions,
 manifest/storage enforcement, file I/O, and network recovery are not
 implemented yet and therefore are not currently tested.
 
-## Future-task TDD workflow
+## Harness V2 TDD workflow
 
-XT-083 is the first task governed by the schema-v4 TDD workflow. Before claim,
-an approved schema-v2 Delivery Plan defines stable criteria, negative
-definitions, evidence ownership, required scenarios and assertions, matrix,
-topology, and trusted gates. The task record binds those criteria to a
-task-type proof mode, deterministic executor where supported, focused gate,
-owned Red surface, exact failure fingerprints, and a no-skip policy.
+An approved Delivery Plan defines stable criteria, negative definitions, and
+evidence. TaskSpec selects a proof mode appropriate to the work type and binds
+owned proof/oracle paths to a trusted focused Gate.
 
-For Red-Green, regression, mutation, and equivalence work:
+For Red-based work:
 
-1. Commit only the declared test, fixture, scenario, golden, snapshot, fuzz, or
-   test-registration surface.
-2. Run `tool/harness/agent.sh checkpoint XT-NNN red`. The focused gate must pass
-   at base and produce the declared Red result without skips, crashes,
-   timeouts, missing tools, or unrelated failures.
-3. Commit the implementation after the generated checkpoint lifecycle commit.
-4. Move to review. The harness replays base, Red, and reviewed head and rejects
-   changed oracles, production-before-Red history, stale governance context,
-   and hand-authored proof.
-5. Acceptance reruns required gates against the exact integrated candidate and
-   validates criterion-level jobs, artifacts, binary digests, matrices, and
-   topology before publishing the protected integration branch.
+1. Commit only declared proof paths.
+2. Run `tool/harness/agent.sh tdd-red XT-NNN`.
+3. The focused Gate must pass at base and fail at Red with the exact attributed
+   fingerprint. Missing tools, compile errors, timeout, crash, and skip fail.
+4. Commit implementation without changing the frozen proof/oracle surface.
+5. Submit with `tool/harness/agent.sh submit XT-NNN --red-sha SHA`.
+6. Review validates the immutable Red attestation and runs Green. It does not
+   replay unchanged base/Red evidence.
 
-Unit, integration, contract snapshot, smoke, E2E, security, reliability, and
-performance evidence remain distinct. A generic `make verify` result cannot
-replace specialized evidence, and fake/in-memory topology cannot satisfy E2E.
+The queue expands criterion, risk, path, and phase requirements into one unique
+Gate leaf set. Independent resource groups run concurrently. Successful local
+evidence may be reused only for the same source tree, command, policy,
+toolchain, environment, platform, and isolation mode.
 
-This workflow is future-only. Existing tasks and schema-v1 plans before XT-083
-retain their historical validation and are not claimed to have followed TDD.
+Exact candidate CI produces Gate and criterion artifacts. Acceptance validates
+the workflow, SHA, jobs, matrix, artifacts, and no-skip policy before one
+protected-branch compare-and-swap. Acceptance metadata remains outside the
+candidate, so no second full CI is required.
+
+The requirement acceptance owner then validates the published implementation
+attestations and criterion IDs with `agent.sh acceptance-close`. This writes an
+external closure ref and does not create another product commit or CI run.
 
 ## Commands
 
 ```bash
 make verify          # required local completion gate
+make harness-v2-test # Harness contracts, state, queue, and recovery
+make contract-test   # active Plan/TaskSpec/Gate validation
 make dependency-test # pinned vcpkg provenance, versions, and static linkage
 make security-test   # ASan, UBSan, and bounded libFuzzer run
 make benchmark       # informational native benchmark
 make macos-bundle-test # build app, verify signing, and load bundled dylib
-make governance-test # isolated task lifecycle and provenance test
-make tdd-proof-test  # deterministic Red/checkpoint/review proof
-make evidence-test   # exact-SHA criterion evidence validation
 ```
 
 Use `XNN_TRANSFER_FUZZ_SECONDS=60 make security-test` for a longer local fuzz
@@ -144,12 +143,13 @@ only after variance is known, using a reviewed relative threshold.
 
 ## CI policy
 
-- Pull requests: governance contracts, native tests on three platforms, the
-  focused GNOME Keyring lifecycle on Ubuntu 24.04, pinned dependency probes,
-  Flutter checks, packaging on three platforms, ASan/UBSan, and a short fuzz
-  smoke test.
-- Scheduled builds: longer fuzz campaigns. Performance trend collection starts
-  when transfer I/O benchmarks exist.
+- Pull requests: Harness V2 contracts, commit/architecture checks, and affected
+  review Gates.
+- Queue candidates: the risk-selected exact-candidate platform matrix and
+  criterion artifacts.
+- Scheduled builds: full cache-bypass repository verification and longer fuzz
+  campaigns. Performance trend collection starts when transfer I/O benchmarks
+  exist.
 - Before release: cross-platform interoperability, low-space, sleep/wake,
   network-change, large-file, and hostile-input suites.
 

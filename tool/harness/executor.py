@@ -8,11 +8,11 @@ import datetime as dt
 import hashlib
 import os
 import platform
+import re
 import shutil
 import signal
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 from dataclasses import dataclass
@@ -25,6 +25,16 @@ from model import ContractSet, canonical_sha256, load_json
 
 
 MAX_DIAGNOSTIC_BYTES = 64 * 1024
+MAX_OUTPUT_BYTES = 8 * 1024 * 1024
+SKIP_PATTERNS = (
+    re.compile(r"(?im)\bskipped\s*=\s*[1-9][0-9]*\b"),
+    re.compile(r"(?im)\b[1-9][0-9]*\s+tests?\s+skipped\b"),
+    re.compile(r"(?im)\b[1-9][0-9]*\s+skipped\b"),
+    re.compile(r"(?im)(?:^|\s)~[1-9][0-9]*(?:\s|$)"),
+    re.compile(r"(?im)\[\s*SKIPPED\s*\]"),
+    re.compile(r"(?im)\bNot Run\b"),
+    re.compile(r"(?im)\bdid not run\b"),
+)
 
 
 class GateExecutionError(RuntimeError):
@@ -66,26 +76,8 @@ def _utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _hash_file(path: Path) -> Tuple[str, int, str]:
-    digest = hashlib.sha256()
-    size = 0
-    diagnostic = bytearray()
-    with path.open("rb") as source:
-        while True:
-            chunk = source.read(64 * 1024)
-            if not chunk:
-                break
-            digest.update(chunk)
-            size += len(chunk)
-            if len(diagnostic) < MAX_DIAGNOSTIC_BYTES:
-                diagnostic.extend(
-                    chunk[: MAX_DIAGNOSTIC_BYTES - len(diagnostic)]
-                )
-    return (
-        digest.hexdigest(),
-        size,
-        diagnostic.decode("utf-8", errors="replace"),
-    )
+def _reports_skip(output: str) -> bool:
+    return any(pattern.search(output) is not None for pattern in SKIP_PATTERNS)
 
 
 class GateExecutor:
@@ -121,28 +113,26 @@ class GateExecutor:
     def _environment(self, command: Mapping[str, Any]) -> Tuple[Dict[str, str], str]:
         environment = os.environ.copy()
         environment.update(command["environment"])
-        attested = {
-            name: environment.get(name, "")
-            for name in sorted(
-                set(command["environment"]) | {"PATH", "LANG", "LC_ALL"}
-            )
-        }
-        return environment, canonical_sha256(attested)
+        return environment, canonical_sha256(environment)
 
-    def _toolchain_digest(
-        self, argv: List[str], environment: Mapping[str, str]
-    ) -> str:
+    def _toolchain_digest(self, argv: List[str], environment: Mapping[str, str]) -> str:
         executable = shutil.which(argv[0], path=environment.get("PATH"))
         executable_info: Dict[str, Any]
         if executable is None:
             executable_info = {"requested": argv[0], "resolved": None}
         else:
-            stat = Path(executable).stat()
+            executable_path = Path(executable)
+            digest = hashlib.sha256()
+            with executable_path.open("rb") as source:
+                while True:
+                    chunk = source.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    digest.update(chunk)
             executable_info = {
                 "requested": argv[0],
-                "resolved": str(Path(executable).resolve()),
-                "size": stat.st_size,
-                "mtime_ns": stat.st_mtime_ns,
+                "resolved": str(executable_path.resolve()),
+                "sha256": digest.hexdigest(),
             }
         return canonical_sha256(
             {
@@ -161,14 +151,9 @@ class GateExecutor:
         command = gate["command"]
         if command is None:
             raise GateExecutionError("{} is not a leaf Gate".format(gate_id))
-        if (
-            self.platform_label not in gate["platforms"]
-            and "local" not in gate["platforms"]
-        ):
+        if self.platform_label not in gate["platforms"]:
             raise GateExecutionError(
-                "{} does not support platform {}".format(
-                    gate_id, self.platform_label
-                )
+                "{} does not support platform {}".format(gate_id, self.platform_label)
             )
         argv = list(command["argv"])
         environment, environment_sha = self._environment(command)
@@ -258,9 +243,7 @@ class GateExecutor:
         command = gate["command"]
         if command is None:
             raise GateExecutionError("{} is not executable".format(gate_id))
-        context, environment = self._execution_context(
-            gate_id, source_sha, source_tree
-        )
+        context, environment = self._execution_context(gate_id, source_sha, source_tree)
         cached = self._cached(context, phase)
         if cached is not None:
             return GateResult(gate_id, cached, True, "")
@@ -274,40 +257,77 @@ class GateExecutor:
         output_bytes = 0
         diagnostic = ""
         with semaphore:
-            with tempfile.NamedTemporaryFile(
-                prefix="xnn-gate-{}-".format(gate_id), delete=False
-            ) as output:
-                output_path = Path(output.name)
+            process: Optional[subprocess.Popen] = None
+            captured = bytearray()
+            output_limit = threading.Event()
+
+            def read_output() -> None:
+                nonlocal output_bytes
+                if process is None or process.stdout is None:
+                    return
+                while True:
+                    chunk = process.stdout.read(64 * 1024)
+                    if not chunk:
+                        return
+                    output_bytes += len(chunk)
+                    remaining = MAX_OUTPUT_BYTES - len(captured)
+                    if remaining > 0:
+                        captured.extend(chunk[:remaining])
+                    if output_bytes > MAX_OUTPUT_BYTES:
+                        output_limit.set()
+                        self._terminate(process)
+                        return
+
             try:
-                with output_path.open("wb") as output_stream:
-                    try:
-                        process = subprocess.Popen(
-                            command["argv"],
-                            cwd=str(self.execution_root),
-                            env=environment,
-                            stdin=subprocess.DEVNULL,
-                            stdout=output_stream,
-                            stderr=subprocess.STDOUT,
-                            start_new_session=(os.name != "nt"),
-                        )
-                    except OSError as error:
-                        diagnostic = str(error)
-                        process = None
-                    if process is not None:
-                        try:
-                            exit_code = process.wait(
-                                timeout=command["timeout_seconds"]
-                            )
-                            outcome = "success" if exit_code == 0 else "failure"
-                        except subprocess.TimeoutExpired:
-                            self._terminate(process)
-                            process.wait()
-                            outcome = "timeout"
-                output_sha, output_bytes, captured = _hash_file(output_path)
-                if captured:
-                    diagnostic = captured
-            finally:
-                output_path.unlink(missing_ok=True)
+                process = subprocess.Popen(
+                    command["argv"],
+                    cwd=str(self.execution_root),
+                    env=environment,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=(os.name != "nt"),
+                )
+            except OSError as error:
+                diagnostic = str(error)
+            if process is not None:
+                reader = threading.Thread(
+                    target=read_output,
+                    name="gate-output-{}".format(gate_id),
+                    daemon=True,
+                )
+                reader.start()
+                try:
+                    exit_code = process.wait(timeout=command["timeout_seconds"])
+                    if output_limit.is_set():
+                        outcome = "output_limit"
+                    elif exit_code < 0:
+                        outcome = "crash"
+                    else:
+                        outcome = "success" if exit_code == 0 else "failure"
+                except subprocess.TimeoutExpired:
+                    self._terminate(process)
+                    process.wait()
+                    outcome = "timeout"
+                reader.join(timeout=5)
+                if reader.is_alive():
+                    if process.stdout is not None:
+                        process.stdout.close()
+                    reader.join(timeout=1)
+                if reader.is_alive():
+                    raise GateExecutionError(
+                        "{} output reader did not stop".format(gate_id)
+                    )
+                if process.stdout is not None:
+                    process.stdout.close()
+            output = bytes(captured)
+            output_sha = hashlib.sha256(output).hexdigest()
+            rendered_output = output.decode("utf-8", errors="replace")
+            skipped = _reports_skip(rendered_output)
+            if skipped and outcome == "success":
+                outcome = "skipped"
+            if output:
+                diagnostic = rendered_output[:MAX_DIAGNOSTIC_BYTES]
         duration_ns = time.monotonic_ns() - started_ns
         attestation: Dict[str, Any] = {
             "schema_version": 1,
@@ -316,7 +336,7 @@ class GateExecutor:
             "started_at": started_at,
             "duration_ns": duration_ns,
             "outcome": outcome,
-            "skipped": False,
+            "skipped": skipped,
             "exit_code": exit_code,
             "output_sha256": output_sha,
             "output_bytes": output_bytes,

@@ -1,9 +1,10 @@
 # ADR 0012: Task conflict and stale-base governance
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-08
 - Proposed by task: XT-056
 - Accepted by task: XT-056
+- Superseded by: ADR 0017 Harness V2 Control Plane
 
 ## Context
 

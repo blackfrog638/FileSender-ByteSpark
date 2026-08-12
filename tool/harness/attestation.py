@@ -29,7 +29,10 @@ ARTIFACT_FIELDS = {
     "name",
     "source_sha",
     "sha256",
+    "platform",
+    "gate_ids",
     "gate_attestations",
+    "criterion_ids",
     "criterion_evidence",
 }
 ACCEPTANCE_FIELDS = {
@@ -53,6 +56,30 @@ ACCEPTANCE_FIELDS = {
 
 class AttestationError(RuntimeError):
     """Raised when workflow or publication evidence is incomplete."""
+
+
+def criterion_evidence_digest(
+    contracts: ContractSet,
+    criterion_id: str,
+    source_sha: str,
+    gate_attestations: Sequence[str],
+) -> str:
+    documents = {
+        criterion["id"]: criterion
+        for plan in contracts.plans.values()
+        for requirement in plan["requirements"]
+        for criterion in requirement["criteria"]
+    }
+    if criterion_id not in documents:
+        raise AttestationError("unknown criterion {}".format(criterion_id))
+    return canonical_sha256(
+        {
+            "criterion_id": criterion_id,
+            "criterion_sha256": canonical_sha256(documents[criterion_id]),
+            "source_sha": source_sha,
+            "gate_attestations": list(gate_attestations),
+        }
+    )
 
 
 def _string(value: Any, label: str) -> str:
@@ -138,15 +165,11 @@ def validate_workflow_evidence(
             "workflow contains skipped jobs: {}".format(", ".join(skipped_jobs))
         )
     rejected = sorted(
-        name
-        for name in required_jobs
-        if job_results.get(name) != "success"
+        name for name in required_jobs if job_results.get(name) != "success"
     )
     if rejected:
         raise AttestationError(
-            "required workflow jobs did not succeed: {}".format(
-                ", ".join(rejected)
-            )
+            "required workflow jobs did not succeed: {}".format(", ".join(rejected))
         )
     artifacts = evidence["artifacts"]
     if not isinstance(artifacts, list):
@@ -160,25 +183,88 @@ def validate_workflow_evidence(
             raise AttestationError("artifact names are duplicated")
         if raw["source_sha"] != candidate_sha:
             raise AttestationError("artifact {} has stale source SHA".format(name))
-        if not isinstance(raw["sha256"], str) or SHA256.fullmatch(raw["sha256"]) is None:
+        if (
+            not isinstance(raw["sha256"], str)
+            or SHA256.fullmatch(raw["sha256"]) is None
+        ):
             raise AttestationError("artifact {} digest is invalid".format(name))
+        if raw["platform"] not in {"linux", "macos", "windows"}:
+            raise AttestationError("artifact {} platform is invalid".format(name))
+        gate_ids = _string_list(raw["gate_ids"], "artifact {} gate IDs".format(name))
+        criterion_ids = _string_list(
+            raw["criterion_ids"], "artifact {} criterion IDs".format(name)
+        )
         for field in ("gate_attestations", "criterion_evidence"):
-            digests = _string_list(
-                raw[field], "artifact {} {}".format(name, field)
-            )
+            digests = _string_list(raw[field], "artifact {} {}".format(name, field))
             if any(SHA256.fullmatch(digest) is None for digest in digests):
                 raise AttestationError(
                     "artifact {} {} digest is invalid".format(name, field)
                 )
+        if len(gate_ids) != len(raw["gate_attestations"]):
+            raise AttestationError(
+                "artifact {} Gate identities are incomplete".format(name)
+            )
+        if len(criterion_ids) != len(raw["criterion_evidence"]):
+            raise AttestationError(
+                "artifact {} criterion identities are incomplete".format(name)
+            )
         artifact_results[name] = dict(raw)
     missing_artifacts = sorted(set(required_artifacts) - set(artifact_results))
     if missing_artifacts:
         raise AttestationError(
-            "required artifacts are missing: {}".format(
-                ", ".join(missing_artifacts)
-            )
+            "required artifacts are missing: {}".format(", ".join(missing_artifacts))
         )
     return evidence
+
+
+def validate_criterion_evidence(
+    contracts: ContractSet,
+    workflow: Mapping[str, Any],
+    *,
+    candidate_sha: str,
+    required_artifacts: Sequence[str],
+    criterion_ids: Sequence[str],
+    gate_attestations: Sequence[str],
+    criterion_evidence: Sequence[str],
+) -> None:
+    artifacts = {artifact["name"]: artifact for artifact in workflow["artifacts"]}
+    normalized_gates = sorted(
+        {
+            digest
+            for name in required_artifacts
+            for digest in artifacts[name]["gate_attestations"]
+        }
+    )
+    normalized_criteria = sorted(
+        {
+            digest
+            for name in required_artifacts
+            for digest in artifacts[name]["criterion_evidence"]
+        }
+    )
+    if sorted(set(gate_attestations)) != normalized_gates:
+        raise AttestationError("published Gate evidence is incomplete")
+    if sorted(set(criterion_evidence)) != normalized_criteria:
+        raise AttestationError("published criterion evidence is incomplete")
+    for name in required_artifacts:
+        artifact = artifacts[name]
+        criterion_map = dict(
+            zip(
+                artifact["criterion_ids"],
+                artifact["criterion_evidence"],
+            )
+        )
+        for criterion_id in criterion_ids:
+            expected = criterion_evidence_digest(
+                contracts,
+                criterion_id,
+                candidate_sha,
+                artifact["gate_attestations"],
+            )
+            if criterion_map.get(criterion_id) != expected:
+                raise AttestationError(
+                    "artifact {} lacks bound criterion evidence".format(name)
+                )
 
 
 def create_acceptance_attestation(
@@ -206,12 +292,8 @@ def create_acceptance_attestation(
             raise AttestationError("{} is invalid".format(label))
     if SHA256.fullmatch(payload_patch_sha256) is None:
         raise AttestationError("payload patch digest is invalid")
-    gate_values = _string_list(
-        list(gate_attestations), "gate attestations"
-    )
-    criterion_values = _string_list(
-        list(criterion_evidence), "criterion evidence"
-    )
+    gate_values = _string_list(list(gate_attestations), "gate attestations")
+    criterion_values = _string_list(list(criterion_evidence), "criterion evidence")
     for digest in gate_values + criterion_values:
         if SHA256.fullmatch(digest) is None:
             raise AttestationError("attestation digest is invalid")
@@ -260,18 +342,14 @@ def validate_acceptance_attestation(
 
 
 class AcceptanceStore:
-    def __init__(
-        self, contracts: ContractSet, remote: Optional[str] = None
-    ) -> None:
+    def __init__(self, contracts: ContractSet, remote: Optional[str] = None) -> None:
         self.contracts = contracts
         self.root = contracts.root
         self.remote = remote
         self.prefix = contracts.manifest["ref_namespaces"]["attest"]
 
     def ref(self, task_id: str, candidate_sha: str) -> str:
-        return "{}acceptance/{}/{}".format(
-            self.prefix, task_id, candidate_sha
-        )
+        return "{}acceptance/{}/{}".format(self.prefix, task_id, candidate_sha)
 
     def write(self, attestation: Mapping[str, Any]) -> str:
         task_id = str(attestation["task_id"])
@@ -280,15 +358,11 @@ class AcceptanceStore:
         ref = self.ref(task_id, candidate_sha)
         existing = git_ops.ref_sha(self.root, ref)
         if existing is not None:
-            previous = git_ops.read_json_object(
-                self.root, existing, "attestation.json"
-            )
+            previous = git_ops.read_json_object(self.root, existing, "attestation.json")
             if previous != attestation:
                 raise AttestationError("acceptance ref already contains other evidence")
             if self.remote is not None:
-                remote_sha = git_ops.remote_ref_sha(
-                    self.root, self.remote, ref
-                )
+                remote_sha = git_ops.remote_ref_sha(self.root, self.remote, ref)
                 if remote_sha is None:
                     try:
                         git_ops.push_ref_cas(
@@ -314,22 +388,32 @@ class AcceptanceStore:
         git_ops.update_ref_cas(self.root, ref, commit, None)
         if self.remote is not None:
             try:
-                git_ops.push_ref_cas(
-                    self.root, self.remote, commit, ref, None
-                )
+                git_ops.push_ref_cas(self.root, self.remote, commit, ref, None)
             except git_ops.GitError as error:
-                git_ops.run_git(
-                    self.root, "update-ref", "-d", ref, commit, check=False
-                )
+                git_ops.run_git(self.root, "update-ref", "-d", ref, commit, check=False)
                 raise AttestationError(str(error)) from error
         return commit
 
-    def read(self, task_id: str, candidate_sha: str) -> Mapping[str, Any]:
+    def maybe_read(
+        self, task_id: str, candidate_sha: str
+    ) -> Optional[Mapping[str, Any]]:
         ref = self.ref(task_id, candidate_sha)
+        if self.remote is not None:
+            remote_sha = git_ops.remote_ref_sha(self.root, self.remote, ref)
+            if remote_sha is None:
+                return None
+            try:
+                git_ops.fetch_immutable_ref(self.root, self.remote, ref)
+            except git_ops.GitError as error:
+                raise AttestationError(str(error)) from error
         commit = git_ops.ref_sha(self.root, ref)
         if commit is None:
-            raise AttestationError("acceptance attestation is missing")
-        value = git_ops.read_json_object(
-            self.root, commit, "attestation.json"
-        )
+            return None
+        value = git_ops.read_json_object(self.root, commit, "attestation.json")
         return validate_acceptance_attestation(value, task_id, candidate_sha)
+
+    def read(self, task_id: str, candidate_sha: str) -> Mapping[str, Any]:
+        value = self.maybe_read(task_id, candidate_sha)
+        if value is None:
+            raise AttestationError("acceptance attestation is missing")
+        return value

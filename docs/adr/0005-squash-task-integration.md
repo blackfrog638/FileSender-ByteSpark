@@ -1,8 +1,9 @@
 # ADR 0005: Squash task integration
 
-- Status: accepted
+- Status: superseded
 - Date: 2026-08-07
 - Supersedes: the default integration strategy in `AGENTS.md`
+- Superseded by: ADR 0017 Harness V2 Control Plane
 
 ## Context
 

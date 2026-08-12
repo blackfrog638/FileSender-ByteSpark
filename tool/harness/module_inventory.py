@@ -14,9 +14,7 @@ CMAKE_LIBRARY = re.compile(
     r"(?:\s+(?P<kind>STATIC|SHARED|MODULE|OBJECT|INTERFACE))?",
     flags=re.IGNORECASE,
 )
-TEMPORARY_MARKER = re.compile(
-    r"XNN-TEMPORARY\((?P<id>[a-z0-9][a-z0-9._-]*)\)"
-)
+TEMPORARY_MARKER = re.compile(r"XNN-TEMPORARY\((?P<id>[a-z0-9][a-z0-9._-]*)\)")
 UNLEASED_DEBT_MARKER = re.compile(r"\b(?:TODO|FIXME)\b")
 MODULES_PATH = PurePosixPath(".agents/architecture/modules.json")
 PRODUCTION_SUFFIXES = {
@@ -29,8 +27,8 @@ PRODUCTION_SUFFIXES = {
     ".h",
     ".hpp",
 }
-PLACEHOLDER_STATES = {"ready", "claimed"}
-CONCRETE_STATES = {"in_progress", "review", "integrated", "done"}
+PLACEHOLDER_STATES = {"ready"}
+CONCRETE_STATES = {"active", "queued", "done"}
 
 
 @dataclass(frozen=True, order=True)
@@ -60,6 +58,10 @@ class TargetDefinition:
     kind: str
     path: PurePosixPath
     line: int
+
+
+class ArchitectureDeclarationError(RuntimeError):
+    """Raised when a TaskSpec architecture claim disagrees with its payload."""
 
 
 def load_json(path: Path) -> Any:
@@ -107,9 +109,7 @@ def parse_modules(root: Path) -> tuple[list[Module], list[Violation]]:
             violations.append(schema_violation(f"{label}.id is invalid"))
             continue
         if module_id in seen_ids:
-            violations.append(
-                schema_violation(f"duplicate module id: {module_id}")
-            )
+            violations.append(schema_violation(f"duplicate module id: {module_id}"))
         seen_ids.add(module_id)
         if not isinstance(target, str) or not re.fullmatch(
             r"xnn_transfer_[a-z0-9_]+", target
@@ -119,52 +119,43 @@ def parse_modules(root: Path) -> tuple[list[Module], list[Violation]]:
         if target in seen_targets:
             violations.append(schema_violation(f"duplicate target: {target}"))
         seen_targets.add(target)
-        if not isinstance(definition, str) or not definition.endswith(
-            "CMakeLists.txt"
-        ):
+        if not isinstance(definition, str) or not definition.endswith("CMakeLists.txt"):
             violations.append(
                 schema_violation(f"{label}.definition must be a CMakeLists.txt")
             )
             continue
         if concrete_type not in {"STATIC", "SHARED", "MODULE", "OBJECT"}:
-            violations.append(
-                schema_violation(f"{label}.concrete_type is invalid")
-            )
+            violations.append(schema_violation(f"{label}.concrete_type is invalid"))
             continue
-        if not isinstance(roots, list) or not roots or not all(
-            isinstance(item, str) and item for item in roots
+        if (
+            not isinstance(roots, list)
+            or not roots
+            or not all(isinstance(item, str) and item for item in roots)
         ):
             violations.append(
                 schema_violation(f"{label}.owned_roots must not be empty")
             )
             continue
         if not isinstance(dependencies, list) or not all(
-            isinstance(item, str)
-            and re.fullmatch(r"xnn_transfer_[a-z0-9_]+", item)
+            isinstance(item, str) and re.fullmatch(r"xnn_transfer_[a-z0-9_]+", item)
             for item in dependencies
         ):
             violations.append(
-                schema_violation(
-                    f"{label}.allowed_project_dependencies is invalid"
-                )
+                schema_violation(f"{label}.allowed_project_dependencies is invalid")
             )
             continue
         if placeholder is not None and (
             not isinstance(placeholder, str)
             or not re.fullmatch(r"XT-[0-9]{3,}", placeholder)
         ):
-            violations.append(
-                schema_violation(f"{label}.placeholder_until is invalid")
-            )
+            violations.append(schema_violation(f"{label}.placeholder_until is invalid"))
             continue
 
         parsed_roots = tuple(PurePosixPath(item) for item in roots)
         for owned_root in parsed_roots:
             if owned_root.is_absolute() or ".." in owned_root.parts:
                 violations.append(
-                    schema_violation(
-                        f"{label}.owned_roots contains an unsafe path"
-                    )
+                    schema_violation(f"{label}.owned_roots contains an unsafe path")
                 )
             for existing_root, previous in seen_roots.items():
                 if (
@@ -205,14 +196,11 @@ def parse_modules(root: Path) -> tuple[list[Module], list[Violation]]:
 
 def target_links(modules: list[Module]) -> dict[str, set[str]]:
     return {
-        module.target: set(module.allowed_project_dependencies)
-        for module in modules
+        module.target: set(module.allowed_project_dependencies) for module in modules
     }
 
 
-def scan_library_definitions(
-    path: PurePosixPath, text: str
-) -> list[TargetDefinition]:
+def scan_library_definitions(path: PurePosixPath, text: str) -> list[TargetDefinition]:
     uncommented = re.sub(r"(?m)#.*$", "", text)
     definitions: list[TargetDefinition] = []
     for match in CMAKE_LIBRARY.finditer(uncommented):
@@ -227,13 +215,137 @@ def scan_library_definitions(
     return definitions
 
 
-def load_records(root: Path) -> dict[str, dict[str, Any]]:
+def load_task_records(root: Path) -> dict[str, dict[str, Any]]:
+    from model import load_contracts
+    from state import StateStore
+
+    contracts = load_contracts(root)
     records: dict[str, dict[str, Any]] = {}
-    for path in sorted((root / ".agents" / "records").glob("XT-*.json")):
-        value = load_json(path)
-        if isinstance(value, dict) and isinstance(value.get("id"), str):
-            records[value["id"]] = value
+    empty_change = {
+        "mode": "none",
+        "modules": [],
+        "supersedes": {"paths": [], "symbols": [], "targets": []},
+        "temporary_leases": [],
+        "retires_leases": [],
+    }
+    for task_id in contracts.legacy_accepted:
+        records[task_id] = {
+            "id": task_id,
+            "state": "done",
+            "architecture_change": empty_change,
+        }
+    states = StateStore(
+        contracts,
+        remote=None,
+        actor={
+            "kind": "ci",
+            "id": "architecture-test",
+            "name": "Architecture Test",
+            "email": "architecture-test@localhost",
+        },
+    )
+    for task_id, task in contracts.tasks.items():
+        snapshot = states.read(task_id, refresh=False)
+        records[task_id] = {
+            "id": task_id,
+            "state": snapshot.state,
+            "architecture_change": task["delivery"]["architecture_change"],
+        }
     return records
+
+
+def _path_under(path: str, boundary: PurePosixPath) -> bool:
+    value = boundary.as_posix().rstrip("/")
+    return path == value or path.startswith(value + "/")
+
+
+def _managed_native_path(path: str) -> bool:
+    if not (path.startswith("native/include/") or path.startswith("native/src/")):
+        return False
+    return path.endswith((".c", ".cc", ".cpp", ".cxx", ".h", ".hpp", "/CMakeLists.txt"))
+
+
+def validate_task_architecture(
+    root: Path,
+    task: dict[str, Any],
+    changed_paths: list[str],
+) -> None:
+    change = task["delivery"]["architecture_change"]
+    if change["mode"] == "none":
+        return
+    modules, violations = parse_modules(root)
+    if violations:
+        raise ArchitectureDeclarationError(
+            "cannot validate architecture declaration:\n"
+            + "\n".join(item.render() for item in violations)
+        )
+    affected: set[str] = set()
+    unowned: list[str] = []
+    for path in changed_paths:
+        matched = {
+            module.id
+            for module in modules
+            if _path_under(path, module.definition)
+            or any(_path_under(path, owned) for owned in module.owned_roots)
+        }
+        affected.update(matched)
+        if _managed_native_path(path) and not matched:
+            unowned.append(path)
+    if unowned:
+        raise ArchitectureDeclarationError(
+            "changed production paths have no canonical module:\n"
+            + "\n".join("- {}".format(path) for path in sorted(unowned))
+        )
+    declared = set(change["modules"])
+    if affected != declared:
+        details: list[str] = []
+        missing = sorted(affected - declared)
+        untouched = sorted(declared - affected)
+        if missing:
+            details.append("undeclared affected modules: {}".format(", ".join(missing)))
+        if untouched:
+            details.append(
+                "declared but untouched modules: {}".format(", ".join(untouched))
+            )
+        raise ArchitectureDeclarationError(
+            "architecture declaration does not match payload:\n- "
+            + "\n- ".join(details)
+        )
+    supersedes = change["supersedes"]
+    remaining_paths = [path for path in supersedes["paths"] if (root / path).exists()]
+    if remaining_paths:
+        raise ArchitectureDeclarationError(
+            "superseded paths still exist:\n"
+            + "\n".join("- {}".format(path) for path in remaining_paths)
+        )
+    remaining_symbols: list[str] = []
+    for symbol in supersedes["symbols"]:
+        path = root / symbol["path"]
+        if path.is_file() and symbol["name"] in path.read_text(encoding="utf-8"):
+            remaining_symbols.append("{}: {}".format(symbol["path"], symbol["name"]))
+    if remaining_symbols:
+        raise ArchitectureDeclarationError(
+            "superseded symbols still exist:\n"
+            + "\n".join("- {}".format(item) for item in remaining_symbols)
+        )
+    remaining_targets: list[str] = []
+    cmake_paths = [root / "native" / "CMakeLists.txt"]
+    cmake_paths.extend(sorted((root / "native" / "src").rglob("CMakeLists.txt")))
+    for target in supersedes["targets"]:
+        pattern = re.compile(
+            r"add_library\s*\(\s*{}(?:\s|\))".format(re.escape(target)),
+            flags=re.IGNORECASE,
+        )
+        if any(
+            path.is_file() and pattern.search(path.read_text(encoding="utf-8"))
+            for path in cmake_paths
+        ):
+            remaining_targets.append(target)
+    if remaining_targets:
+        raise ArchitectureDeclarationError(
+            "superseded targets still exist:\n"
+            + "\n".join("- {}".format(target) for target in remaining_targets)
+        )
 
 
 def validate_module_inventory(
@@ -312,8 +424,6 @@ def validate_module_inventory(
             expected_kind = "INTERFACE"
         elif replacement_state in CONCRETE_STATES:
             expected_kind = module.concrete_type
-        elif replacement_state == "blocked":
-            expected_kind = definition.kind
         else:
             violations.append(
                 schema_violation(
@@ -406,9 +516,7 @@ def validate_temporary_leases(
                     )
                 retired_by[lease_id] = task_id
         for lease in change.get("temporary_leases", []):
-            if not isinstance(lease, dict) or not isinstance(
-                lease.get("id"), str
-            ):
+            if not isinstance(lease, dict) or not isinstance(lease.get("id"), str):
                 continue
             lease_id = lease["id"]
             previous = leases.get(lease_id)
@@ -445,9 +553,7 @@ def validate_temporary_leases(
         removal_task = lease.get("remove_by_task")
         locations = markers.get(lease_id, [])
         matching = [
-            location
-            for location in locations
-            if location[0].as_posix() == lease_path
+            location for location in locations if location[0].as_posix() == lease_path
         ]
         other = [location for location in locations if location not in matching]
         for path, line in other:

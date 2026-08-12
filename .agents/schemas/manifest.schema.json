@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xnntransfer.dev/schemas/harness-v2/manifest.schema.json",
+  "title": "Harness V2 manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "harness_version",
+    "project",
+    "integration_branch",
+    "project_owner",
+    "ref_namespaces"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "harness_version": {
+      "const": 2
+    },
+    "project": {
+      "type": "string",
+      "minLength": 1
+    },
+    "integration_branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "project_owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "email"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "email": {
+          "type": "string",
+          "pattern": "^[^@[:space:]]+@[^@[:space:]]+$"
+        }
+      }
+    },
+    "ref_namespaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approve",
+        "state",
+        "submit",
+        "queue",
+        "attest",
+        "archive"
+      ],
+      "properties": {
+        "approve": {
+          "$ref": "#/$defs/refPrefix"
+        },
+        "state": {
+          "$ref": "#/$defs/refPrefix"
+        },
+        "submit": {
+          "$ref": "#/$defs/refPrefix"
+        },
+        "queue": {
+          "$ref": "#/$defs/refPrefix"
+        },
+        "attest": {
+          "$ref": "#/$defs/refPrefix"
+        },
+        "archive": {
+          "$ref": "#/$defs/refPrefix"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "refPrefix": {
+      "type": "string",
+      "pattern": "^refs/heads/.+/$"
+    }
+  }
+}

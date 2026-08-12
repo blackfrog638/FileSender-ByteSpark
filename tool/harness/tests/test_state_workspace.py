@@ -34,7 +34,9 @@ class RepositoryFixture:
     def __init__(self, testcase: unittest.TestCase) -> None:
         self.contract_fixture = ContractFixture(testcase)
         self.root = self.contract_fixture.root
-        subprocess.run(["git", "init", "-q", "-b", "harness", str(self.root)], check=True)
+        subprocess.run(
+            ["git", "init", "-q", "-b", "harness", str(self.root)], check=True
+        )
         subprocess.run(
             ["git", "-C", str(self.root), "config", "user.name", "Project Owner"],
             check=True,
@@ -114,7 +116,9 @@ class StateTest(unittest.TestCase):
         self.assertEqual(queued.sequence, 2)
         self.assertEqual(done.sequence, 3)
         history = fixture.store.history("XT-101")
-        self.assertEqual([event["to"] for event in history], ["active", "queued", "done"])
+        self.assertEqual(
+            [event["to"] for event in history], ["active", "queued", "done"]
+        )
         self.assertEqual(
             history[2]["previous_event_sha256"],
             model.canonical_sha256(history[1]),
@@ -123,9 +127,7 @@ class StateTest(unittest.TestCase):
     def test_rejects_illegal_transition_and_missing_done_proof(self) -> None:
         fixture = RepositoryFixture(self)
         with self.assertRaisesRegex(state.StateError, "illegal requested"):
-            fixture.store.transition(
-                "XT-101", "ready", "done", "skip", details={}
-            )
+            fixture.store.transition("XT-101", "ready", "done", "skip", details={})
         fixture.active()
         fixture.store.transition(
             "XT-101",
@@ -262,6 +264,38 @@ class WorkspaceTest(unittest.TestCase):
             ["active", "ready"],
         )
 
+    def test_recovers_claim_crash_before_worktree_creation(self) -> None:
+        fixture = RepositoryFixture(self)
+        fixture.active()
+        manager = workspace.WorkspaceManager(fixture.contracts, fixture.store)
+        self.assertIsNone(manager.recover_claim("XT-101"))
+        self.assertEqual(fixture.store.read("XT-101").state, "ready")
+
+    def test_claim_recovery_preserves_branch_with_user_commits(self) -> None:
+        fixture = RepositoryFixture(self)
+        active = fixture.active()
+        tree = git_ops.current_tree(fixture.root)
+        commit = git_ops.git_text(
+            fixture.root,
+            "commit-tree",
+            tree,
+            "-p",
+            active.event["details"]["base_sha"],
+            input_bytes=b"user payload\n",
+        )
+        git_ops.update_ref_cas(
+            fixture.root,
+            "refs/heads/work/XT-101",
+            commit,
+            None,
+        )
+        manager = workspace.WorkspaceManager(fixture.contracts, fixture.store)
+        with self.assertRaisesRegex(
+            workspace.WorkspaceError, "branch with user commits"
+        ):
+            manager.recover_claim("XT-101")
+        self.assertEqual(fixture.store.read("XT-101").state, "active")
+
     def test_stale_check_ignores_unrelated_and_rejects_owned_change(self) -> None:
         fixture = RepositoryFixture(self)
         manager = workspace.WorkspaceManager(fixture.contracts, fixture.store)
@@ -272,7 +306,9 @@ class WorkspaceTest(unittest.TestCase):
         fixture.commit("docs: unrelated")
         self.assertEqual(manager.stale_reasons("XT-101"), [])
 
-        (fixture.root / "native" / "source.cpp").write_text("// changed\n", encoding="utf-8")
+        (fixture.root / "native" / "source.cpp").write_text(
+            "// changed\n", encoding="utf-8"
+        )
         fixture.commit("feat: overlap")
         reasons = manager.stale_reasons("XT-101")
         self.assertTrue(any("owned path" in reason for reason in reasons))

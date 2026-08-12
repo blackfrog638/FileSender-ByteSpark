@@ -1,0 +1,329 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xnntransfer.dev/schemas/harness-v2/task.schema.json",
+  "title": "Harness V2 TaskSpec",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "plan",
+    "criteria",
+    "depends_on",
+    "owned_paths",
+    "type",
+    "workstream",
+    "risk",
+    "tdd",
+    "delivery"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "$ref": "#/$defs/taskId"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "plan": {
+      "type": "string",
+      "pattern": "^DP-[A-Z0-9-]+$"
+    },
+    "criteria": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^CRIT-[A-Z0-9-]+$"
+      }
+    },
+    "depends_on": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/taskId"
+      }
+    },
+    "owned_paths": {
+      "$ref": "#/$defs/nonEmptyStrings"
+    },
+    "type": {
+      "enum": [
+        "feature",
+        "bugfix",
+        "refactor",
+        "investigation",
+        "test",
+        "governance",
+        "documentation",
+        "acceptance"
+      ]
+    },
+    "workstream": {
+      "type": "string",
+      "minLength": 1
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "functionality",
+        "security",
+        "performance",
+        "compatibility",
+        "concurrency",
+        "platform",
+        "persistence"
+      ],
+      "properties": {
+        "functionality": {
+          "$ref": "#/$defs/risk"
+        },
+        "security": {
+          "$ref": "#/$defs/risk"
+        },
+        "performance": {
+          "$ref": "#/$defs/risk"
+        },
+        "compatibility": {
+          "$ref": "#/$defs/risk"
+        },
+        "concurrency": {
+          "$ref": "#/$defs/risk"
+        },
+        "platform": {
+          "$ref": "#/$defs/risk"
+        },
+        "persistence": {
+          "$ref": "#/$defs/risk"
+        }
+      }
+    },
+    "tdd": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "gate",
+        "proof_paths",
+        "oracle_paths",
+        "failure_fingerprints"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "red_green",
+            "regression",
+            "equivalence",
+            "bounded_evidence",
+            "mutation",
+            "adversarial",
+            "not_required",
+            "evidence_closure"
+          ]
+        },
+        "gate": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          ]
+        },
+        "proof_paths": {
+          "$ref": "#/$defs/strings"
+        },
+        "oracle_paths": {
+          "$ref": "#/$defs/strings"
+        },
+        "failure_fingerprints": {
+          "$ref": "#/$defs/strings"
+        }
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit_type",
+        "scope",
+        "summary",
+        "architecture_change"
+      ],
+      "properties": {
+        "commit_type": {
+          "enum": [
+            "feat",
+            "fix",
+            "docs",
+            "style",
+            "refactor",
+            "perf",
+            "test",
+            "build",
+            "ci",
+            "chore",
+            "revert"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 60
+        },
+        "architecture_change": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "modules",
+            "supersedes",
+            "temporary_leases",
+            "retires_leases"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "none",
+                "add",
+                "replace",
+                "remove",
+                "refactor"
+              ]
+            },
+            "modules": {
+              "$ref": "#/$defs/strings"
+            },
+            "supersedes": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "paths",
+                "symbols",
+                "targets"
+              ],
+              "properties": {
+                "paths": {
+                  "$ref": "#/$defs/strings"
+                },
+                "symbols": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "name"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  }
+                },
+                "targets": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^xnn_transfer_[a-z0-9_]+$"
+                  }
+                }
+              }
+            },
+            "temporary_leases": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "path",
+                  "remove_by_task",
+                  "reason"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9][a-z0-9._-]*$"
+                  },
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "remove_by_task": {
+                    "$ref": "#/$defs/taskId"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 20
+                  }
+                }
+              }
+            },
+            "retires_leases": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9._-]*$"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "taskId": {
+      "type": "string",
+      "pattern": "^XT-[0-9]{3,}$"
+    },
+    "risk": {
+      "enum": [
+        "none",
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ]
+    },
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "nonEmptyStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

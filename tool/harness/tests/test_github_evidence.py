@@ -30,7 +30,10 @@ def artifact_zip(source_sha: str = SHA, unsafe: bool = False) -> bytes:
                 {
                     "schema_version": 1,
                     "source_sha": source_sha,
+                    "platform": "linux",
+                    "gate_ids": ["feature_test"],
                     "gate_attestations": ["c" * 64],
+                    "criterion_ids": ["CRIT-EXAMPLE"],
                     "criterion_evidence": ["d" * 64],
                 }
             ),
@@ -112,9 +115,7 @@ class GitHubEvidenceTest(unittest.TestCase):
             "example/XnnTransfer",
         )
         self.assertEqual(
-            github_evidence.repository_slug(
-                "git@github.com:example/XnnTransfer.git"
-            ),
+            github_evidence.repository_slug("git@github.com:example/XnnTransfer.git"),
             "example/XnnTransfer",
         )
         with self.assertRaises(github_evidence.GitHubEvidenceError):
@@ -125,9 +126,7 @@ class GitHubEvidenceTest(unittest.TestCase):
         self.assertEqual(evidence["run_id"], 42)
         self.assertEqual(evidence["head_sha"], SHA)
         self.assertEqual(len(evidence["jobs"]), 2)
-        self.assertEqual(
-            evidence["artifacts"][0]["source_sha"], SHA
-        )
+        self.assertEqual(evidence["artifacts"][0]["source_sha"], SHA)
         self.assertEqual(len(evidence["artifacts"][0]["sha256"]), 64)
 
     def test_latest_attempt_must_succeed(self) -> None:
@@ -151,9 +150,7 @@ class GitHubEvidenceTest(unittest.TestCase):
     def test_rejects_incomplete_api_page(self) -> None:
         client = FakeClient()
         client.jobs["total_count"] = 101
-        with self.assertRaisesRegex(
-            github_evidence.GitHubEvidenceError, "incomplete"
-        ):
+        with self.assertRaisesRegex(github_evidence.GitHubEvidenceError, "incomplete"):
             self.collect(client)
 
     def test_rejects_stale_or_unsafe_artifact(self) -> None:
@@ -166,9 +163,7 @@ class GitHubEvidenceTest(unittest.TestCase):
 
         client = FakeClient()
         client.archive = artifact_zip(unsafe=True)
-        with self.assertRaisesRegex(
-            github_evidence.GitHubEvidenceError, "unsafe path"
-        ):
+        with self.assertRaisesRegex(github_evidence.GitHubEvidenceError, "unsafe path"):
             self.collect(client)
 
 

@@ -22,6 +22,7 @@ TRANSITIONS = {
     ("ready", "active"),
     ("active", "ready"),
     ("active", "queued"),
+    ("active", "done"),
     ("queued", "active"),
     ("queued", "done"),
 }
@@ -131,7 +132,9 @@ def validate_event(
         raise StateError("{} submission_ref is invalid".format(task_id))
     if not isinstance(event["details"], dict):
         raise StateError("{} state details must be an object".format(task_id))
-    if not isinstance(event["created_at"], str) or not event["created_at"].endswith("Z"):
+    if not isinstance(event["created_at"], str) or not event["created_at"].endswith(
+        "Z"
+    ):
         raise StateError("{} state timestamp is invalid".format(task_id))
     if previous is None:
         if sequence != 1 or event["from"] != "ready":
@@ -146,13 +149,17 @@ def validate_event(
         if event["previous_event_sha256"] != canonical_sha256(previous):
             raise StateError("{} previous event digest is invalid".format(task_id))
     if event["to"] == "ready" and event["reason"] != "claim_rollback":
-        raise StateError("{} can return to ready only for claim rollback".format(task_id))
+        raise StateError(
+            "{} can return to ready only for claim rollback".format(task_id)
+        )
     if event["to"] == "queued" and submission_ref is None:
         raise StateError("{} queued event requires submission_ref".format(task_id))
     if event["to"] == "done":
         required = {"acceptance_attestation_sha256", "published_sha"}
         if not required.issubset(event["details"]):
-            raise StateError("{} done event is missing publication proof".format(task_id))
+            raise StateError(
+                "{} done event is missing publication proof".format(task_id)
+            )
     return event
 
 
@@ -231,9 +238,7 @@ class StateStore:
         event = events[-1]
         return StateSnapshot(task_id, event["to"], ref, commit, event)
 
-    def history(
-        self, task_id: str, refresh: bool = True
-    ) -> List[Dict[str, Any]]:
+    def history(self, task_id: str, refresh: bool = True) -> List[Dict[str, Any]]:
         if refresh:
             self._refresh_ref(task_id)
         ref = self.ref(task_id)
@@ -247,7 +252,9 @@ class StateStore:
             if index == 0 and parents:
                 raise StateError("{} initial state commit has a parent".format(task_id))
             if index > 0 and parents != [commits[index - 1]]:
-                raise StateError("{} state history is not first-parent linear".format(task_id))
+                raise StateError(
+                    "{} state history is not first-parent linear".format(task_id)
+                )
             raw = git_ops.read_json_object(self.root, commit)
             event = validate_event(raw, task_id, previous)
             events.append(event)
@@ -287,6 +294,12 @@ class StateStore:
                     expected_state, target_state
                 )
             )
+        task_type = self.contracts.tasks[task_id]["type"]
+        if expected_state == "active" and target_state == "done":
+            if task_type != "acceptance" or reason != "evidence_closure":
+                raise StateError(
+                    "active -> done is reserved for acceptance evidence closure"
+                )
         snapshot = self.read(task_id)
         if snapshot.state != expected_state:
             raise StateError(

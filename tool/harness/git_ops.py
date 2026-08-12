@@ -325,6 +325,55 @@ def remote_ref_sha(root: Path, remote: str, ref: str) -> Optional[str]:
     return sha
 
 
+def fetch_remote_object(root: Path, remote: str, ref: str) -> str:
+    remote_sha = remote_ref_sha(root, remote, ref)
+    if remote_sha is None:
+        raise GitError("remote ref {} is missing".format(ref))
+    present = run_git(
+        root,
+        "cat-file",
+        "-e",
+        "{}^{{commit}}".format(remote_sha),
+        check=False,
+    )
+    if present.returncode != 0:
+        result = run_git(
+            root,
+            "fetch",
+            "--no-tags",
+            remote,
+            ref,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise GitError("cannot fetch remote object for {}".format(ref))
+    return remote_sha
+
+
+def fetch_immutable_ref(root: Path, remote: str, ref: str) -> str:
+    remote_sha = remote_ref_sha(root, remote, ref)
+    if remote_sha is None:
+        raise GitError("remote immutable ref {} is missing".format(ref))
+    local_sha = ref_sha(root, ref)
+    if local_sha is not None:
+        if local_sha != remote_sha:
+            raise GitError(
+                "immutable ref {} differs between local and remote".format(ref)
+            )
+        return local_sha
+    result = run_git(
+        root,
+        "fetch",
+        "--no-tags",
+        remote,
+        "{}:{}".format(ref, ref),
+        check=False,
+    )
+    if result.returncode != 0 or ref_sha(root, ref) != remote_sha:
+        raise GitError("cannot fetch immutable ref {}".format(ref))
+    return remote_sha
+
+
 def push_ref_cas(
     root: Path,
     remote: str,

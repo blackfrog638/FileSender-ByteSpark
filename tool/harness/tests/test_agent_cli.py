@@ -67,9 +67,50 @@ class AgentCliTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         evidence = json.loads(output.read_text(encoding="utf-8"))
-        self.assertEqual(
-            evidence["source_sha"], repository.git("rev-parse", "HEAD")
+        self.assertEqual(evidence["source_sha"], repository.git("rev-parse", "HEAD"))
+        self.assertTrue(evidence["gate_attestations"])
+        self.assertTrue(evidence["criterion_evidence"])
+
+    def test_cumulative_candidate_uses_all_task_risks_and_gates(self) -> None:
+        repository = GateRepository(self)
+        repository.fixture.implementation["risk"]["platform"] = "high"
+        repository.fixture.gates["gates"]["feature_test"]["platforms"].extend(
+            ["macos", "windows"]
         )
+        repository.fixture.write()
+        repository.commit("chore: initialize")
+        repository.git("checkout", "-q", "-b", "queue/train/002-XT-102")
+        repository.commit(
+            "feat(harness): deliver first\n\n"
+            "Xnn-Task: XT-101\n"
+            "Xnn-Lifecycle: delivery",
+            allow_empty=True,
+        )
+        repository.commit(
+            "test(harness): deliver acceptance\n\n"
+            "Xnn-Task: XT-102\n"
+            "Xnn-Lifecycle: delivery",
+            allow_empty=True,
+        )
+
+        matrix = self._run(repository, "matrix")
+        self.assertEqual(matrix.returncode, 0, matrix.stderr)
+        self.assertEqual(
+            {item["label"] for item in json.loads(matrix.stdout)["include"]},
+            {"linux", "macos", "windows"},
+        )
+
+        output = repository.external / "candidate-evidence.json"
+        verification = self._run(
+            repository,
+            "verify",
+            "--phase",
+            "queue",
+            "--output",
+            str(output),
+        )
+        self.assertEqual(verification.returncode, 0, verification.stderr)
+        evidence = json.loads(output.read_text(encoding="utf-8"))
         self.assertTrue(evidence["gate_attestations"])
         self.assertTrue(evidence["criterion_evidence"])
 

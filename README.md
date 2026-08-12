@@ -15,7 +15,7 @@ apps/desktop/       Flutter desktop application
 native/             C++20 core and C ABI bridge
 protocol/           Versioned wire protocol specifications
 docs/               Architecture, ADRs, and delivery roadmap
-.agents/            Multi-agent task and handoff harness
+.agents/            Plans, TaskSpecs, Gate policy, and migration snapshot
 tool/harness/       Bootstrap and verification entrypoints
 ```
 
@@ -54,18 +54,20 @@ infrastructure only; it does not claim discovery, TLS, or transfer behavior.
 
 ## Run parallel agents
 
-Commit the integration baseline first. Then create one task worktree per agent:
+Create and approve a V2 Delivery Plan and TaskSpec, then claim one task per
+agent:
 
 ```bash
 tool/harness/agent.sh list
-tool/harness/agent.sh claim XT-001 security-agent
-tool/harness/agent.sh claim XT-002 protocol-agent
-tool/harness/agent.sh claim XT-004 flutter-agent
-tool/harness/agent.sh prompt XT-001
+tool/harness/agent.sh claim XT-NNN
+tool/harness/agent.sh tdd-red XT-NNN
+tool/harness/agent.sh submit XT-NNN --red-sha SHA
 ```
 
-Start each agent with its generated prompt. Never point multiple agents at the
-same worktree. See `.agents/README.md` for transitions and handoff rules.
+Claim returns an isolated worktree. Review creates an immutable submission,
+releases the development worktree, and retains owned-path reservation while
+the merge train validates. Runtime state and acceptance evidence live in
+independent Git refs, not product commits. See `.agents/README.md`.
 
 `docs/testing.md` records exactly which performance and security checks are
 executable and which remain blocked on product implementation.

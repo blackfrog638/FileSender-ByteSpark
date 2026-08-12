@@ -4,9 +4,17 @@
 
 - 状态：active
 - 执行授权：项目所有者已于 2026-08-12 明确授权
-- 旧 Harness 快速通道：仅规划阶段已授权
+- 旧 Harness 快速通道：规划与原子替换已授权
 - 计划 owner：项目所有者
 - 实施协调：integration owner
+
+当前进度：
+
+- HV2-WP0～WP6：实现完成；
+- HV2-WP7：本地原子替换和验证完成，等待 cutover commit 与 exact
+  candidate CI；
+- HV2-WP8：本地恢复/安全门禁完成，远端三平台、ruleset 审计、性能基准
+  和 pilot 待执行。
 
 本文使用 `HV2-WP*` 作为工作包编号，不注册旧式 XT，不创建旧 records，
 也不进入旧 backlog。工作包状态记录到 V2 bootstrap worklog，直到 V2
@@ -75,9 +83,9 @@ provider 或双写状态。
 Owned paths：
 
 ```text
-.agents/manifest.yaml
-.agents/gates.yaml
-.agents/risk-routing.yaml
+.agents/manifest.json
+.agents/gates.json
+.agents/risk-routing.json
 .agents/plans/**
 .agents/tasks/**
 .agents/schemas/**
@@ -90,7 +98,7 @@ tool/harness/tests/test_validate.py
 交付物：
 
 - Plan、TaskSpec、Gate、state 和 attestation JSON Schema；
-- YAML 安全子集 parser；
+- 标准库 strict JSON parser，拒绝重复 key 和未知字段；
 - canonical digest；
 - Plan approval identity adapter；
 - dependency/criterion/owned-path/risk validator；
