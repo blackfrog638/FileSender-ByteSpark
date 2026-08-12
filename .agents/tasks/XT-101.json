@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "id": "XT-101",
+  "title": "Record Harness V2 pilot evidence",
+  "plan": "DP-HARNESS-V2-PILOT-REPORT",
+  "criteria": [
+    "CRIT-HV2-PILOT-REPORT"
+  ],
+  "depends_on": [],
+  "owned_paths": [
+    "docs/harness-v2/acceptance-checklist.md",
+    "docs/harness-v2/implementation-plan.md",
+    "docs/harness-v2/migration.md",
+    "docs/harness-v2/worklog.md"
+  ],
+  "type": "documentation",
+  "workstream": "harness_operations",
+  "risk": {
+    "functionality": "low",
+    "security": "none",
+    "performance": "none",
+    "compatibility": "none",
+    "concurrency": "none",
+    "platform": "none",
+    "persistence": "none"
+  },
+  "tdd": {
+    "mode": "not_required",
+    "gate": null,
+    "proof_paths": [],
+    "oracle_paths": [],
+    "failure_fingerprints": []
+  },
+  "delivery": {
+    "commit_type": "docs",
+    "scope": "harness",
+    "summary": "record v2 pilot evidence",
+    "architecture_change": {
+      "mode": "none",
+      "modules": [],
+      "supersedes": {
+        "paths": [],
+        "symbols": [],
+        "targets": []
+      },
+      "temporary_leases": [],
+      "retires_leases": []
+    }
+  }
+}
