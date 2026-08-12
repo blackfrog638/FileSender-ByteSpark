@@ -165,6 +165,46 @@ git diff --check
 - 未调用旧 Harness runtime；
 - 未修改 protected branch。
 
+### 2026-08-12：WP3/WP4 Gate DAG、Executor 与 TDD
+
+实现：
+
+```text
+tool/harness/gates.py
+tool/harness/executor.py
+tool/harness/tdd.py
+tool/harness/tests/test_gates_tdd.py
+```
+
+行为：
+
+- Task criterion、TDD、risk routing 和 phase minimum 合并后展开 DAG；
+- aggregate Gate 只贡献依赖，leaf 在一个 plan 中只执行一次；
+- command 使用 argv 直接执行，不经过 shell；
+- independent resource groups 并行，shared group 使用 semaphore；
+- 输出写临时文件并计算完整 SHA-256，只保留 bounded diagnostic；
+- timeout 杀死进程组；
+- success/no-skip 才写本地 cache；
+- cache key 绑定 source tree、command、policy、toolchain、environment、
+  platform 和 isolation，不绑定 commit SHA；
+- 同一 source tree 的新 commit 可复用证据，但新 attestation 仍绑定当前
+  source SHA 并记录 `reused_from_source_sha`；
+- Red 创建时执行 base 和 Red 一次；
+- 重复 `record_red` 在任何 Gate 执行前返回 immutable attestation；
+- review 验证 frozen proof/oracle 后只执行 Green；
+- production-before-Red、infrastructure failure 和 post-Red oracle change
+  全部拒绝。
+
+验证：
+
+```text
+make harness-v2-test
+```
+
+首轮 31 项中 29 项通过。失败项分别证明 duplicate command 检查和 Red
+非幂等问题。修复 fixture 命令身份并将已有 attestation 检查提前后，
+31 项全部通过。
+
 ## 命令日志
 
 ### 2026-08-12：现状读取
