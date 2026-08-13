@@ -11,7 +11,7 @@ import git_ops
 from attestation import AcceptanceStore
 from model import ContractSet, canonical_sha256
 from state import StateError, StateStore
-from workspace import WorkspaceManager
+from workspace import WorkspaceError, WorkspaceManager
 
 
 CLOSURE_FIELDS = {
@@ -296,10 +296,6 @@ class AcceptanceCloser:
                 except git_ops.GitError as error:
                     raise ClosureError(str(error)) from error
         try:
-            git_ops.remove_worktree(self.root, active.path)
-        except git_ops.GitError as error:
-            raise ClosureError(str(error)) from error
-        try:
             self.states.transition(
                 task_id,
                 "active",
@@ -314,4 +310,15 @@ class AcceptanceCloser:
             )
         except StateError as error:
             raise ClosureError(str(error)) from error
+        try:
+            self.workspaces.release_done_worktree(
+                task_id,
+                active.path,
+                active.branch,
+                active.base_sha,
+            )
+        except WorkspaceError as error:
+            raise ClosureError(
+                "acceptance closed but work branch cleanup failed: {}".format(error)
+            ) from error
         return value

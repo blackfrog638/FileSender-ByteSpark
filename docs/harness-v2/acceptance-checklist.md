@@ -134,7 +134,7 @@
 - [x] Architecture 和 testing 文档更新。
 - [x] Operator runbook 包含 claim、queue、publish、recover 和 rollback。
 - [x] Dashboard 明确是派生只读视图。
-- [ ] State/ref/artifact 保留策略已设置。
+- [x] State/ref/artifact 保留策略已设置。
 - [x] Credential 和 branch protection 审计已完成。
 - [x] Bootstrap worklog 包含命令、结果、reviewer 和残余风险。
 - [x] ADR 0017 从 proposed 改为 accepted 的提交有项目所有者确认。
@@ -160,4 +160,5 @@
 - publication lock 的独立计时；
 - nightly cache-bypass；
 - review P50、production P95 和三任务并行吞吐；
-- state/ref/artifact 长期保留策略。
+- queue/work transient refs 已自动回收；durable evidence refs 保持不可删除，
+  artifact 保留 14 天。长期冷存储仍可作为独立成本优化。

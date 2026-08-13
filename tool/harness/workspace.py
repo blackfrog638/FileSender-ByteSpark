@@ -241,7 +241,7 @@ class WorkspaceManager:
 
     def release_queued_worktree(self, task_id: str) -> Path:
         snapshot = self.states.read(task_id)
-        if snapshot.state != "queued":
+        if snapshot.state != "queued" or snapshot.event is None:
             raise WorkspaceError(
                 "{} worktree can be released only while queued".format(task_id)
             )
@@ -249,9 +249,34 @@ class WorkspaceManager:
         active_events = [event for event in history if event["to"] == "active"]
         if not active_events:
             raise WorkspaceError("{} has no active worktree event".format(task_id))
-        path = Path(active_events[-1]["details"]["worktree"])
+        active_details = active_events[-1]["details"]
+        path = Path(active_details["worktree"])
+        branch_ref = "refs/heads/{}".format(active_details["branch"])
+        source_head = snapshot.event["details"].get("source_head")
+        if not isinstance(source_head, str) or len(source_head) != 40:
+            raise WorkspaceError("{} queued source head is invalid".format(task_id))
         try:
             git_ops.remove_worktree(self.root, path)
+            git_ops.delete_ref_cas(self.root, branch_ref, source_head)
+        except git_ops.GitError as error:
+            raise WorkspaceError(str(error)) from error
+        return path
+
+    def release_done_worktree(
+        self,
+        task_id: str,
+        path: Path,
+        branch: str,
+        expected_head: str,
+    ) -> Path:
+        if self.states.read(task_id).state != "done":
+            raise WorkspaceError(
+                "{} worktree can be released only while done".format(task_id)
+            )
+        branch_ref = "refs/heads/{}".format(branch)
+        try:
+            git_ops.remove_worktree(self.root, path)
+            git_ops.delete_ref_cas(self.root, branch_ref, expected_head)
         except git_ops.GitError as error:
             raise WorkspaceError(str(error)) from error
         return path

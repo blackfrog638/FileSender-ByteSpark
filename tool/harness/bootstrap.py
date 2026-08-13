@@ -361,6 +361,7 @@ def publish_candidate(
     contracts: ContractSet,
     remote: str,
     value: Mapping[str, Any],
+    queue_ref: Optional[str] = None,
 ) -> str:
     candidate_sha = str(value["candidate_sha"])
     attestation = validate_attestation(value, candidate_sha)
@@ -380,6 +381,7 @@ def publish_candidate(
     protected_ref = "refs/heads/{}".format(contracts.manifest["integration_branch"])
     remote_head = git_ops.remote_ref_sha(contracts.root, remote, protected_ref)
     if remote_head == candidate_sha:
+        _reclaim_queue_ref(contracts, remote, queue_ref, candidate_sha)
         return "already_published"
     if remote_head != attestation["integration_base"]:
         raise BootstrapError(
@@ -407,4 +409,30 @@ def publish_candidate(
     published = git_ops.remote_ref_sha(contracts.root, remote, protected_ref)
     if published != candidate_sha:
         raise BootstrapError("protected branch changed after bootstrap publication")
+    _reclaim_queue_ref(contracts, remote, queue_ref, candidate_sha)
     return "published"
+
+
+def _reclaim_queue_ref(
+    contracts: ContractSet,
+    remote: str,
+    queue_ref: Optional[str],
+    candidate_sha: str,
+) -> None:
+    if queue_ref is None:
+        return
+    prefix = contracts.manifest["ref_namespaces"]["queue"] + "bootstrap/"
+    if not queue_ref.startswith(prefix):
+        raise BootstrapError("bootstrap queue ref is outside the transient namespace")
+    try:
+        git_ops.delete_remote_ref_cas(
+            contracts.root,
+            remote,
+            queue_ref,
+            candidate_sha,
+        )
+        git_ops.delete_ref_cas(contracts.root, queue_ref, candidate_sha)
+    except git_ops.GitError as error:
+        raise BootstrapError(
+            "bootstrap published but queue cleanup failed: {}".format(error)
+        ) from error

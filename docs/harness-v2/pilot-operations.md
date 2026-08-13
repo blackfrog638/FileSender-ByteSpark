@@ -53,8 +53,8 @@ submissions, hosted evidence, and compare-and-swap publication.
    ```
 
 The task is complete only when the protected branch points to the exact
-candidate and the task state ref is `done`. Local Gate results do not replace
-hosted evidence.
+candidate, the task state ref is `done`, and the transient queue ref has been
+deleted. Local Gate results do not replace hosted evidence.
 
 ## Recovery
 
@@ -62,7 +62,9 @@ hosted evidence.
 - Use `queue-reopen` when a queued candidate must return to `active`.
 - Use `recover` after evidence exists but publication was interrupted.
 - Re-run an idempotent publication command after a transient network error.
+- Run `branch-gc` to inspect evidence-bound cleanup residue, then
+  `branch-gc --execute` to retry it.
 
-Do not edit state, submission, queue, or attestation refs by hand. Preserve a
-failed immutable attempt under the archive namespace and create a new
-submission or queue entry when the payload changes.
+Do not edit or delete state, submission, queue, attestation, or archive refs by
+hand. Preserve a failed immutable attempt under the archive namespace and
+create a new submission or queue entry when the payload changes.

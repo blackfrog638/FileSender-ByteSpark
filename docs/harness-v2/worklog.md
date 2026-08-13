@@ -841,3 +841,38 @@ hosted run `31616330401` 和 bootstrap attestation
 - nightly cache-bypass、三任务并行吞吐和 production P95 未由两个
   Pilot 样本证明；
 - state/ref/artifact 长期保留策略尚未落地。
+
+## 2026-08-13：Transient branch reclamation
+
+项目所有者批准 `DP-HARNESS-BRANCH-RECLAMATION`，content digest：
+
+```text
+cdb84f1fc42a92e3b986e95c196e9ea2df58fcfc3aa064f02b85e0442cb212d9
+```
+
+合同 seed `4f6d2be5a7f03573684e2628851ea4301f4e25b3` 通过 hosted run
+`31665720953` 的 Linux、macOS、Windows、Harness 和 sanitizer/fuzz
+qualification，bootstrap attestation digest：
+
+```text
+23df1df7b005bf68335d00b4f032a59502a7e38985dd707d1e2160db8cb2ff2f
+```
+
+实现采用 ADR 0019 的双分类：
+
+- `approve/state/submit/attest/archive` 是不可删除的 durable evidence；
+- `work/queue` 是 evidence-bound transient refs。
+
+自动回收点覆盖 submission、acceptance closure、successful publish、
+publication recovery、queue rejection archive 和 bootstrap publish。
+所有删除都绑定 expected SHA。`branch-gc` 默认 dry-run，只根据 durable
+state、attestation 或 archive 选择残留，不使用时间或名称作为单独依据。
+
+开发过程中首次 adversarial Red 中两条 CAS fixture 使用空 commit，
+在到达被测逻辑前失败。该 Red 保留为历史证据但不用于 review；fixture
+改为 deterministic `commit-tree` 并通过 Black 固化 proof surface 后，
+最终记录 Red `fc5f76bb96186bf6774a41a7758255196e52a14e`，attestation digest：
+
+```text
+4d7d6e40d5726a7a6ea32bfda80afc6640d6fd6a42598198f1b430036bbbd521
+```

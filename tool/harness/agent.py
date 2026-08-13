@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Sequence
 import attestation
 import approval
 import bootstrap
+import branch_reclamation
 import closure
 import git_ops
 import github_evidence
@@ -35,6 +36,7 @@ ERRORS = (
     attestation.AttestationError,
     approval.ApprovalError,
     bootstrap.BootstrapError,
+    branch_reclamation.BranchReclamationError,
     closure.ClosureError,
     GateExecutionError,
     GatePlanError,
@@ -239,6 +241,9 @@ def _parser() -> argparse.ArgumentParser:
     commands.add_parser("validate")
     commands.add_parser("list")
 
+    branch_gc = commands.add_parser("branch-gc")
+    branch_gc.add_argument("--execute", action="store_true")
+
     claim = commands.add_parser("claim")
     claim.add_argument("task_id")
     claim.add_argument("--path", type=Path)
@@ -403,6 +408,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                         contracts.tasks[task_id]["title"],
                     )
                 )
+            return 0
+        if args.command == "branch-gc":
+            store = _store(contracts, args.remote, "recovery")
+            value = branch_reclamation.BranchReclaimer(
+                contracts,
+                store,
+                args.remote,
+            ).run(execute=args.execute)
+            print(json.dumps(value, sort_keys=True))
             return 0
         if args.command == "claim":
             store = _store(contracts, args.remote)
@@ -729,6 +743,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 contracts,
                 args.remote,
                 value,
+                queue_ref=args.queue_ref,
             )
             print(
                 json.dumps(

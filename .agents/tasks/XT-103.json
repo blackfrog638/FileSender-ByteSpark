@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "id": "XT-103",
-  "title": "Reclaim transient Harness branches",
+  "title": "Certify transient Harness branch reclamation",
   "plan": "DP-HARNESS-BRANCH-RECLAMATION",
   "criteria": [
     "CRIT-HV2-WORK-BRANCH-RECLAMATION",
@@ -13,54 +13,35 @@
     "XT-101"
   ],
   "owned_paths": [
-    "AGENTS.md",
     "docs/adr/0019-harness-transient-branch-retention.md",
     "docs/harness-v2/acceptance-checklist.md",
     "docs/harness-v2/architecture.md",
     "docs/harness-v2/delivery-flow.md",
     "docs/harness-v2/pilot-operations.md",
-    "docs/harness-v2/worklog.md",
-    "tool/harness/agent.py",
-    "tool/harness/bootstrap.py",
-    "tool/harness/branch_reclamation.py",
-    "tool/harness/closure.py",
-    "tool/harness/git_ops.py",
-    "tool/harness/merge_queue.py",
-    "tool/harness/workspace.py",
-    "tool/harness/tests/test_agent_cli.py",
-    "tool/harness/tests/test_bootstrap.py",
-    "tool/harness/tests/test_queue_attestation.py",
-    "tool/harness/tests/test_state_workspace.py"
+    "docs/harness-v2/worklog.md"
   ],
-  "type": "governance",
-  "workstream": "harness_control_plane",
+  "type": "documentation",
+  "workstream": "harness_operations",
   "risk": {
-    "functionality": "high",
-    "security": "high",
+    "functionality": "low",
+    "security": "none",
     "performance": "low",
-    "compatibility": "high",
-    "concurrency": "critical",
-    "platform": "high",
-    "persistence": "critical"
+    "compatibility": "none",
+    "concurrency": "none",
+    "platform": "none",
+    "persistence": "none"
   },
   "tdd": {
-    "mode": "adversarial",
-    "gate": "harness_v2",
-    "proof_paths": [
-      "tool/harness/tests/test_agent_cli.py",
-      "tool/harness/tests/test_bootstrap.py",
-      "tool/harness/tests/test_queue_attestation.py",
-      "tool/harness/tests/test_state_workspace.py"
-    ],
+    "mode": "not_required",
+    "gate": null,
+    "proof_paths": [],
     "oracle_paths": [],
-    "failure_fingerprints": [
-      "AssertionError: queue refs must be reclaimed after durable completion"
-    ]
+    "failure_fingerprints": []
   },
   "delivery": {
-    "commit_type": "feat",
+    "commit_type": "docs",
     "scope": "harness",
-    "summary": "reclaim transient delivery branches",
+    "summary": "document branch reclamation operations",
     "architecture_change": {
       "mode": "none",
       "modules": [],

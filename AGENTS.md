@@ -72,6 +72,10 @@ archive/...
 
 Every state update is append-only and compare-and-swap. Local cache under the
 common Git directory is disposable and never sufficient for `done`.
+`approve/**`, `state/**`, `submit/**`, `attest/**`, and `archive/**` are
+durable evidence refs. `work/**` and `queue/**` are transient: they are deleted
+with an expected-SHA compare-and-swap only after submission, publication,
+closure, or rejection archival makes them unnecessary.
 
 ## Task workflow
 
@@ -143,7 +147,7 @@ tool/harness/agent.sh submit XT-NNN --red-sha SHA
 Submit runs the deduplicated review Gate plan, requires independent review for
 high/critical work, freezes source and proof digests, writes an immutable
 submission ref, appends `active -> queued`, and releases the development
-worktree. Owned paths remain reserved.
+worktree and local `work/**` branch. Owned paths remain reserved.
 
 ### Queue and publish
 
@@ -162,11 +166,15 @@ tool/harness/agent.sh queue-reopen XT-NNN QUEUE_REF \
   --reason "exact candidate CI failed"
 ```
 
+Reopen creates the immutable `archive/queue/**` ref before deleting the
+rejected `queue/**` ref.
+
 The merge-queue workflow emits exact candidate artifacts. The queue worker
 collects GitHub evidence, validates repository/workflow/run/SHA/jobs/artifacts,
 creates an external acceptance attestation, then advances the protected branch
 with one compare-and-swap. There is no acceptance commit and no second complete
-CI run.
+CI run. After the task reaches `done`, the publisher deletes the exact
+`queue/**` ref with compare-and-swap semantics.
 
 Acceptance-owner tasks create no product payload. After every implementation
 task is durably published, run:
@@ -177,7 +185,8 @@ tool/harness/agent.sh acceptance-close XT-ACCEPT
 
 This validates implementation acceptance refs, criterion IDs, and protected
 ancestry, then writes an external closure attestation and completes the
-acceptance task directly from `active`.
+acceptance task directly from `active`. Closure then releases its local
+worktree and `work/**` branch.
 
 If publication succeeds but the final state event fails, use:
 
@@ -186,6 +195,17 @@ tool/harness/agent.sh recover XT-NNN QUEUE_REF \
   --required-job "Harness V2" \
   --required-job "Product gates (linux)"
 ```
+
+Automatic cleanup failures do not weaken publication evidence. Inspect the
+evidence-bound cleanup plan, then execute it idempotently:
+
+```bash
+tool/harness/agent.sh branch-gc
+tool/harness/agent.sh branch-gc --execute
+```
+
+GC never selects protected branches or durable evidence namespaces and never
+uses age alone as deletion authority.
 
 ## Verification
 

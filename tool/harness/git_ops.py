@@ -155,6 +155,25 @@ def update_ref_cas(
         raise GitError("compare-and-swap failed for {}".format(ref))
 
 
+def delete_ref_cas(root: Path, ref: str, expected_old: str) -> bool:
+    current = ref_sha(root, ref)
+    if current is None:
+        return False
+    if current != expected_old:
+        raise GitError("compare-and-swap failed for {}".format(ref))
+    result = run_git(
+        root,
+        "update-ref",
+        "-d",
+        ref,
+        expected_old,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise GitError("compare-and-swap failed for {}".format(ref))
+    return True
+
+
 def append_json_ref(
     root: Path,
     ref: str,
@@ -278,7 +297,9 @@ def aggregate_patch_id(
 ) -> str:
     arguments = ["diff", "--binary", base, head]
     if excluded_paths:
-        arguments.extend(["--", ".", *(":(exclude){}".format(p) for p in excluded_paths)])
+        arguments.extend(
+            ["--", ".", *(":(exclude){}".format(p) for p in excluded_paths)]
+        )
     diff = run_git(root, *arguments).stdout
     result = subprocess.run(
         ["git", "patch-id", "--stable"],
@@ -294,9 +315,7 @@ def aggregate_patch_id(
     return output.split()[0]
 
 
-def add_worktree(
-    root: Path, path: Path, branch: str, start_point: str
-) -> None:
+def add_worktree(root: Path, path: Path, branch: str, start_point: str) -> None:
     if path.exists():
         raise GitError("worktree path already exists: {}".format(path))
     if ref_sha(root, "refs/heads/{}".format(branch)) is not None:
@@ -392,6 +411,46 @@ def push_ref_cas(
     )
     if result.returncode != 0:
         raise GitError("remote compare-and-swap failed for {}".format(remote_ref))
+
+
+def delete_remote_ref_cas(
+    root: Path,
+    remote: str,
+    remote_ref: str,
+    expected_remote: str,
+) -> bool:
+    current = remote_ref_sha(root, remote, remote_ref)
+    if current is None:
+        return False
+    if current != expected_remote:
+        raise GitError("remote compare-and-swap failed for {}".format(remote_ref))
+    lease = "--force-with-lease={}:{}".format(remote_ref, expected_remote)
+    result = run_git(
+        root,
+        "push",
+        lease,
+        remote,
+        ":{}".format(remote_ref),
+        check=False,
+    )
+    if result.returncode != 0:
+        raise GitError("remote compare-and-swap failed for {}".format(remote_ref))
+    if remote_ref_sha(root, remote, remote_ref) is not None:
+        raise GitError("remote ref deletion was not durable for {}".format(remote_ref))
+    return True
+
+
+def list_remote_refs(root: Path, remote: str, prefix: str) -> Dict[str, str]:
+    output = git_text(root, "ls-remote", "--heads", remote, "{}*".format(prefix))
+    result: Dict[str, str] = {}
+    for line in output.splitlines():
+        if not line:
+            continue
+        sha, ref = line.split()
+        if not ref.startswith(prefix) or len(sha) != 40:
+            raise GitError("remote ref inventory is invalid for {}".format(prefix))
+        result[ref] = sha
+    return result
 
 
 def atomic_write_json(path: Path, value: Mapping[str, Any]) -> None:

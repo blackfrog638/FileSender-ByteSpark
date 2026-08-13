@@ -29,6 +29,8 @@ tool/harness/agent.sh queue-build XT-101 --train-id train-001
 tool/harness/agent.sh queue-reopen XT-101 QUEUE_REF --reason "CI failed"
 tool/harness/agent.sh publish XT-101 QUEUE_REF --evidence evidence.json
 tool/harness/agent.sh recover XT-101 QUEUE_REF
+tool/harness/agent.sh branch-gc
+tool/harness/agent.sh branch-gc --execute
 tool/harness/agent.sh acceptance-close XT-ACCEPT
 tool/harness/agent.sh bootstrap-accept \
   refs/heads/queue/bootstrap/CUTOVER_REF --at UTC_TIMESTAMP
@@ -169,7 +171,8 @@ TaskSpec explicit gates
 4. 创建 immutable `submit/<task>/<attempt>`；
 5. 写入 `active -> queued` state event；
 6. 删除或回收开发 worktree；
-7. 保留 task branch 和 owned-path reservation。
+7. 按 reviewed source SHA 删除本地 task branch；
+8. 保留 owned-path reservation。
 
 Payload、计划、风险或测试变化不能修改旧 submission，只能新建 attempt。
 
@@ -221,7 +224,8 @@ Queue worker：
 6. CAS push candidate；
 7. 验证远端 protected branch 等于 candidate；
 8. 追加 `queued -> done` state event；
-9. 释放 owned paths；submission、queue 和 attestation refs 保持可审计。
+9. 按 candidate SHA 删除本地和远端 queue ref；
+10. 释放 owned paths；submission、state 和 attestation refs 保持可审计。
 
 只有步骤 6 持有全局 publication slot，其他任务可以继续开发和验证。
 
@@ -243,8 +247,9 @@ Queue worker：
 每次失败都保留 attempt、candidate ref、日志摘要和原因。恢复流程禁止在
 包含失败交付的 lineage 上直接 rebase。
 
-`queue-reopen` 保留原 queue ref，创建对应 archive ref，从 immutable
-submission source head 恢复开发 worktree，再执行 `queued -> active`。
+`queue-reopen` 先创建对应 immutable archive ref，再从 submission source
+head 恢复开发 worktree并执行 `queued -> active`，最后按 candidate SHA
+删除原 queue ref。
 
 ## Acceptance Closure
 
@@ -252,6 +257,21 @@ Acceptance owner 不创建 candidate。`acceptance-close` 验证所有
 implementation task 的 done state、acceptance ref digest、published SHA
 ancestry 和 criterion ID 覆盖，随后写 external closure attestation，并以
 `active -> done` 完成验收任务。该操作不改变 protected product branch。
+完成后删除 zero-payload worktree 和本地 work branch。
+
+## 分支回收
+
+`branch-gc` 默认只输出可回收计划。`--execute` 仅处理：
+
+- submission/closure 后残留且 SHA 与持久证据一致的本地 `work/**`；
+- done state 与 published SHA 一致的 `queue/**`；
+- queue rejection event 指向匹配 archive ref 的 `queue/**`；
+- bootstrap attestation 存在且 candidate 已进入 protected ancestry 的
+  `queue/bootstrap/**`。
+
+GC 不检查或删除 `main`、`harness`、`approve/**`、`state/**`、
+`submit/**`、`attest/**` 或 `archive/**`。所有删除使用 expected SHA，
+ref 移动即失败并保留。
 
 ## 撤销与取消
 

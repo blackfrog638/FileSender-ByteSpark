@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import attestation
 import approval
+import branch_reclamation
 import git_ops
 import state
 import tdd
@@ -754,6 +755,16 @@ class MergeQueue:
                 check=False,
             )
             raise QueueError(str(error)) from error
+        try:
+            branch_reclamation.BranchReclaimer(
+                self.contracts,
+                self.states,
+                self.remote,
+            ).reclaim_queue_ref(entry.queue_ref, entry.candidate_sha)
+        except branch_reclamation.BranchReclamationError as error:
+            raise QueueError(
+                "queue reopened but transient ref cleanup failed: {}".format(error)
+            ) from error
         return path
 
 
@@ -1033,6 +1044,17 @@ class Publisher:
             raise PublicationRecoveryRequired(
                 "candidate published but state finalization failed: {}".format(error)
             ) from error
+        try:
+            branch_reclamation.BranchReclaimer(
+                self.contracts,
+                self.states,
+                self.remote,
+            ).reclaim_queue_ref(entry.queue_ref, entry.candidate_sha)
+        except branch_reclamation.BranchReclamationError as error:
+            raise PublicationRecoveryRequired(
+                "candidate published and finalized but queue cleanup failed: "
+                "{}; run branch-gc --execute".format(error)
+            ) from error
         return acceptance_value
 
     def recover(self, entry: TrainEntry) -> None:
@@ -1045,6 +1067,16 @@ class Publisher:
         self._validate_stored_acceptance(entry, acceptance_value)
         snapshot = self.states.read(entry.task_id)
         if snapshot.state == "done":
+            try:
+                branch_reclamation.BranchReclaimer(
+                    self.contracts,
+                    self.states,
+                    self.remote,
+                ).reclaim_queue_ref(entry.queue_ref, entry.candidate_sha)
+            except branch_reclamation.BranchReclamationError as error:
+                raise QueueError(
+                    "queue cleanup recovery failed: {}".format(error)
+                ) from error
             return
         if snapshot.state != "queued":
             raise QueueError(
@@ -1071,3 +1103,14 @@ class Publisher:
             )
         except state.StateError as error:
             raise QueueError(str(error)) from error
+        try:
+            branch_reclamation.BranchReclaimer(
+                self.contracts,
+                self.states,
+                self.remote,
+            ).reclaim_queue_ref(entry.queue_ref, entry.candidate_sha)
+        except branch_reclamation.BranchReclamationError as error:
+            raise QueueError(
+                "publication recovered but queue cleanup failed: {}; "
+                "run branch-gc --execute".format(error)
+            ) from error

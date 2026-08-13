@@ -68,7 +68,8 @@ XnnTransfer/
 
 ### 远端运行控制平面
 
-每个 ref 都指向不可变 JSON event 或 manifest commit：
+持久 ref 指向不可变 JSON event 或 manifest commit；queue ref 指向 exact
+candidate：
 
 ```text
 refs/heads/approve/DP-P1/<content-digest>
@@ -86,9 +87,16 @@ refs/heads/archive/XT-101/<attempt>
 - `state/*` 只能 compare-and-swap；
 - `approve/*` 只能由项目所有者创建，创建后不可重写；
 - `submit/*` 创建后不可重写，同一任务新评审产生新 attempt；
-- `queue/*` 是临时候选，可由 worker 回收；
+- `queue/*` 禁止 non-fast-forward 更新；发布、恢复或失败归档完成后，
+  worker 按 expected SHA 删除；
 - `attest/*` 只允许受信 CI/queue 身份创建；
-- `archive/*` 禁止删除，按保留策略压缩或转存。
+- `archive/*` 禁止删除，按保留策略压缩或转存；
+- 本地 `work/*` 在 submission 或 acceptance closure 持久化后删除。
+
+远端使用两个 ruleset：durable runtime ruleset 对
+`approve/state/submit/attest/archive` 同时禁止删除和 non-fast-forward；
+transient queue ruleset 只禁止 non-fast-forward，允许 queue worker 执行
+CAS deletion。
 
 具体 ref 命名在实现前通过托管平台能力测试确认。若平台不允许目标
 namespace，可映射为受保护的同名 branch，但语义不变。
@@ -224,11 +232,16 @@ CAS protected branch
         |
         v
 append published state event -> done
+        |
+        v
+CAS delete transient queue ref
 ```
 
 如果 attestation 已创建但 CAS 失败，任务保持 `queued`。如果 CAS 成功但
 最终 state event 写入失败，恢复器通过 protected branch 和 attestation
-派生并补写事件。任何情况都不创建产品 acceptance commit。
+派生并补写事件。state 已完成但 queue cleanup 中断时，`branch-gc`
+根据 published state 或 archive/attestation 证据幂等补删。任何情况都不
+创建产品 acceptance commit。
 
 ## 与产品架构的隔离
 
