@@ -1,70 +1,86 @@
-# Harness V2 Pilot Operations
+# Harness V2 Operations
 
-This runbook covers the first governed delivery after the Harness V2
-bootstrap. It is intentionally limited to commands that preserve immutable
-submissions, hosted evidence, and compare-and-swap publication.
+## Normal Delivery
 
-## Preconditions
+```bash
+tool/harness/agent.sh validate
+tool/harness/agent.sh list
+tool/harness/agent.sh claim XT-NNN
+```
 
-- Run lifecycle commands from the integration worktree.
-- Confirm that the Delivery Plan is `approved` and has an authoritative
-  `approve/<plan>/<digest>` ref.
-- Confirm that the task is `ready` with `tool/harness/agent.sh list`.
-- Keep all edits inside the claimed task worktree and its `owned_paths`.
+Commit work inside the returned worktree. For Red-based tasks:
 
-## Delivery
+```bash
+tool/harness/agent.sh tdd-red XT-NNN
+```
 
-1. Claim the task:
+After Green:
 
-   ```bash
-   tool/harness/agent.sh claim XT-NNN
-   ```
+```bash
+tool/harness/agent.sh submit XT-NNN \
+  --train-id delivery-001 \
+  --red-sha RED_SHA
+```
 
-2. Commit the reviewed source changes in the generated worktree. For a
-   Red-Green task, commit the complete declared proof surface first and record
-   it before changing production code:
+Wait for the exact queue branch workflow, then publish:
 
-   ```bash
-   tool/harness/agent.sh tdd-red XT-NNN
-   ```
+```bash
+tool/harness/agent.sh publish \
+  XT-NNN refs/heads/queue/delivery-001/001-XT-NNN
+```
 
-3. Create the immutable submission:
+Completion means the exact candidate is in protected history and its temporary
+queue ref is gone. `agent.sh list` then derives `done`.
 
-   ```bash
-   tool/harness/agent.sh submit XT-NNN [--red-sha RED_SHA]
-   ```
+## Candidate Failure
 
-4. Build a train entry from the protected integration base:
+Restore a worktree:
 
-   ```bash
-   tool/harness/agent.sh queue-build XT-NNN --train-id pilot
-   ```
+```bash
+tool/harness/agent.sh queue-reopen \
+  XT-NNN QUEUE_REF --reason "exact candidate CI failed"
+```
 
-5. Wait for the exact queue ref to pass the hosted workflow once. Collect the
-   workflow artifacts and publish only that verified candidate:
+Discard an abandoned candidate:
 
-   ```bash
-   tool/harness/agent.sh collect-evidence \
-     XT-NNN refs/heads/queue/pilot/001-XT-NNN \
-     --output /tmp/XT-NNN-evidence.json
-   tool/harness/agent.sh publish \
-     XT-NNN refs/heads/queue/pilot/001-XT-NNN \
-     --evidence /tmp/XT-NNN-evidence.json
-   ```
+```bash
+tool/harness/agent.sh queue-drop \
+  XT-NNN QUEUE_REF --reason "requirement withdrawn"
+```
 
-The task is complete only when the protected branch points to the exact
-candidate, the task state ref is `done`, and the transient queue ref has been
-deleted. Local Gate results do not replace hosted evidence.
+No archive or state ref is created.
 
-## Recovery
+## Cleanup
 
-- Use `claim-recover` after an interrupted claim.
-- Use `queue-reopen` when a queued candidate must return to `active`.
-- Use `recover` after evidence exists but publication was interrupted.
-- Re-run an idempotent publication command after a transient network error.
-- Run `branch-gc` to inspect evidence-bound cleanup residue, then
-  `branch-gc --execute` to retry it.
+```bash
+tool/harness/agent.sh branch-gc
+tool/harness/agent.sh branch-gc --execute
+```
 
-Do not edit or delete state, submission, queue, attestation, or archive refs by
-hand. Preserve a failed immutable attempt under the archive namespace and
-create a new submission or queue entry when the payload changes.
+Use `recover XT-NNN QUEUE_REF` only when protected publication succeeded but
+queue deletion failed.
+
+## Expected Remote Branches
+
+At rest:
+
+```text
+main
+harness
+```
+
+During delivery:
+
+```text
+queue/**
+```
+
+The following namespaces are not Harness V2 and should not exist:
+
+```text
+approve/**
+state/**
+submit/**
+attest/**
+archive/**
+```

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Harness V2 deterministic TDD attestations."""
+"""Harness V2 deterministic TDD chronology checks."""
 
 from __future__ import annotations
 
@@ -7,13 +7,12 @@ import fnmatch
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import git_ops
 from executor import GateExecutor, GateResult
 from gates import single_gate_plan
 from model import ContractSet, canonical_sha256
-from state import StateStore
 from workspace import WorkspaceManager
 
 
@@ -22,24 +21,6 @@ class TddError(RuntimeError):
 
 
 RED_MODES = {"red_green", "regression", "mutation", "adversarial"}
-ATTESTATION_FIELDS = {
-    "schema_version",
-    "task_id",
-    "mode",
-    "base_sha",
-    "red_sha",
-    "gate_id",
-    "task_spec_blob",
-    "plan_blob",
-    "gate_policy_sha256",
-    "proof_paths",
-    "oracle_paths",
-    "frozen_surface_sha256",
-    "base_gate",
-    "red_gate",
-    "failure_fingerprint",
-    "created_by",
-}
 
 
 def _matches_any(path: str, patterns: Sequence[str]) -> bool:
@@ -88,27 +69,11 @@ class TddManager:
     def __init__(
         self,
         contracts: ContractSet,
-        states: StateStore,
         workspaces: WorkspaceManager,
     ) -> None:
         self.contracts = contracts
-        self.states = states
         self.workspaces = workspaces
         self.root = contracts.root
-        self.attest_prefix = contracts.manifest["ref_namespaces"]["attest"]
-
-    def _red_ref(self, task_id: str, red_sha: str) -> str:
-        return "{}tdd/{}/{}".format(self.attest_prefix, task_id, red_sha)
-
-    def _sync_red_ref(self, ref: str) -> None:
-        if self.states.remote is None:
-            return
-        if git_ops.remote_ref_sha(self.root, self.states.remote, ref) is None:
-            return
-        try:
-            git_ops.fetch_immutable_ref(self.root, self.states.remote, ref)
-        except git_ops.GitError as error:
-            raise TddError(str(error)) from error
 
     def _run_at_commit(
         self,
@@ -173,30 +138,17 @@ class TddManager:
             raise TddError("{} Red commit must differ from base".format(task_id))
         if not git_ops.is_ancestor(active.path, active.base_sha, red_sha):
             raise TddError("{} Red commit is outside the task base".format(task_id))
+        return self.load_red(task_id, red_sha)
+
+    def load_red(self, task_id: str, red_sha: str) -> Mapping[str, Any]:
+        task = self.contracts.tasks[task_id]
+        tdd = task["tdd"]
+        if tdd["mode"] not in RED_MODES:
+            raise TddError("{} does not use a Red proof mode".format(task_id))
+        active = self.workspaces.active_workspace(task_id)
+        if not git_ops.is_ancestor(active.path, active.base_sha, red_sha):
+            raise TddError("{} Red commit is outside the task base".format(task_id))
         proof_paths = list(tdd["proof_paths"])
-        task_blob, plan_blob = self._contract_blobs(task_id)
-        ref = self._red_ref(task_id, red_sha)
-        self._sync_red_ref(ref)
-        existing = git_ops.ref_sha(self.root, ref)
-        if existing is not None:
-            existing_attestation = self.load_red(task_id, red_sha)
-            current_surface = surface_sha256(
-                active.path,
-                red_sha,
-                proof_paths,
-                tdd["oracle_paths"],
-            )
-            if (
-                existing_attestation["task_spec_blob"] != task_blob
-                or existing_attestation["plan_blob"] != plan_blob
-                or existing_attestation["gate_policy_sha256"]
-                != canonical_sha256(self.contracts.gate_policy)
-                or existing_attestation["frozen_surface_sha256"] != current_surface
-            ):
-                raise TddError(
-                    "{} existing Red attestation context differs".format(task_id)
-                )
-            return existing_attestation
         for commit in git_ops.commit_range(active.path, active.base_sha, red_sha):
             for path in git_ops.commit_changed_paths(active.path, commit):
                 if not _matches_any(path, proof_paths):
@@ -213,16 +165,7 @@ class TddManager:
                     task_id, base_result.outcome
                 )
             )
-        red_executor = GateExecutor(
-            self.contracts,
-            execution_root=active.path,
-            cache_enabled=False,
-        )
-        red_plan = single_gate_plan(self.contracts, task_id, "tdd_red", gate_id)
-        red_execution = red_executor.execute(red_plan)
-        if len(red_execution.results) != 1:
-            raise TddError("focused TDD Gate must resolve to one leaf")
-        red_result = red_execution.results[0]
+        red_result = self._run_at_commit(task_id, gate_id, "tdd_red", red_sha)
         if (
             red_result.outcome != "failure"
             or red_result.attestation["skipped"] is not False
@@ -237,6 +180,7 @@ class TddManager:
         )
         if fingerprint is None:
             raise TddError("{} Red output has no exact fingerprint".format(task_id))
+        task_blob, plan_blob = self._contract_blobs(task_id)
         attestation: Dict[str, Any] = {
             "schema_version": 1,
             "task_id": task_id,
@@ -258,40 +202,7 @@ class TddManager:
             "base_gate": _gate_payload(base_result),
             "red_gate": _gate_payload(red_result),
             "failure_fingerprint": fingerprint,
-            "created_by": dict(self.states.actor),
         }
-        commit = git_ops.commit_json(
-            self.root,
-            attestation,
-            "{} deterministic Red attestation".format(task_id),
-            filename="attestation.json",
-        )
-        try:
-            git_ops.update_ref_cas(self.root, ref, commit, None)
-            if self.states.remote is not None:
-                git_ops.push_ref_cas(
-                    self.root,
-                    self.states.remote,
-                    commit,
-                    ref,
-                    None,
-                )
-        except git_ops.GitError as error:
-            git_ops.run_git(self.root, "update-ref", "-d", ref, commit, check=False)
-            raise TddError(str(error)) from error
-        return attestation
-
-    def load_red(self, task_id: str, red_sha: str) -> Mapping[str, Any]:
-        ref = self._red_ref(task_id, red_sha)
-        self._sync_red_ref(ref)
-        commit = git_ops.ref_sha(self.root, ref)
-        if commit is None:
-            raise TddError("{} has no Red attestation for {}".format(task_id, red_sha))
-        attestation = git_ops.read_json_object(self.root, commit, "attestation.json")
-        if set(attestation) != ATTESTATION_FIELDS:
-            raise TddError("{} Red attestation has invalid fields".format(task_id))
-        if attestation["task_id"] != task_id or attestation["red_sha"] != red_sha:
-            raise TddError("{} Red attestation identity is invalid".format(task_id))
         return attestation
 
     def review_green(self, task_id: str, red_sha: str) -> Mapping[str, Any]:

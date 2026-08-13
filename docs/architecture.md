@@ -29,8 +29,9 @@ regenerated with `tool/harness/project_model.py generate`:
 - `docs/architecture/module-map.md`;
 - `docs/project/semantic-baseline.md`.
 
-Runtime task state is not documentation. It is read from durable Harness refs
-with `tool/harness/agent.sh list`.
+Runtime task state is not documentation. It is derived from accepted delivery
+commits, attached local worktrees, and temporary queue refs with
+`tool/harness/agent.sh list`.
 
 ## Runtime components
 

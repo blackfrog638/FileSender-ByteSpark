@@ -8,10 +8,8 @@
     "schema_version",
     "id",
     "title",
-    "status",
     "source",
-    "requirements",
-    "approval"
+    "requirements"
   ],
   "properties": {
     "schema_version": {
@@ -24,12 +22,6 @@
     "title": {
       "type": "string",
       "minLength": 1
-    },
-    "status": {
-      "enum": [
-        "draft",
-        "approved"
-      ]
     },
     "source": {
       "type": "object",
@@ -55,16 +47,6 @@
       "items": {
         "$ref": "#/$defs/requirement"
       }
-    },
-    "approval": {
-      "oneOf": [
-        {
-          "type": "null"
-        },
-        {
-          "$ref": "#/$defs/approval"
-        }
-      ]
     }
   },
   "$defs": {
@@ -75,8 +57,7 @@
         "id",
         "statement",
         "criteria",
-        "implementation_tasks",
-        "acceptance_owner"
+        "implementation_tasks"
       ],
       "properties": {
         "id": {
@@ -96,9 +77,6 @@
         },
         "implementation_tasks": {
           "$ref": "#/$defs/taskIds"
-        },
-        "acceptance_owner": {
-          "$ref": "#/$defs/taskId"
         }
       }
     },
@@ -161,29 +139,6 @@
               "type": "boolean"
             }
           }
-        }
-      }
-    },
-    "approval": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "approved_by",
-        "approved_at",
-        "content_sha256"
-      ],
-      "properties": {
-        "approved_by": {
-          "type": "string",
-          "minLength": 1
-        },
-        "approved_at": {
-          "type": "string",
-          "minLength": 1
-        },
-        "content_sha256": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
         }
       }
     },

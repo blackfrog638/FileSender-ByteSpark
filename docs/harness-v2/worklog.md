@@ -892,3 +892,53 @@ run `31668486059`，bootstrap attestation digest：
 新 `bootstrap-publish` 完成 protected CAS 后自动删除
 `queue/bootstrap/branch-reclamation-cutover-001`；远端复查该 ref 不存在，
 而 bootstrap attestation 和 protected commit 保持可读。
+
+## 2026-08-13：Derived runtime contraction
+
+项目所有者明确否定为每条 approval、state、submission、TDD、acceptance、
+bootstrap 和 failure 记录建立永久 Git branch 的做法，并授权不兼容收缩。
+ADR 0021 取代本日志前文的 durable-ref 设计结论；前文保留为设计演进历史，
+不再是当前操作规范。
+
+新 Harness V2 只保留三类运行事实：
+
+```text
+accepted delivery commit
+attached local work/XT-* worktree
+temporary remote queue/**
+```
+
+实现删除了：
+
+- `approval.py`、`state.py`、`merge_queue.py`、`attestation.py`、
+  `bootstrap.py`、`closure.py` 和 migration compatibility；
+- `approve/**`、`state/**`、`submit/**`、`attest/**`、`archive/**`
+  写入路径；
+- Plan/Change Set approval blocks；
+- acceptance owner 和 `XT-100/102/104/106` acceptance-only TaskSpecs；
+- Project Model approval、migration 和 attestation schemas。
+
+替代主链为：
+
+```text
+claim
+  -> Git-chronology TDD and review
+  -> temporary exact candidate
+  -> one hosted run
+  -> live validation
+  -> protected CAS
+  -> queue deletion
+```
+
+状态由 `runtime.py` 只读推导。`ci_validation.py` 只在内存中验证 GitHub
+结果。失败候选通过显式 `queue-reopen` 或 `queue-drop` 删除，不创建 archive。
+`branch-gc` 只选择已经进入 protected ancestry 的残留，不使用时间判断。
+
+本地重构验证：
+
+- Project Model：5 个 adversarial tests；
+- Harness V2：25 个 tests；
+- 当前 5 个 TaskSpec 均从 protected commit trailers 推导为 `done`；
+- layout、strict JSON、Python compile 和 generated docs 检查通过。
+
+Hosted bootstrap 和远端旧 refs 删除在本地完整 Gate 通过后执行。

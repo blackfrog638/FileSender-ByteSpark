@@ -60,8 +60,7 @@
         "investigation",
         "test",
         "governance",
-        "documentation",
-        "acceptance"
+        "documentation"
       ]
     },
     "workstream": {
@@ -123,8 +122,7 @@
             "bounded_evidence",
             "mutation",
             "adversarial",
-            "not_required",
-            "evidence_closure"
+            "not_required"
           ]
         },
         "gate": {

@@ -8,9 +8,7 @@
   ],
   "depends_on": [],
   "owned_paths": [
-    "docs/harness-v2/acceptance-checklist.md",
     "docs/harness-v2/implementation-plan.md",
-    "docs/harness-v2/migration.md",
     "docs/harness-v2/worklog.md"
   ],
   "type": "documentation",

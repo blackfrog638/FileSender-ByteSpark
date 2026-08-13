@@ -128,9 +128,9 @@
     {
       "id": "INV-EXACT-CANDIDATE-PUBLICATION",
       "category": "delivery",
-      "statement": "Only an immutable submission-equivalent exact candidate with complete external evidence may advance the protected branch by compare-and-swap.",
+      "statement": "Only a temporary exact candidate with a complete live hosted result may advance the protected branch by compare-and-swap.",
       "decision_refs": [
-        "docs/adr/0017-harness-v2-control-plane.md"
+        "docs/adr/0021-derived-harness-runtime.md"
       ],
       "applies_to": [
         "OUT-P2-SIGNED-PACKAGING",
@@ -143,9 +143,9 @@
     {
       "id": "INV-RUNTIME-STATE-OUTSIDE-PRODUCT",
       "category": "delivery",
-      "statement": "Lifecycle state and acceptance evidence remain in append-only refs and never enter product commits.",
+      "statement": "Task status is derived from accepted commits, attached local worktrees, and temporary queue refs; no independent lifecycle or acceptance entity enters product history.",
       "decision_refs": [
-        "docs/adr/0017-harness-v2-control-plane.md"
+        "docs/adr/0021-derived-harness-runtime.md"
       ],
       "applies_to": [
         "OUT-HARNESS-V2-CONTROL-PLANE",

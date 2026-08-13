@@ -41,18 +41,17 @@ chore(harness): address review comments
 
 An XT identifier is audit metadata, not a description. Keep it out of the
 subject and ordinary body text. The merge train creates one product delivery
-commit from an immutable submission and adds a final contiguous trailer block:
+commit from the reviewed payload and adds a final contiguous trailer block:
 
 ```text
 Xnn-Task: XT-047
 Xnn-Lifecycle: delivery
-Xnn-Submission-SHA256: <digest>
 Xnn-Payload-SHA256: <digest>
 ```
 
-Source commits may include `Xnn-Task`, but no lifecycle commit is added to the
-product branch. Runtime state, review, queue, and acceptance evidence are Git
-ref objects outside product history.
+Source commits may include `Xnn-Task`, but only the temporary exact candidate
+adds `Xnn-Lifecycle: delivery`. Runtime status is derived from accepted
+delivery commits, attached worktrees, and temporary queue refs.
 
 ## Repository identity
 
@@ -83,7 +82,7 @@ hook validates the message, the identities reported by `git var`, and staged
 attempts to change the immutable policy. It gives immediate feedback but is
 not trusted as a gate because `git commit --no-verify` bypasses it.
 
-`make commit-message-test`, `make verify`, submission review, and queue CI
+`make commit-message-test`, `make verify`, local review, and queue CI
 independently validate governed commit ranges from commit objects. Message and
 schema v1 identity enforcement retain their historical activation boundaries;
 immutable enforcement begins with the first schema v2 policy commit. Older

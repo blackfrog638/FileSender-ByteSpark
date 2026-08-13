@@ -1,258 +1,172 @@
 # Harness V2 Threat Model
 
-## 保护资产
+## Protected Assets
 
-- 项目所有者批准的 requirement 和 criterion 语义；
-- TaskSpec 的依赖、owned paths、风险和验证要求；
-- reviewed source payload；
-- Red/Green 测试因果关系；
-- Gate 命令、工具链和执行结果；
-- candidate source、binary 和 artifact；
-- protected branch 的 accepted lineage；
-- state event 和 acceptance attestation；
-- GitHub credential、签名密钥和用户隐私数据。
+- Blueprint, Plan, TaskSpec, Gate, and risk semantics;
+- reviewed source and Red/Green chronology;
+- exact queue candidate and hosted result;
+- protected branch lineage;
+- credentials and private user data.
 
-## 参与者
-
-| 参与者 | 默认信任 |
-| --- | --- |
-| 项目所有者 | 可批准需求、ADR 和例外 |
-| Integration owner | 可管理策略和 queue worker |
-| Task Agent | 不受信；只能修改 owned paths |
-| Reviewer Agent/用户 | 受限信任；不能发布 |
-| Queue worker | 受信发布主体，权限最小化 |
-| CI runner | 对一次隔离执行受信，不可批准需求 |
-| GitHub | 托管、身份和 protected-ref 边界 |
-| LAN/外部输入 | 完全不受信 |
-
-## 信任边界
+## Trust Boundaries
 
 ```text
-Task worktree
+task worktree
     | untrusted payload
     v
-Review + Gate executor
-    | immutable submission
+review + trusted Gate executor
+    | exact temporary candidate
     v
-Queue candidate
-    | exact-SHA CI attestations
+GitHub Actions exact-SHA run
+    | live validation
     v
-Queue publisher
-    | CAS
-    v
-Protected branch
+protected-branch CAS
 ```
 
-静态契约进入 review 边界；运行 state ref 不授权产品代码；本地 cache 不
-授权远端发布；CI success 不授权未批准 criterion。
+Accepted protected history is trusted. Local worktrees and queue candidates are
+untrusted until their required checks complete.
 
-## 威胁与控制
+## Threats And Controls
 
-### Agent 冒充审批者
+### Contract Bypass
 
-威胁：Agent 写入 `approved_by: integration-owner` 并把提案当成已批准。
+Threat: a task weakens Blueprint criteria, lowers risk, embeds a command, or
+changes another task's contract.
 
-控制：
+Controls:
 
-- approval 命令从认证上下文解析身份，不接受 `--by` 自由文本；
-- Plan digest 与审批事件通过 immutable `approve/**` ref 独立记录；
-- production claim/queue/publish 从远端读取 approval ref，仓库 ruleset
-  只允许项目 owner 创建该 namespace；
-- 项目所有者交互确认是状态转换前置条件；
-- 测试 fixture 使用隔离 identity provider。
+- strict JSON fields and IDs;
+- complete Blueprint/Change Set/Plan composition validation;
+- TaskSpec command prohibition;
+- risk-routing minimums;
+- active/queued owned-path conflict checks;
+- trust-root changes excluded from standard queue.
 
-### 任务修改未拥有路径
+### Payload Substitution
 
-威胁：TaskSpec 声明窄路径，但提交包含其他模块或共享合同。
+Threat: source changes after review or a different commit is published.
 
-控制：
+Controls:
 
-- 检查完整 base-to-head commit history，不只最终 diff；
-- owned-path glob 采用 fail-closed overlap；
-- shared contracts 自动提升为 integration-owner review；
-- submission 重新计算 changed paths。
+- review requires a clean worktree;
+- candidate is built immediately from the reviewed base-to-head patch;
+- queue ref is creation-only;
+- delivery commit includes payload digest;
+- publication rereads exact queue SHA and parent;
+- GitHub run and artifacts bind exact head SHA;
+- protected push uses compare-and-swap.
 
-### Review 后偷换 payload
+### False TDD
 
-威胁：review 通过后修改 branch、测试或生成文件。
+Threat: implementation precedes Red, an infrastructure failure is called Red,
+or the proof is weakened after Red.
 
-控制：
+Controls:
 
-- immutable submission 绑定 source range 和 aggregate patch；
-- candidate payload 必须与 submission patch 等价；
-- submission ref 禁止重写；
-- 新 payload 必须产生新 attempt 和 review。
+- every base-to-Red commit may change only declared proof paths;
+- base Gate must pass;
+- Red must be an attributed assertion failure with exact fingerprint;
+- skip, crash, timeout, and missing tool fail;
+- submit replays the Red commit from Git history;
+- proof and oracle paths are frozen through Green.
 
-### 伪造 TDD
+No TDD attestation is stored; commit chronology is the source.
 
-威胁：
+### CI Identity Confusion
 
-- 实现先于测试提交；
-- 生产代码加入后回滚再声明 Red；
-- 用 compiler error、timeout 或 skip 冒充 Red；
-- Red 后弱化 oracle；
-- 编写不会验证 criterion 的测试。
+Threat: an old, unrelated, partial, or skipped workflow result authorizes
+publication.
 
-控制：
+Controls:
 
-- 扫描 base-to-Red 每个 commit；
-- 分类基础设施失败与预期断言；
-- frozen oracle blob 和 failure fingerprint；
-- Plan criterion 与 focused Gate 显式映射；
-- high/critical Red 需要独立 reviewer；
-- mutation/adversarial fixture 验证测试有效性。
+- bind repository, workflow path/blob, branch, head SHA, run ID, and attempt;
+- select the latest completed exact-candidate run;
+- require every routed job and platform;
+- reject skipped or non-success jobs;
+- download bounded artifacts and reject unsafe ZIP paths;
+- verify source SHA, Gate IDs, criterion digests, and artifact digest.
 
-### Gate 命令注入
+The validated result exists only in process memory.
 
-威胁：任务在 record 或 TaskSpec 中写入任意 shell。
+### Queue Worker Overreach
 
-控制：
+Threat: publisher overwrites protected history or publishes a candidate whose
+parent is stale.
 
-- TaskSpec 只引用 Gate ID；
-- Gate command 使用仓库拥有的 argv 数组；
-- executor 不经 `bash -lc`；
-- policy blob 进入 cache 和 attestation digest；
-- 未知 Gate 和命令漂移 fail closed。
+Controls:
 
-### 候选自修改验证信任根
+- remote head must equal candidate parent;
+- push uses force-with-lease as compare-and-swap;
+- publisher verifies remote head after push;
+- standard candidate workflow blob must equal its protected parent;
+- worker has no approval/state/attestation namespace to write.
 
-威胁：Harness、Gate policy 或 merge-queue workflow 的候选修改使用修改后
-的代码验证自身，从而绕过原有规则。
+### Speculative Train Contamination
 
-控制：
+Threat: a successor publishes while a failed predecessor is absent.
 
-- 标准 queue 拒绝 manifest、Gate/risk policy、schemas、module inventory、
-  commit identity、migration snapshot、`.github/workflows/**`、
-  `tool/harness/**`、`AGENTS.md` 和 `Makefile` payload；
-- Plan/TaskSpec 只能由 accepted base 上已存在的 governance TaskSpec
-  交付，且不得改写 active/queued 任务合同；
-- publisher 重新计算 parent-to-candidate patch、owned paths 和 trust-root
-  paths，不信任调用方传入的 TrainEntry；
-- candidate workflow blob 必须等于其 accepted parent 的 workflow blob；
-- 信任根变更只能走项目所有者明确批准的独立 bootstrap/governance
-  切换，不能由被修改的标准 queue 自证。
+Controls:
 
-### 缓存污染
+- each candidate has exactly one parent;
+- publication order is enforced by parent equality;
+- a failed predecessor prevents successor CAS;
+- successors are rebuilt from the latest accepted head.
 
-威胁：复用旧 source、错误平台、skip 或不完整执行结果。
+### State Drift
 
-控制：
+Threat: a stored state says `done` while protected history differs.
 
-- 第一版 key 绑定完整 source tree；
-- 绑定 Gate、policy、toolchain、environment、platform 和 isolation；
-- 只缓存 success/no-skip；
-- artifact digest 二次校验；
-- remote requirement 不能由 local cache 满足；
-- nightly 定期强制 cache bypass。
+Control: no state store exists. `done` is derived only from accepted delivery
+trailers. `queued` and `active` are projections over transient refs/worktrees.
 
-### CI 身份伪造
+### Resource Leaks
 
-威胁：同名 workflow/status 或旧 run 被用作候选证据。
+Threat: worktrees or remote branches accumulate indefinitely.
 
-控制：
+Controls:
 
-- 绑定 repository、workflow path、workflow blob、run ID、attempt 和 head SHA；
-- 检查 required jobs 和 matrix 展开；
-- artifact 必须绑定同一 run 和 source SHA；
-- skipped、neutral、cancelled 和 partial matrix 拒绝。
+- queue construction releases local worktree and branch;
+- publish/reopen/drop delete queue refs by expected SHA;
+- recovery retries post-publication deletion;
+- GC selects only refs already reachable from protected history;
+- GC is dry-run by default and never uses age.
 
-### Queue 越权发布
+### Destructive Cleanup
 
-威胁：Queue worker 发布未经 review 的 commit 或覆盖 protected branch。
+Threat: GC deletes unpublished user commits or a moved queue ref.
 
-控制：
+Controls:
 
-- worker 只能发布由 valid submission 构造的 candidate；
-- candidate parent 必须等于 protected head；
-- push 使用 force-with-lease/CAS，禁止 force；
-- branch protection 对 worker 同样生效；
-- acceptance attestation 在 push 前生成，push 后复核；
-- worker credential 不具有 Plan approval 权限。
+- attached worktrees are never selected;
+- unattached work refs require protected ancestry;
+- queue refs require protected ancestry;
+- all deletion uses compare-and-swap;
+- failed candidates require explicit reopen/drop.
 
-### Speculative train 污染
+### Trust-Root Self-Validation
 
-威胁：前序失败后发布包含失败 payload 的后序 candidate。
+Threat: a candidate changes Harness or workflow code and uses that new code to
+approve itself.
 
-控制：
+Controls:
 
-- candidate manifest 记录完整前缀；
-- 发布必须按 train 顺序；
-- 后序 candidate parent 必须已经成为 protected head；
-- 任一前序失败使其后代 candidate 不可发布；
-- 后续 payload 从最后 accepted base 新建 train。
+- standard queue rejects trust-root paths;
+- cutover uses `queue/bootstrap/**`;
+- full platform and security matrix is mandatory;
+- operator explicitly invokes bootstrap publication;
+- publication still validates exact live result and protected parent.
 
-### 状态与产品分支不一致
+## Deliberate Non-Assets
 
-威胁：attestation、state event 和 protected branch 部分成功。
+Harness V2 does not preserve:
 
-控制：
+- approval copies;
+- task-state histories;
+- immutable submission manifests;
+- TDD/acceptance/bootstrap attestations;
+- failed-candidate archives;
+- acceptance-only closure tasks.
 
-- `done` 是三方派生结果，不依赖单字段；
-- 所有 state 更新使用 append-only event 和 CAS；
-- recovery 可从 protected branch 与 attestation 重建最终事件；
-- attestation 创建但未发布不会产生 `done`；
-- 发布后恢复不回退 accepted branch。
-
-### 虚假 acceptance closure
-
-威胁：acceptance owner 在 implementation 尚未发布或 criterion evidence
-不完整时直接完成。
-
-控制：
-
-- closure 不接受调用方传入的 evidence digest；
-- 从每个 implementation task 的远端 done state 和 acceptance ref 派生；
-- 校验 attestation digest、published SHA ancestry 和 criterion ID 覆盖；
-- closure 只写 external ref，不能修改 product branch。
-
-### 工作日志泄密
-
-威胁：命令输出、环境变量、token 或用户内容进入 timing/event/artifact。
-
-控制：
-
-- event 只保存 Gate ID、digest、duration 和 outcome；
-- 不保存 command stdout，失败日志单独受限保留；
-- URL 和 credential 经过脱敏；
-- artifact 设置大小、路径、文件数和保留期上限；
-- 禁止上传 `.git`, home 和环境快照。
-
-## 可用性威胁
-
-- GitHub 不可用：保持 `queued`，不降级为本地接受；
-- CI 配额不足：限制 train 深度，不跳过 required Gate；
-- state ref 锁遗留：通过 actor lease 和进程/时间证据恢复；
-- cache 损坏：删除重算，不阻塞状态恢复；
-- queue worker 崩溃：从 refs 派生待处理队列；
-- worktree 遗留：不改变远端 state，清理前验证 dirty 状态。
-
-## 范围外
-
-以下问题不由 V2 单独解决，但必须记录：
-
-- GitHub 平台或 runner 基础设施完全失陷；
-- 项目所有者凭据被盗；
-- 编译器、Action 或依赖供应链的未知后门；
-- 恶意 reviewer 与恶意项目所有者合谋；
-- 产品运行时自身的网络和文件安全。
-
-这些风险由最小权限、Action SHA pinning、依赖 pinning、密钥轮换、
-SBOM/provenance 和独立安全审查补充。
-
-## 安全验收样例
-
-V2 上线测试必须至少覆盖：
-
-- Agent 不能自行批准 Plan；
-- 缺失或伪造的远端 owner approval ref 被拒绝；
-- task-authored command 被拒绝；
-- 修改过的 submission ref 被拒绝；
-- stale/wrong-workflow CI 被拒绝；
-- candidate 自修改 workflow 或 Gate trust root 被拒绝；
-- skipped matrix 被拒绝；
-- cache key 任一字段变化都 miss；
-- 前序失败的 train 后代不能发布；
-- CAS 竞态只有一个 publisher 成功；
-- 发布成功但 state 写失败可恢复；
-- acceptance attestation 不要求 candidate 预知自身 SHA；
-- acceptance owner 在 criterion evidence 不完整时不能完成。
+The project has no compliance or multi-party audit requirement that justifies
+these permanent entities. Git history, protected branch rules, and GitHub's
+native run record are sufficient for current engineering needs.

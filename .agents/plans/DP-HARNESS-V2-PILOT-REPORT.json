@@ -2,7 +2,6 @@
   "schema_version": 1,
   "id": "DP-HARNESS-V2-PILOT-REPORT",
   "title": "Harness V2 pilot evidence report",
-  "status": "approved",
   "source": {
     "kind": "implementation_plan",
     "path": "docs/harness-v2/implementation-plan.md"
@@ -10,11 +9,11 @@
   "requirements": [
     {
       "id": "REQ-HV2-PILOT-REPORT",
-      "statement": "Versioned Harness V2 documentation records the completed pilot evidence, measured latency, and unresolved operational risks without overstating the sample.",
+      "statement": "Versioned Harness V2 documentation records completed pilot runs, measured latency, corrected retention semantics, and unresolved operational risks without overstating the sample.",
       "criteria": [
         {
           "id": "CRIT-HV2-PILOT-REPORT",
-          "statement": "The implementation plan, migration status, worklog, and acceptance checklist identify both exact candidate runs, publication evidence, closure evidence, observed latency, and residual SLO limits.",
+          "statement": "The implementation plan and worklog identify the exact candidate runs, accepted commits, observed latency, corrected retention model, and residual SLO limits.",
           "negative_definitions": [
             "Chat-only evidence does not qualify.",
             "Marking an unmeasured P95 or concurrency target as passing does not qualify.",
@@ -45,13 +44,7 @@
       ],
       "implementation_tasks": [
         "XT-101"
-      ],
-      "acceptance_owner": "XT-102"
+      ]
     }
-  ],
-  "approval": {
-    "approved_by": "project-owner",
-    "approved_at": "2026-08-12T16:12:00Z",
-    "content_sha256": "d83e4480ff1603e276dbc65fecc78ddbd71bbd4851f91e28cf1fb74c5a051780"
-  }
+  ]
 }

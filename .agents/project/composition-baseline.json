@@ -99,7 +99,7 @@
     {
       "outcome": "OUT-HARNESS-V2-CONTROL-PLANE",
       "state": "qualified",
-      "basis": "The owner-approved Harness V2 bootstrap attestation is the accepted semantic origin for subsequent V2 Plans."
+      "basis": "The accepted Harness V2 bootstrap commit and exact hosted run are the semantic origin for subsequent V2 Plans."
     },
     {
       "outcome": "OUT-HARNESS-V2-PILOT",

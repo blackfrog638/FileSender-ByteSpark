@@ -8,10 +8,8 @@
     "schema_version",
     "id",
     "title",
-    "status",
     "depends_on",
-    "transitions",
-    "approval"
+    "transitions"
   ],
   "properties": {
     "schema_version": {
@@ -23,12 +21,6 @@
     "title": {
       "$ref": "#/$defs/text"
     },
-    "status": {
-      "enum": [
-        "draft",
-        "approved"
-      ]
-    },
     "depends_on": {
       "$ref": "#/$defs/ids"
     },
@@ -38,16 +30,6 @@
       "items": {
         "$ref": "#/$defs/transition"
       }
-    },
-    "approval": {
-      "oneOf": [
-        {
-          "type": "null"
-        },
-        {
-          "$ref": "#/$defs/approval"
-        }
-      ]
     }
   },
   "$defs": {
@@ -155,26 +137,6 @@
           "items": {
             "$ref": "#/$defs/requirement"
           }
-        }
-      }
-    },
-    "approval": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "approved_by",
-        "approved_at",
-        "content_sha256"
-      ],
-      "properties": {
-        "approved_by": {
-          "$ref": "#/$defs/text"
-        },
-        "approved_at": {
-          "$ref": "#/$defs/text"
-        },
-        "content_sha256": {
-          "$ref": "#/$defs/sha256"
         }
       }
     }

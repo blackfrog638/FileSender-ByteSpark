@@ -132,7 +132,6 @@
         ".agents/schemas/blueprint.schema.json",
         ".agents/schemas/blueprint-change.schema.json",
         ".agents/schemas/composition-baseline.schema.json",
-        ".agents/schemas/project-approval.schema.json",
         ".agents/schemas/project-assets.schema.json",
         ".agents/schemas/project-invariants.schema.json",
         ".agents/schemas/quality-budgets.schema.json",

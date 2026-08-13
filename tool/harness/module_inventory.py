@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -217,38 +218,28 @@ def scan_library_definitions(path: PurePosixPath, text: str) -> list[TargetDefin
 
 def load_task_records(root: Path) -> dict[str, dict[str, Any]]:
     from model import load_contracts
-    from state import StateStore
 
     contracts = load_contracts(root)
     records: dict[str, dict[str, Any]] = {}
-    empty_change = {
-        "mode": "none",
-        "modules": [],
-        "supersedes": {"paths": [], "symbols": [], "targets": []},
-        "temporary_leases": [],
-        "retires_leases": [],
+    messages = subprocess.run(
+        ["git", "-C", str(root), "log", "--format=%B%x00", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="strict",
+    ).stdout
+    delivered = {
+        line.removeprefix("Xnn-Task: ")
+        for message in messages.split("\x00")
+        if "Xnn-Lifecycle: delivery" in message.splitlines()
+        for line in message.splitlines()
+        if line.startswith("Xnn-Task: ")
     }
-    for task_id in contracts.legacy_accepted:
-        records[task_id] = {
-            "id": task_id,
-            "state": "done",
-            "architecture_change": empty_change,
-        }
-    states = StateStore(
-        contracts,
-        remote=None,
-        actor={
-            "kind": "ci",
-            "id": "architecture-test",
-            "name": "Architecture Test",
-            "email": "architecture-test@localhost",
-        },
-    )
     for task_id, task in contracts.tasks.items():
-        snapshot = states.read(task_id, refresh=False)
         records[task_id] = {
             "id": task_id,
-            "state": snapshot.state,
+            "state": "done" if task_id in delivered else "ready",
             "architecture_change": task["delivery"]["architecture_change"],
         }
     return records

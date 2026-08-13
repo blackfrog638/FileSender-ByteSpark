@@ -10,7 +10,7 @@
     "CRIT-PROJECT-DOC-PROJECTION"
   ],
   "depends_on": [
-    "XT-104"
+    "XT-103"
   ],
   "owned_paths": [
     "docs/project/qualification-record.md"

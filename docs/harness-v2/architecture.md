@@ -1,220 +1,91 @@
 # Harness V2 Architecture
 
-## 设计原则
+## Principles
 
-1. 静态契约进入产品仓库，运行状态不进入产品历史。
-2. 一项事实只有一个权威来源，其他视图全部派生。
-3. 验证按风险和影响选择，不按生命周期阶段重复执行。
-4. 开发、验证和发布解耦；只有受保护分支更新需要串行。
-5. 失败历史可审计，但 accepted branch 不携带失败 lineage。
-6. V2 原位替换旧 Harness，不长期维护两个生产实现。
+1. Do not create an entity when an existing Git fact answers the question.
+2. Normative contracts live in protected Git history.
+3. Runtime status is a read-only projection.
+4. Hosted CI is consumed once at publication time.
+5. Only temporary queue refs participate in remote coordination.
+6. Exact-candidate publication uses compare-and-swap.
 
-## 目标目录
+## Planes
 
-```text
-XnnTransfer/
-├── .agents/
-│   ├── manifest.json
-│   ├── gates.json
-│   ├── risk-routing.json
-│   ├── project/
-│   │   ├── blueprint.json
-│   │   ├── invariants.json
-│   │   ├── composition-baseline.json
-│   │   ├── quality-budgets.json
-│   │   ├── assets.json
-│   │   ├── approval.json
-│   │   └── changes/
-│   │       └── BC-*.json
-│   ├── plans/
-│   │   └── DP-*.json
-│   ├── tasks/
-│   │   └── XT-NNN.json
-│   └── schemas/
-│       ├── plan.schema.json
-│       ├── task.schema.json
-│       ├── gate.schema.json
-│       └── attestation.schema.json
-│
-├── tool/harness/
-│   ├── agent.py
-│   ├── model.py
-│   ├── project_model.py
-│   ├── validate.py
-│   ├── git_ops.py
-│   ├── workspace.py
-│   ├── state.py
-│   ├── gates.py
-│   ├── executor.py
-│   ├── tdd.py
-│   ├── merge_queue.py
-│   ├── attestation.py
-│   ├── dashboard.py
-│   └── tests/
-│
-└── .github/workflows/
-    ├── review.yml
-    ├── merge-queue.yml
-    └── nightly.yml
-```
-
-实现时优先保持模块少而完整。只有当一个文件超过清晰的责任边界时，
-才拆分子包；不得把当前 47 个脚本机械迁移成 47 个 Python 模块。
-
-## 三个存储平面
-
-### 版本化契约平面
-
-保存在产品仓库并参与 code review：
-
-- `.agents/manifest.json`：V2 版本和全局策略；
-- `.agents/project/`：项目 Blueprint、Change Set、组合 baseline、invariant、
-  quality budget、asset classification 和 owner approval；
-- `.agents/plans/`：需求、criterion、负例、验收 owner；
-- `.agents/tasks/`：任务依赖、owned paths、风险和交付合同；
-- `.agents/gates.json`：受信命令、Gate DAG、输入和资源组；
-- `.agents/risk-routing.json`：风险到 Gate 的最低映射；
-- `.agents/schemas/`：所有机器可读格式。
-
-TaskSpec 不包含 runtime state、caller owner、candidate SHA、CI URL 或证据。
-Project Model 和 Plan 只包含受信 owner approval metadata，不包含任务运行态。
-
-### 远端运行控制平面
-
-持久 ref 指向不可变 JSON event 或 manifest commit；queue ref 指向 exact
-candidate：
+### Contract Plane
 
 ```text
-refs/heads/approve/DP-P1/<content-digest>
-refs/heads/state/XT-101
-refs/heads/submit/XT-101/000001
-refs/heads/queue/train-000042/001-XT-101
-refs/heads/queue/train-000042/002-XT-102
-refs/heads/attest/tdd/XT-101/<red-sha>
-refs/heads/attest/acceptance/XT-101/<candidate-sha>
-refs/heads/archive/XT-101/<attempt>
+Blueprint -> Change Set -> Delivery Plan -> TaskSpec
 ```
 
-约束：
+Files under `.agents/` define project semantics, criteria, ownership, risk, and
+trusted Gate commands. Accepted protected history is the fact that a contract
+revision was reviewed.
 
-- `state/*` 只能 compare-and-swap；
-- `approve/*` 只能由项目所有者创建，创建后不可重写；
-- `submit/*` 创建后不可重写，同一任务新评审产生新 attempt；
-- `queue/*` 禁止 non-fast-forward 更新；发布、恢复或失败归档完成后，
-  worker 按 expected SHA 删除；
-- `attest/*` 只允许受信 CI/queue 身份创建；
-- `archive/*` 禁止删除，按保留策略压缩或转存；
-- 本地 `work/*` 在 submission 或 acceptance closure 持久化后删除。
-
-远端使用两个 ruleset：durable runtime ruleset 对
-`approve/state/submit/attest/archive` 同时禁止删除和 non-fast-forward；
-transient queue ruleset 只禁止 non-fast-forward，允许 queue worker 执行
-CAS deletion。
-
-具体 ref 命名在实现前通过托管平台能力测试确认。若平台不允许目标
-namespace，可映射为受保护的同名 branch，但语义不变。
-
-### 本地临时平面
-
-位于 common Git directory，不进入工作树：
+### Derived Runtime Plane
 
 ```text
-.git/xnn-harness/
-├── cache/<evidence-key>/
-├── locks/
-├── timing.jsonl
-├── state-snapshots/
-└── worktrees/
+accepted delivery commit  -> done
+remote queue/** ref        -> queued
+attached work/XT-* tree    -> active
+otherwise                  -> ready
 ```
 
-这些数据可以删除重建，不能单独使任务进入 `done`。
+There is no state transition log. Wait reasons remain operational context and
+do not become stored states.
 
-## 组件边界
+### Temporary Candidate Plane
 
 ```text
-agent.py
-  |
-  +-> model.py / project_model.py / validate.py
-  +-> workspace.py -----> git_ops.py
-  +-> state.py ---------> git_ops.py
-  +-> gates.py ---------> executor.py
-  +-> tdd.py -----------> executor.py + attestation.py
-  +-> merge_queue.py ---> git_ops.py + executor.py + attestation.py
-  +-> bootstrap.py -----> github_evidence.py + git_ops.py
-  +-> dashboard.py -----> read-only ports
+protected parent
+      |
+reviewed source patch
+      |
+temporary queue candidate
+      |
+one exact-SHA hosted run
+      |
+protected CAS
+      |
+delete queue ref
 ```
 
-规则：
-
-- `model.py` 不执行 Git、进程或网络操作；
-- `project_model.py` 组合 Blueprint、Plan 和资产图，并生成确定性文档；
-- `git_ops.py` 不解释业务状态；
-- `executor.py` 只执行解析后的受信 Gate；
-- `merge_queue.py` 不能自行修改 TaskSpec 或 Gate policy；
-- `attestation.py` 不运行产品命令，只验证和封装结果；
-- `bootstrap.py` 只处理一次性 V2 cutover evidence，不能完成普通 task；
-- `dashboard.py` 只读，不写任何权威状态。
-
-## 生命周期
-
-V2 只保留四个持久状态：
+The remote runtime namespace is only:
 
 ```text
-ready -> active -> queued -> done
-           ^          |
-           +----------+
+refs/heads/queue/TRAIN/NNN-XT-NNN
+refs/heads/queue/bootstrap/CUTOVER
 ```
 
-`queued -> active` 只发生在失败候选已归档、需要修改 source payload 时。
-`active -> done` 只允许 acceptance task 在 external criterion evidence
-closure 完成后使用，不生成 candidate。
+`work/**` exists only locally. No approval, state, submission, attestation,
+closure, or archive ref is created.
 
-以下内容是状态事件的 reason，不是额外状态：
-
-- blocked dependency；
-- waiting review；
-- waiting CI；
-- infrastructure retry；
-- publication retry。
-
-这样可以避免 `claimed`、`in_progress`、`review`、`integrated` 和多个本地
-缓存状态相互漂移。
-
-## 开发与所有权
-
-`task claim` 对 `state/<task>` 执行 CAS，并创建 worktree。claim 校验：
-
-- Project Model、Blueprint Change、TaskSpec、Plan 和远端 owner approval
-  evidence 已批准；
-- dependencies 已发布；
-- owned paths 不与 `active` 或 `queued` 任务相交；
-- base 是 accepted branch 的祖先；
-- worktree 目标不存在；
-- TaskSpec 不包含 unresolved placeholder。
-
-任务进入 `queued` 后释放开发 Agent 和 worktree，但 owned paths 继续保留。
-只有 `done` 或显式撤销 submission 才释放路径。
-
-## Gate 执行
-
-Gate planner 读取所有风险和阶段要求，得到唯一叶子集合：
+## Components
 
 ```text
-TaskSpec gates
-  + risk-routing gates
-  + phase minimum gates
-  + changed-path impact gates
-        |
-        v
-  DAG expand -> deduplicate -> resource schedule
+agent.py -> agent_v2.py
+               |
+               +-> model.py / project_model.py
+               +-> runtime.py -> git_ops.py
+               +-> workspace.py -> runtime.py
+               +-> tdd.py -> executor.py
+               +-> delivery.py -> github_evidence.py + ci_validation.py
+               +-> cleanup.py -> runtime.py
+               +-> dashboard.py -> runtime.py
 ```
 
-第一版证据缓存绑定完整 source tree，优先保证正确性。只有当架构依赖图、
-正负 fixture 和 cache poisoning 测试都完备后，才允许按声明输入缩窄键。
+- `model.py` validates static contracts.
+- `project_model.py` composes Blueprint transitions and generates docs.
+- `runtime.py` performs no writes.
+- `workspace.py` owns local claim/recovery/release.
+- `tdd.py` validates Red/Green directly from commit chronology.
+- `delivery.py` reviews, builds temporary candidates, validates live CI, and
+  publishes.
+- `ci_validation.py` validates in-memory workflow results and has no store.
+- `cleanup.py` deletes only refs proven redundant by protected ancestry.
 
-## Merge train
+## Merge Train
 
-Queue worker 从当前 accepted branch 构造链式候选：
+Independent reviewed payloads can form a cumulative train:
 
 ```text
 H0 -- A -- B -- C
@@ -222,48 +93,23 @@ H0 -- A -- B -- C
      CI-A CI-B CI-C
 ```
 
-- A、B、C 是独立 reviewed submission；
-- 每个候选 SHA 精确绑定其累计树；
-- CI 可以并发；
-- 发布仍按 A、B、C 进行短 CAS；
-- A 失败时，B 和 C 的 payload 从 H0 重建新 train；
-- 不在包含 A 失败历史的 lineage 上 rebase。
+Each candidate has one parent and one task delivery commit. CI may run in
+parallel. Publication remains ordered because candidate parent must equal the
+current protected head. If a predecessor fails, successors cannot publish and
+must be rebuilt from the latest accepted head.
 
-Train 只接收 owned paths 不相交、依赖顺序满足且 Gate 资源预算允许的任务。
+## Trust-Root Cutover
 
-## 验收与发布
+Standard candidates cannot modify `.agents/`, Harness code, workflows,
+`AGENTS.md`, or `Makefile`. Such changes use `queue/bootstrap/**`, run the full
+platform and security matrix, validate the live result once, advance the
+protected branch by CAS, and delete the bootstrap ref.
 
-```text
-candidate CI success
-        |
-        v
-validate jobs/artifacts/no-skip/criteria
-        |
-        v
-create acceptance attestation
-        |
-        v
-CAS protected branch
-        |
-        v
-append published state event -> done
-        |
-        v
-CAS delete transient queue ref
-```
+## Failure Model
 
-如果 attestation 已创建但 CAS 失败，任务保持 `queued`。如果 CAS 成功但
-最终 state event 写入失败，恢复器通过 protected branch 和 attestation
-派生并补写事件。state 已完成但 queue cleanup 中断时，`branch-gc`
-根据 published state 或 archive/attestation 证据幂等补删。任何情况都不
-创建产品 acceptance commit。
-
-## 与产品架构的隔离
-
-Harness V2 是工程控制面，不能成为产品运行时依赖：
-
-- `native/`、`apps/desktop/` 和协议实现不能导入 Harness 代码；
-- Harness 可以读取架构 inventory，但不能绕过其边界；
-- Harness schema 不是产品持久格式或 wire protocol；
-- Harness 故障不能改变已发布产品 commit；
-- 删除 `.git/xnn-harness/` 不影响产品构建和历史。
+- Review or local Gate failure leaves the worktree active.
+- Hosted candidate failure requires explicit `queue-reopen` or `queue-drop`.
+- CAS failure leaves the queue candidate unchanged for rebuild or retry.
+- Publication success plus cleanup failure is repaired by `recover`; accepted
+  history already proves `done`.
+- GC never guesses from age and never deletes unpublished work.

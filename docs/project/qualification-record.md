@@ -9,10 +9,6 @@
 - Delivery Plan digest:
   `7de38aba1b58d4dc878c356936329b339abc72c614ace4534b717b6eaad5aea7`
 - Hosted workflow run: `31676207687`
-- Bootstrap attestation:
-  `refs/heads/attest/bootstrap/7825fde20cf189e1e1a91bc44b69cb397f0a78f1`
-- Bootstrap attestation digest:
-  `1c8f8668303bf1bc8246944a2b8b2f37702c891ad76ec2971a9a9444d093b984`
 
 The hosted run completed `Candidate plan`, `Harness V2`, Linux, macOS,
 Windows, `Cutover security`, and `Candidate accepted` successfully against the
@@ -38,6 +34,13 @@ Asset disposition at the baseline is:
 No product implementation was deleted or replaced by the re-baseline.
 Historical Harness V1 acceptance remains evidence input and does not become
 current Blueprint qualification automatically.
+
+## Retention Correction
+
+ADR 0021 later removed the copied bootstrap, acceptance, task-state,
+submission, and archive refs. The candidate commit and GitHub native workflow
+run remain the relevant historical facts. This record does not make those
+deleted refs part of the current Harness contract.
 
 ## Residual Gaps
 

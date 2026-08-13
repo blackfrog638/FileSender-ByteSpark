@@ -3,16 +3,13 @@
 
 from __future__ import annotations
 
-import copy
 import fnmatch
 import hashlib
 import json
 import re
-import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, FrozenSet, List, Mapping, Sequence, Set, Tuple
+from typing import Any, Dict, List, Mapping, Sequence, Set, Tuple
 
 import project_model
 
@@ -22,7 +19,6 @@ TASK_ID = re.compile(r"^XT-[0-9]{3,}$")
 REQUIREMENT_ID = re.compile(r"^REQ-[A-Z0-9-]+$")
 CRITERION_ID = re.compile(r"^CRIT-[A-Z0-9-]+$")
 GATE_ID = re.compile(r"^[a-z][a-z0-9_]*$")
-SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 RISK_DIMENSIONS = (
     "functionality",
@@ -48,7 +44,6 @@ TASK_TYPES = {
     "test",
     "governance",
     "documentation",
-    "acceptance",
 }
 TDD_MODE_BY_TYPE = {
     "feature": {"red_green"},
@@ -58,12 +53,9 @@ TDD_MODE_BY_TYPE = {
     "test": {"mutation"},
     "governance": {"adversarial"},
     "documentation": {"not_required"},
-    "acceptance": {"evidence_closure"},
 }
 ARCHITECTURE_MODES = {"none", "add", "replace", "remove", "refactor"}
 CACHE_MODES = {"disabled", "success_only"}
-PLAN_STATUSES = {"draft", "approved"}
-PLATFORMS = {"local", "linux", "macos", "windows"}
 EVIDENCE_PLATFORMS = {"linux", "macos", "windows"}
 
 MANIFEST_FIELDS = {
@@ -71,26 +63,14 @@ MANIFEST_FIELDS = {
     "harness_version",
     "project",
     "integration_branch",
-    "project_owner",
-    "ref_namespaces",
-}
-PROJECT_OWNER_FIELDS = {"id", "name", "email"}
-REF_NAMESPACE_FIELDS = {
-    "approve",
-    "state",
-    "submit",
-    "queue",
-    "attest",
-    "archive",
+    "queue_namespace",
 }
 PLAN_FIELDS = {
     "schema_version",
     "id",
     "title",
-    "status",
     "source",
     "requirements",
-    "approval",
 }
 PLAN_SOURCE_FIELDS = {"kind", "path"}
 REQUIREMENT_FIELDS = {
@@ -98,7 +78,6 @@ REQUIREMENT_FIELDS = {
     "statement",
     "criteria",
     "implementation_tasks",
-    "acceptance_owner",
 }
 CRITERION_FIELDS = {
     "id",
@@ -114,7 +93,6 @@ EVIDENCE_FIELDS = {
     "roles",
     "allow_skipped",
 }
-APPROVAL_FIELDS = {"approved_by", "approved_at", "content_sha256"}
 TASK_FIELDS = {
     "schema_version",
     "id",
@@ -165,26 +143,6 @@ GATE_FIELDS = {
 COMMAND_FIELDS = {"argv", "timeout_seconds", "environment"}
 RISK_ROUTING_FIELDS = {"schema_version", "path_rules", "phase_minimums"}
 PATH_RULE_FIELDS = {"paths", "minimum_risk", "required_gates"}
-MIGRATION_FIELDS = {
-    "schema_version",
-    "source_ref",
-    "source_head",
-    "accepted_tasks",
-    "deferred_tasks",
-    "created_by",
-    "created_at",
-}
-MIGRATION_ACCEPTED_FIELDS = {
-    "task_id",
-    "legacy_record_blob",
-    "legacy_acceptance_sha",
-    "delivery_sha",
-}
-MIGRATION_DEFERRED_FIELDS = {
-    "task_id",
-    "legacy_state",
-    "archive_ref",
-}
 
 
 class ContractError(RuntimeError):
@@ -226,12 +184,6 @@ def canonical_bytes(value: Any) -> bytes:
 
 def canonical_sha256(value: Any) -> str:
     return hashlib.sha256(canonical_bytes(value)).hexdigest()
-
-
-def plan_content_sha256(plan: Mapping[str, Any]) -> str:
-    content = copy.deepcopy(dict(plan))
-    content.pop("approval", None)
-    return canonical_sha256(content)
 
 
 def _require_exact(value: Any, fields: Set[str], label: str) -> Mapping[str, Any]:
@@ -377,7 +329,6 @@ class ContractSet:
     tasks: Dict[str, Dict[str, Any]]
     gate_policy: Dict[str, Any]
     risk_routing: Dict[str, Any]
-    legacy_accepted: FrozenSet[str]
     project: project_model.ProjectModel
 
     @property
@@ -430,27 +381,12 @@ def _validate_manifest(value: Dict[str, Any]) -> None:
         raise ContractError("manifest must select Harness V2 schema version 1")
     _require_string(manifest["project"], "manifest.project")
     _require_string(manifest["integration_branch"], "manifest.integration_branch")
-    owner = _require_exact(
-        manifest["project_owner"], PROJECT_OWNER_FIELDS, "manifest.project_owner"
+    queue = _require_string(
+        manifest["queue_namespace"],
+        "manifest.queue_namespace",
     )
-    _require_string(owner["id"], "manifest.project_owner.id")
-    _require_string(owner["name"], "manifest.project_owner.name")
-    email = _require_string(owner["email"], "manifest.project_owner.email")
-    if "@" not in email:
-        raise ContractError("manifest.project_owner.email is invalid")
-    refs = _require_exact(
-        manifest["ref_namespaces"], REF_NAMESPACE_FIELDS, "manifest.ref_namespaces"
-    )
-    prefixes = []
-    for key in sorted(refs):
-        prefix = _require_string(refs[key], "manifest.ref_namespaces.{}".format(key))
-        if not prefix.startswith("refs/heads/") or not prefix.endswith("/"):
-            raise ContractError(
-                "manifest.ref_namespaces.{} must be a branch prefix".format(key)
-            )
-        prefixes.append(prefix)
-    if len(prefixes) != len(set(prefixes)):
-        raise ContractError("manifest ref namespaces must be unique")
+    if not queue.startswith("refs/heads/queue/") or not queue.endswith("/"):
+        raise ContractError("manifest.queue_namespace must be under refs/heads/queue/")
 
 
 def _validate_gate_policy(value: Dict[str, Any]) -> None:
@@ -599,7 +535,6 @@ def _validate_risk_routing(value: Dict[str, Any], gates: Mapping[str, Any]) -> N
 
 def _validate_plan(
     value: Dict[str, Any],
-    manifest: Mapping[str, Any],
     gates: Mapping[str, Any],
 ) -> None:
     plan = _require_exact(value, PLAN_FIELDS, "plan")
@@ -607,8 +542,6 @@ def _validate_plan(
         raise ContractError("plan schema_version must be 1")
     plan_id = _require_id(plan["id"], PLAN_ID, "plan.id")
     _require_string(plan["title"], "{}.title".format(plan_id))
-    if plan["status"] not in PLAN_STATUSES:
-        raise ContractError("{} status is invalid".format(plan_id))
     source = _require_exact(
         plan["source"], PLAN_SOURCE_FIELDS, "{}.source".format(plan_id)
     )
@@ -732,30 +665,6 @@ def _validate_plan(
             "{}.{}.implementation_tasks".format(plan_id, requirement_id),
         ):
             _require_id(task_id, TASK_ID, "implementation task")
-        _require_id(requirement["acceptance_owner"], TASK_ID, "acceptance owner")
-    approval = plan["approval"]
-    if plan["status"] == "draft":
-        if approval is not None:
-            raise ContractError("{} draft approval must be null".format(plan_id))
-    else:
-        approved = _require_exact(
-            approval, APPROVAL_FIELDS, "{}.approval".format(plan_id)
-        )
-        owner_id = manifest["project_owner"]["id"]
-        if approved["approved_by"] != owner_id:
-            raise ContractError(
-                "{} approval is not owned by configured project owner".format(plan_id)
-            )
-        _require_string(
-            approved["approved_at"], "{}.approval.approved_at".format(plan_id)
-        )
-        digest = _require_string(
-            approved["content_sha256"], "{}.approval.content_sha256".format(plan_id)
-        )
-        if SHA256.fullmatch(digest) is None or digest != plan_content_sha256(plan):
-            raise ContractError(
-                "{} approval digest does not match content".format(plan_id)
-            )
 
 
 def _validate_task(
@@ -787,12 +696,6 @@ def _validate_task(
     task_type = task["type"]
     if task_type not in TASK_TYPES:
         raise ContractError("{} type is invalid".format(task_id))
-    if task_type == "acceptance" and owned_paths != [
-        ".agents/tasks/{}.json".format(task_id)
-    ]:
-        raise ContractError(
-            "{} acceptance task must own only its TaskSpec".format(task_id)
-        )
     _require_string(task["workstream"], "{}.workstream".format(task_id))
     risk = task["risk"]
     if not isinstance(risk, dict) or set(risk) != set(RISK_DIMENSIONS):
@@ -988,70 +891,6 @@ def _validate_task(
                 )
 
 
-def _load_migration_snapshot(path: Path) -> FrozenSet[str]:
-    if not path.is_file():
-        return frozenset()
-    snapshot = _require_exact(
-        load_json(path), MIGRATION_FIELDS, "V1 migration snapshot"
-    )
-    if snapshot["schema_version"] != 1:
-        raise ContractError("V1 migration snapshot schema_version must be 1")
-    _require_string(snapshot["source_ref"], "migration source_ref")
-    source_head = _require_string(snapshot["source_head"], "migration source_head")
-    if len(source_head) != 40:
-        raise ContractError("migration source_head is invalid")
-    _require_string(snapshot["created_by"], "migration created_by")
-    _require_string(snapshot["created_at"], "migration created_at")
-    accepted = snapshot["accepted_tasks"]
-    deferred = snapshot["deferred_tasks"]
-    if not isinstance(accepted, list) or not isinstance(deferred, list):
-        raise ContractError("migration task lists must be arrays")
-    accepted_ids: Set[str] = set()
-    deferred_ids: Set[str] = set()
-    for index, raw in enumerate(accepted):
-        item = _require_exact(
-            raw,
-            MIGRATION_ACCEPTED_FIELDS,
-            "migration accepted task {}".format(index),
-        )
-        task_id = _require_id(item["task_id"], TASK_ID, "migration task id")
-        if task_id in accepted_ids:
-            raise ContractError("migration accepted tasks contain duplicates")
-        accepted_ids.add(task_id)
-        for field in (
-            "legacy_record_blob",
-            "legacy_acceptance_sha",
-            "delivery_sha",
-        ):
-            value = _require_string(
-                item[field], "migration {} {}".format(task_id, field)
-            )
-            if len(value) != 40:
-                raise ContractError("migration {} {} is invalid".format(task_id, field))
-    for index, raw in enumerate(deferred):
-        item = _require_exact(
-            raw,
-            MIGRATION_DEFERRED_FIELDS,
-            "migration deferred task {}".format(index),
-        )
-        task_id = _require_id(item["task_id"], TASK_ID, "migration task id")
-        if task_id in deferred_ids:
-            raise ContractError("migration deferred tasks contain duplicates")
-        deferred_ids.add(task_id)
-        _require_string(item["legacy_state"], "migration legacy state")
-        archive_ref = _require_string(item["archive_ref"], "migration archive ref")
-        if not archive_ref.startswith("refs/heads/archive/"):
-            raise ContractError("migration archive ref is invalid")
-    overlap = sorted(accepted_ids & deferred_ids)
-    if overlap:
-        raise ContractError(
-            "migration tasks are both accepted and deferred: {}".format(
-                ", ".join(overlap)
-            )
-        )
-    return frozenset(accepted_ids)
-
-
 def _validate_cross_contracts(contracts: ContractSet) -> None:
     task_graph = contracts.task_graph
     _topological_order(task_graph, "task graph")
@@ -1077,11 +916,6 @@ def _validate_cross_contracts(contracts: ContractSet) -> None:
                             requirement["id"], task_id
                         )
                     )
-                if contracts.tasks[task_id]["type"] == "acceptance":
-                    raise ContractError(
-                        "{} implementation task {} cannot have acceptance "
-                        "type".format(requirement["id"], task_id)
-                    )
                 task_criteria = (
                     set(contracts.tasks[task_id]["criteria"]) & requirement_criteria
                 )
@@ -1103,39 +937,6 @@ def _validate_cross_contracts(contracts: ContractSet) -> None:
                         ", ".join(missing_implementation),
                     )
                 )
-            acceptance = requirement["acceptance_owner"]
-            if acceptance not in contracts.tasks:
-                raise ContractError(
-                    "{} references unknown acceptance owner {}".format(
-                        requirement["id"], acceptance
-                    )
-                )
-            if contracts.tasks[acceptance]["type"] != "acceptance":
-                raise ContractError(
-                    "{} acceptance owner must have acceptance type".format(
-                        requirement["id"]
-                    )
-                )
-            missing_acceptance = sorted(
-                requirement_criteria - set(contracts.tasks[acceptance]["criteria"])
-            )
-            if missing_acceptance:
-                raise ContractError(
-                    "{} acceptance owner does not map criteria: {}".format(
-                        requirement["id"], ", ".join(missing_acceptance)
-                    )
-                )
-            allowed_task_criteria.update(
-                (acceptance, criterion_id) for criterion_id in requirement_criteria
-            )
-            dependencies = _transitive_dependencies(acceptance, task_graph)
-            missing = sorted(set(requirement["implementation_tasks"]) - dependencies)
-            if missing:
-                raise ContractError(
-                    "{} acceptance owner does not depend on {}".format(
-                        requirement["id"], ", ".join(missing)
-                    )
-                )
     mapped_criteria: Set[str] = set()
     module_document = load_json(
         contracts.root / ".agents" / "architecture" / "modules.json"
@@ -1151,11 +952,7 @@ def _validate_cross_contracts(contracts: ContractSet) -> None:
     leases: Dict[str, Tuple[str, Mapping[str, Any]]] = {}
     retired_by: Dict[str, str] = {}
     for task_id, task in contracts.tasks.items():
-        unknown_dependencies = sorted(
-            set(task["depends_on"])
-            - set(contracts.tasks)
-            - set(contracts.legacy_accepted)
-        )
+        unknown_dependencies = sorted(set(task["depends_on"]) - set(contracts.tasks))
         if unknown_dependencies:
             raise ContractError(
                 "{} references unknown dependencies: {}".format(
@@ -1167,8 +964,6 @@ def _validate_cross_contracts(contracts: ContractSet) -> None:
             raise ContractError(
                 "{} references unknown plan {}".format(task_id, plan_id)
             )
-        if contracts.plans[plan_id]["status"] != "approved":
-            raise ContractError("{} references an unapproved plan".format(task_id))
         for criterion_id in task["criteria"]:
             if criterion_to_plan.get(criterion_id) != plan_id:
                 raise ContractError(
@@ -1289,11 +1084,10 @@ def load_contracts(root: Path) -> ContractSet:
     _validate_gate_policy(gate_policy)
     risk_routing = load_json(agents / "risk-routing.json")
     _validate_risk_routing(risk_routing, gate_policy["gates"])
-    legacy_accepted = _load_migration_snapshot(agents / "migration-v1.json")
     plans: Dict[str, Dict[str, Any]] = {}
     for path in sorted((agents / "plans").glob("DP-*.json")):
         plan = load_json(path)
-        _validate_plan(plan, manifest, gate_policy["gates"])
+        _validate_plan(plan, gate_policy["gates"])
         plan_id = plan["id"]
         if plan_id in plans:
             raise ContractError("duplicate plan id {}".format(plan_id))
@@ -1320,9 +1114,7 @@ def load_contracts(root: Path) -> ContractSet:
             root,
             plans,
             set(gate_policy["gates"]),
-            manifest["project_owner"]["id"],
             architecture_modules,
-            require_approved=True,
         )
         project_model.check_generated_documents(project)
     except project_model.ProjectModelError as error:
@@ -1334,73 +1126,7 @@ def load_contracts(root: Path) -> ContractSet:
         tasks=tasks,
         gate_policy=gate_policy,
         risk_routing=risk_routing,
-        legacy_accepted=legacy_accepted,
         project=project,
     )
     _validate_cross_contracts(contracts)
     return contracts
-
-
-def approve_plan(root: Path, plan_path: Path, now: str) -> str:
-    root = root.resolve()
-    manifest = load_json(root / ".agents" / "manifest.json")
-    _validate_manifest(manifest)
-    plan = load_json(plan_path)
-    if plan.get("status") != "draft" or plan.get("approval") is not None:
-        raise ContractError("only an unapproved draft plan can be approved")
-    email_result = subprocess.run(
-        ["git", "-C", str(root), "config", "--get", "user.email"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    email = email_result.stdout.strip()
-    owner = manifest["project_owner"]
-    if email_result.returncode != 0 or email != owner["email"]:
-        raise ContractError("current Git identity is not the configured project owner")
-    plan["status"] = "approved"
-    plan["approval"] = {
-        "approved_by": owner["id"],
-        "approved_at": _require_string(now, "approval time"),
-        "content_sha256": "",
-    }
-    plan["approval"]["content_sha256"] = plan_content_sha256(plan)
-    gate_policy = load_json(root / ".agents" / "gates.json")
-    _validate_plan(plan, manifest, gate_policy["gates"])
-    plans = {
-        load_json(path)["id"]: load_json(path)
-        for path in sorted((root / ".agents" / "plans").glob("DP-*.json"))
-    }
-    plans[plan["id"]] = plan
-    module_document = load_json(root / ".agents" / "architecture" / "modules.json")
-    architecture_modules = {
-        item["id"]: item
-        for item in module_document.get("modules", [])
-        if isinstance(item, dict) and isinstance(item.get("id"), str)
-    }
-    try:
-        project_model.load_project(
-            root,
-            plans,
-            set(gate_policy["gates"]),
-            manifest["project_owner"]["id"],
-            architecture_modules,
-            require_approved=False,
-        )
-    except project_model.ProjectModelError as error:
-        raise ContractError(
-            "approved Plan does not compose with the project model: {}".format(error)
-        ) from error
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        encoding="utf-8",
-        dir=str(plan_path.parent),
-        prefix=".plan-",
-        suffix=".json",
-        delete=False,
-    ) as output:
-        json.dump(plan, output, ensure_ascii=False, indent=2, sort_keys=False)
-        output.write("\n")
-        temporary = Path(output.name)
-    temporary.replace(plan_path)
-    return plan["approval"]["content_sha256"]

@@ -2,7 +2,6 @@
   "schema_version": 1,
   "id": "DP-HARNESS-V2-PILOT",
   "title": "Harness V2 governed pilot delivery",
-  "status": "approved",
   "source": {
     "kind": "implementation_plan",
     "path": "docs/harness-v2/implementation-plan.md"
@@ -10,15 +9,15 @@
   "requirements": [
     {
       "id": "REQ-HV2-PILOT-FAST-LANE",
-      "statement": "A low-risk documentation change completes the V2 lifecycle with one Linux candidate run and immutable acceptance evidence.",
+      "statement": "A low-risk documentation change completes the derived V2 lifecycle with one Linux candidate run and no separate runtime evidence store.",
       "criteria": [
         {
           "id": "CRIT-HV2-PILOT-FAST-LANE",
-          "statement": "The documentation pilot moves from ready through claim, submission, queue, hosted evidence, publication, and done without manual runtime-state edits.",
+          "statement": "The documentation pilot moves from ready through local claim, review, temporary queue, hosted CI, CAS publication, and derived done without a separate runtime-state write.",
           "negative_definitions": [
             "A local-only Gate result does not qualify.",
             "A candidate with more than one hosted workflow run does not qualify.",
-            "A manually edited state ref does not qualify."
+            "Creating or manually editing a state, submission, or attestation ref does not qualify."
           ],
           "evidence": {
             "gates": [
@@ -43,8 +42,7 @@
       ],
       "implementation_tasks": [
         "XT-098"
-      ],
-      "acceptance_owner": "XT-100"
+      ]
     },
     {
       "id": "REQ-HV2-PILOT-STORAGE-PATHS",
@@ -88,13 +86,7 @@
       ],
       "implementation_tasks": [
         "XT-099"
-      ],
-      "acceptance_owner": "XT-100"
+      ]
     }
-  ],
-  "approval": {
-    "approved_by": "project-owner",
-    "approved_at": "2026-08-12T10:10:00Z",
-    "content_sha256": "a366b5d166ffe421545d9af793ce825b248d4f75c7900d48e983ab0dc87b4f65"
-  }
+  ]
 }

@@ -24,8 +24,9 @@ The harness phase has real checks for:
 - an informational native lifecycle microbenchmark;
 - Flutter formatting, static analysis, transfer application-state tests, and
   the real packaged native callback boundary;
-- Harness V2 contracts, CAS state refs, Gate DAG execution, TDD chronology,
-  merge trains, exact workflow evidence, publication, and recovery.
+- Harness V2 contracts, derived runtime state, Gate DAG execution, TDD
+  chronology, temporary merge trains, live workflow validation, publication,
+  and cleanup recovery.
 
 This is not file-transfer coverage. Discovery, protected identity storage, and
 the TLS provider have focused executable coverage, but authenticated sessions,
@@ -34,7 +35,7 @@ implemented yet and therefore are not currently tested.
 
 ## Harness V2 TDD workflow
 
-An approved Delivery Plan defines stable criteria, negative definitions, and
+An accepted Delivery Plan defines stable criteria, negative definitions, and
 evidence. TaskSpec selects a proof mode appropriate to the work type and binds
 owned proof/oracle paths to a trusted focused Gate.
 
@@ -45,29 +46,26 @@ For Red-based work:
 3. The focused Gate must pass at base and fail at Red with the exact attributed
    fingerprint. Missing tools, compile errors, timeout, crash, and skip fail.
 4. Commit implementation without changing the frozen proof/oracle surface.
-5. Submit with `tool/harness/agent.sh submit XT-NNN --red-sha SHA`.
-6. Review validates the immutable Red attestation and runs Green. It does not
-   replay unchanged base/Red evidence.
+5. Submit with
+   `tool/harness/agent.sh submit XT-NNN --train-id TRAIN --red-sha SHA`.
+6. Review replays Red from its commit, validates the frozen surface, and runs
+   Green without storing a separate attestation.
 
 The queue expands criterion, risk, path, and phase requirements into one unique
 Gate leaf set. Independent resource groups run concurrently. Successful local
 evidence may be reused only for the same source tree, command, policy,
 toolchain, environment, platform, and isolation mode.
 
-Exact candidate CI produces Gate and criterion artifacts. Acceptance validates
-the workflow, SHA, jobs, matrix, artifacts, and no-skip policy before one
-protected-branch compare-and-swap. Acceptance metadata remains outside the
-candidate, so no second full CI is required.
-
-The requirement acceptance owner then validates the published implementation
-attestations and criterion IDs with `agent.sh acceptance-close`. This writes an
-external closure ref and does not create another product commit or CI run.
+Exact candidate CI produces Gate and criterion artifacts. Publication reads
+the live GitHub result, validates workflow identity, SHA, jobs, matrix,
+artifacts, and no-skip policy, then performs one protected-branch
+compare-and-swap. It creates no evidence copy and no second full CI run.
 
 ## Commands
 
 ```bash
 make verify          # required local completion gate
-make harness-v2-test # Harness contracts, state, queue, and recovery
+make harness-v2-test # Harness contracts, derived state, queue, and recovery
 make contract-test   # active Plan/TaskSpec/Gate validation
 make dependency-test # pinned vcpkg provenance, versions, and static linkage
 make security-test   # ASan, UBSan, and bounded libFuzzer run

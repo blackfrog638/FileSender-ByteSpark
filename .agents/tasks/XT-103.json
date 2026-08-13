@@ -14,7 +14,6 @@
   ],
   "owned_paths": [
     "docs/adr/0019-harness-transient-branch-retention.md",
-    "docs/harness-v2/acceptance-checklist.md",
     "docs/harness-v2/architecture.md",
     "docs/harness-v2/delivery-flow.md",
     "docs/harness-v2/pilot-operations.md",

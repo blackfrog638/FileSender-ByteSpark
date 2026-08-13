@@ -4,7 +4,7 @@
 This is a deterministic Blueprint projection. Runtime task state is shown by
 `tool/harness/agent.sh list` and is never committed here.
 A checked item means its target is covered by the composition baseline or an
-approved transition; it does not assert runtime delivery completion.
+accepted transition; it does not assert runtime delivery completion.
 
 ## Project governance and delivery control
 

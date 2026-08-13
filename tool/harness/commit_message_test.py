@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 MODULE_PATH = Path(__file__).with_name("commit_message.py")
@@ -21,6 +22,26 @@ SPEC.loader.exec_module(commit_message)
 
 
 class MessageValidationTest(unittest.TestCase):
+    def test_git_output_is_decoded_as_utf8(self) -> None:
+        result = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout="subject\n",
+            stderr="",
+        )
+        with mock.patch.object(
+            commit_message.subprocess,
+            "run",
+            return_value=result,
+        ) as run:
+            self.assertEqual(
+                commit_message.git(Path("/repository"), "log").stdout,
+                "subject\n",
+            )
+
+        self.assertEqual(run.call_args.kwargs["encoding"], "utf-8")
+        self.assertEqual(run.call_args.kwargs["errors"], "strict")
+
     def assert_valid(self, message: str) -> None:
         self.assertEqual(commit_message.validate_message(message), [])
 

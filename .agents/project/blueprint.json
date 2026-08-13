@@ -759,7 +759,7 @@
       "title": "Harness V2 control plane",
       "milestone": "MS-GOVERNANCE",
       "capability": "CAP-HARNESS",
-      "statement": "Static contracts, append-only runtime state, immutable submissions, exact-candidate CI, and CAS publication form the delivery control plane.",
+      "statement": "Static contracts, local worktrees, temporary exact-candidate queues, one hosted CI result, CAS publication, and accepted Git history form the delivery control plane.",
       "depends_on": [],
       "invariants": [
         "INV-EXACT-CANDIDATE-PUBLICATION",
@@ -769,10 +769,11 @@
       "criteria": [
         {
           "id": "CRIT-BP-HARNESS-V2",
-          "statement": "Only immutable submission-equivalent candidates with complete exact-candidate evidence can advance the protected branch.",
+          "statement": "Only a temporary exact candidate with a complete live hosted result can advance the protected branch by compare-and-swap.",
           "negative_definitions": [
             "A local-only result does not qualify.",
-            "A second unverified payload after review does not qualify."
+            "A second unverified payload after review does not qualify.",
+            "Creating permanent approval, state, submission, attestation, or archive refs does not qualify."
           ]
         }
       ],
@@ -784,7 +785,7 @@
       "title": "Harness V2 governed pilot",
       "milestone": "MS-GOVERNANCE",
       "capability": "CAP-HARNESS",
-      "statement": "A real low-risk task traverses the complete Harness V2 lifecycle without manual runtime edits.",
+      "statement": "A real low-risk task traverses the derived Harness V2 lifecycle without a separate runtime state store.",
       "depends_on": [
         {
           "outcome": "OUT-HARNESS-V2-CONTROL-PLANE",
@@ -799,11 +800,11 @@
       "criteria": [
         {
           "id": "CRIT-HV2-PILOT-FAST-LANE",
-          "statement": "The documentation pilot moves from ready through claim, submission, queue, hosted evidence, publication, and done without manual runtime-state edits.",
+          "statement": "The documentation pilot moves from ready through local claim, review, temporary queue, hosted CI, CAS publication, and derived done without a separate runtime-state write.",
           "negative_definitions": [
             "A local-only Gate result does not qualify.",
             "A candidate with more than one hosted workflow run does not qualify.",
-            "A manually edited state ref does not qualify."
+            "Creating or manually editing a state, submission, or attestation ref does not qualify."
           ]
         }
       ],
@@ -815,7 +816,7 @@
       "title": "Harness V2 pilot evidence report",
       "milestone": "MS-GOVERNANCE",
       "capability": "CAP-HARNESS",
-      "statement": "The pilot evidence, latency, closure, and residual limits are recorded without inventing unmeasured SLOs.",
+      "statement": "The pilot runs, accepted commits, observed latency, corrected retention model, and residual limits are recorded without inventing unmeasured SLOs.",
       "depends_on": [
         {
           "outcome": "OUT-HARNESS-V2-PILOT",
@@ -829,7 +830,7 @@
       "criteria": [
         {
           "id": "CRIT-HV2-PILOT-REPORT",
-          "statement": "The implementation plan, migration status, worklog, and acceptance checklist identify both exact candidate runs, publication evidence, closure evidence, observed latency, and residual SLO limits.",
+          "statement": "The implementation plan and worklog identify the exact candidate runs, accepted commits, observed latency, corrected retention model, and residual SLO limits.",
           "negative_definitions": [
             "Chat-only evidence does not qualify.",
             "Marking an unmeasured P95 or concurrency target as passing does not qualify.",
@@ -846,7 +847,7 @@
       "title": "Transient branch reclamation",
       "milestone": "MS-GOVERNANCE",
       "capability": "CAP-HARNESS",
-      "statement": "Transient work and queue refs are reclaimed only after durable evidence while authoritative refs remain immutable.",
+      "statement": "Local work refs and remote queue refs are temporary and are reclaimed with compare-and-swap once their immediate purpose ends.",
       "depends_on": [
         {
           "outcome": "OUT-HARNESS-V2-CONTROL-PLANE",
@@ -860,28 +861,28 @@
       "criteria": [
         {
           "id": "CRIT-HV2-WORK-BRANCH-RECLAMATION",
-          "statement": "Submission and payload-free acceptance closure remove the exact local work branch after its worktree is released and durable lifecycle evidence exists.",
+          "statement": "Successful queue construction removes the exact local work branch after its reviewed payload is represented by the temporary queue candidate.",
           "negative_definitions": [
-            "Deleting a work branch before submission or closure evidence is durable does not qualify.",
+            "Deleting a work branch before the temporary queue candidate exists does not qualify.",
             "Deleting a branch whose SHA changed after review does not qualify.",
             "Leaving a completed task work branch indefinitely does not qualify."
           ]
         },
         {
           "id": "CRIT-HV2-QUEUE-BRANCH-RECLAMATION",
-          "statement": "Successful publication, publication recovery, queue rejection after archival, and bootstrap publication delete the exact remote and local queue ref with compare-and-swap semantics.",
+          "statement": "Successful publication, cleanup recovery, explicit queue rejection, reopen, and bootstrap publication delete the exact remote and local queue ref with compare-and-swap semantics.",
           "negative_definitions": [
-            "Deleting a queued candidate before durable acceptance or archive evidence exists does not qualify.",
+            "Deleting a queued candidate before publication or an explicit reject or reopen action does not qualify.",
             "Deleting a queue ref that moved to another SHA does not qualify.",
-            "Deleting an archive ref after queue cleanup does not qualify.",
+            "Creating an archive ref for a rejected temporary candidate does not qualify.",
             "Treating a failed cleanup as successful does not qualify."
           ]
         },
         {
           "id": "CRIT-HV2-BRANCH-GC-RECOVERY",
-          "statement": "An idempotent branch GC command reports and reclaims only transient refs whose durable state, acceptance, bootstrap attestation, or archive evidence proves eligibility.",
+          "statement": "An idempotent branch GC command reports and reclaims only unattached work refs or queue refs already reachable from protected history.",
           "negative_definitions": [
-            "GC deleting approve, state, submit, attest, archive, main, or harness refs does not qualify.",
+            "GC recognizing any permanent approval, state, submission, attestation, or archive namespace does not qualify.",
             "GC deleting an active or queued task candidate does not qualify.",
             "GC relying on branch age or name without evidence does not qualify.",
             "GC defaulting to destructive execution does not qualify."
@@ -927,7 +928,7 @@
         },
         {
           "id": "CRIT-PROJECT-PLAN-COMPOSITION",
-          "statement": "Every active Delivery Plan is an executable transition over revision-bound Blueprint outcomes, and the approved Plan catalogue composes without duplicate writers, unsatisfied preconditions, invariant gaps, or undeclared effects.",
+          "statement": "Every active Delivery Plan is an executable transition over revision-bound Blueprint outcomes, and the accepted Plan catalogue composes without duplicate writers, unsatisfied preconditions, invariant gaps, or undeclared effects.",
           "negative_definitions": [
             "Treating a Delivery Plan as an independent source of product truth does not qualify.",
             "Binding every Plan to one whole-Blueprint digest does not qualify.",

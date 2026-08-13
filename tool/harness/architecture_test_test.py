@@ -5,11 +5,16 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path, PurePosixPath
+from types import SimpleNamespace
+from unittest import mock
 
 import architecture_test as architecture
+import model
+import module_inventory
 
 
 def messages(violations: list[architecture.Violation]) -> list[str]:
@@ -285,6 +290,42 @@ target_link_libraries(
 
 
 class ModuleInventoryTests(unittest.TestCase):
+    def test_task_history_is_decoded_as_utf8(self) -> None:
+        contracts = SimpleNamespace(
+            tasks={
+                "XT-023": {
+                    "delivery": {"architecture_change": False},
+                }
+            }
+        )
+        result = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout=(
+                "feat(native): support \u4f20\u8f93 peers\n\n"
+                "Xnn-Task: XT-023\n"
+                "Xnn-Lifecycle: delivery\x00"
+            ),
+            stderr="",
+        )
+        with mock.patch.object(
+            model,
+            "load_contracts",
+            return_value=contracts,
+        ):
+            with mock.patch.object(
+                module_inventory.subprocess,
+                "run",
+                return_value=result,
+            ) as run:
+                records = module_inventory.load_task_records(
+                    Path("/repository")
+                )
+
+        self.assertEqual(records["XT-023"]["state"], "done")
+        self.assertEqual(run.call_args.kwargs["encoding"], "utf-8")
+        self.assertEqual(run.call_args.kwargs["errors"], "strict")
+
     def module(self, replacement: str | None = None) -> architecture.Module:
         return architecture.Module(
             id="tls",

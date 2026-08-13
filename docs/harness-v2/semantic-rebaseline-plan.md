@@ -9,8 +9,8 @@ regenerate security-sensitive or concurrent implementation details.
 
 Delivery Plans become executable transitions over referenced Blueprint
 outcomes. TaskSpecs remain implementation subdivisions of a Plan. Runtime
-state remains outside product commits and is derived from immutable acceptance
-attestations.
+status remains outside product commits and is derived from accepted delivery
+commits, attached worktrees, and temporary queue refs.
 
 ## Scope
 
@@ -34,13 +34,14 @@ new Blueprint outcomes.
 
 ## Delivery boundary
 
-The project owner approves the exact bootstrap candidate because the change
-extends the Harness verification trust root. Hosted Linux, macOS, Windows,
-Harness, sanitizer, and fuzz evidence is required before protected publication.
+The operator explicitly publishes the exact bootstrap candidate because the
+change extends the Harness verification trust root. Hosted Linux, macOS,
+Windows, Harness, sanitizer, and fuzz results are required before protected
+publication.
 
-After cutover, a normal documentation task records the exact Blueprint
-revision, generated projections, hosted evidence, and residual product gaps.
-An acceptance-owner task closes the criteria without adding product payload.
+After cutover, the accepted commit records the exact Blueprint revision and
+generated projections. A normal documentation task records residual product
+gaps; no acceptance-only task or evidence copy is created.
 
 ## Follow-up ordering
 

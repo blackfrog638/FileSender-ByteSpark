@@ -2,7 +2,6 @@
   "schema_version": 1,
   "id": "DP-PROJECT-SEMANTIC-REBASELINE",
   "title": "Project semantic re-baseline",
-  "status": "approved",
   "source": {
     "kind": "implementation_plan",
     "path": "docs/harness-v2/semantic-rebaseline-plan.md"
@@ -47,7 +46,7 @@
         },
         {
           "id": "CRIT-PROJECT-PLAN-COMPOSITION",
-          "statement": "Every active Delivery Plan is an executable transition over revision-bound Blueprint outcomes, and the approved Plan catalogue composes without duplicate writers, unsatisfied preconditions, invariant gaps, or undeclared effects.",
+          "statement": "Every active Delivery Plan is an executable transition over revision-bound Blueprint outcomes, and the accepted Plan catalogue composes without duplicate writers, unsatisfied preconditions, invariant gaps, or undeclared effects.",
           "negative_definitions": [
             "Treating a Delivery Plan as an independent source of product truth does not qualify.",
             "Binding every Plan to one whole-Blueprint digest does not qualify.",
@@ -149,13 +148,7 @@
       ],
       "implementation_tasks": [
         "XT-105"
-      ],
-      "acceptance_owner": "XT-106"
+      ]
     }
-  ],
-  "approval": {
-    "approved_by": "project-owner",
-    "approved_at": "2026-08-13T06:51:29Z",
-    "content_sha256": "7de38aba1b58d4dc878c356936329b339abc72c614ace4534b717b6eaad5aea7"
-  }
+  ]
 }

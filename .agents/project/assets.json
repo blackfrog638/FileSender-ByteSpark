@@ -23,7 +23,7 @@
       "classification": "preserve",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "protocol/testdata/v1/vectors.json",
         "tool/harness/security_test.sh"
       ],
@@ -52,7 +52,7 @@
       "classification": "requalify",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "protocol/testdata/v1/vectors.json",
         "native/tests/protocol/**"
       ],
@@ -81,7 +81,7 @@
       "classification": "requalify",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "native/tests/discovery/**"
       ],
       "rationale": "The canonical discovery target is concrete. It must be requalified against interface-change, expiry, and untrusted-input outcomes.",
@@ -109,7 +109,7 @@
       "classification": "requalify",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "native/tests/security/identity/**",
         "docs/adr/0009-protected-identity-storage.md"
       ],
@@ -138,7 +138,7 @@
       "classification": "requalify",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "native/tests/security/tls/**",
         "docs/adr/0002-pairing-and-transport-security.md"
       ],
@@ -167,7 +167,7 @@
       "classification": "requalify",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "native/tests/session/**",
         "protocol/spec/pairing-v1.md"
       ],
@@ -198,9 +198,9 @@
       "classification": "requalify",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "native/tests/storage/**",
-        "refs/heads/attest/acceptance/XT-099"
+        "1309431daa5df3e81bdf053c4677452b829cff43"
       ],
       "rationale": "Path validation and atomic destination primitives are concrete. Portable path aliases are currently accepted, while the wider storage policy remains to be requalified.",
       "follow_up_outcomes": [
@@ -228,7 +228,7 @@
       "classification": "requalify",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "native/tests/transfer/**"
       ],
       "rationale": "The sender, receiver, and frame codec are concrete. Exact-byte, cleanup, scheduling, resume, and performance outcomes require ordered requalification.",
@@ -267,7 +267,7 @@
       "classification": "requalify",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "native/tests/abi/**",
         "tool/harness/abi_compat_test.sh"
       ],
@@ -295,7 +295,7 @@
       "classification": "requalify",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "apps/desktop/test/core/native/**"
       ],
       "rationale": "FFI is correctly confined to the native adapter, but the operation surface requires current ABI and platform qualification.",
@@ -326,7 +326,7 @@
       "classification": "requalify",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "apps/desktop/test/features/**",
         "tool/harness/flutter_test.sh"
       ],
@@ -361,7 +361,7 @@
       "classification": "requalify",
       "qualification": "historical",
       "evidence": [
-        ".agents/migration-v1.json",
+        "git history before the semantic re-baseline",
         "tool/harness/dependency_test.sh",
         ".github/workflows/merge-queue.yml"
       ],
@@ -393,11 +393,11 @@
       "classification": "preserve",
       "qualification": "current",
       "evidence": [
-        "refs/heads/attest/bootstrap/5b50c37ccd6f15c5b793d07841e9265e1571b45e",
-        "refs/heads/attest/acceptance/XT-103",
+        "5b50c37ccd6f15c5b793d07841e9265e1571b45e",
+        "096028169a80353c54b775a142297e2b0858fa2c",
         "docs/adr/0017-harness-v2-control-plane.md"
       ],
-      "rationale": "The control plane has current owner-approved bootstrap and ordinary queue evidence. It remains the verifier for the semantic re-baseline.",
+      "rationale": "The control plane is accepted in protected Git history and remains the verifier for the semantic re-baseline.",
       "follow_up_outcomes": [
         "OUT-HARNESS-V2-CONTROL-PLANE",
         "OUT-HARNESS-BRANCH-RECLAMATION"

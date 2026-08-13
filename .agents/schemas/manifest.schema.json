@@ -9,8 +9,7 @@
     "harness_version",
     "project",
     "integration_branch",
-    "project_owner",
-    "ref_namespaces"
+    "queue_namespace"
   ],
   "properties": {
     "schema_version": {
@@ -27,66 +26,9 @@
       "type": "string",
       "minLength": 1
     },
-    "project_owner": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "id",
-        "name",
-        "email"
-      ],
-      "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "email": {
-          "type": "string",
-          "pattern": "^[^@[:space:]]+@[^@[:space:]]+$"
-        }
-      }
-    },
-    "ref_namespaces": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "approve",
-        "state",
-        "submit",
-        "queue",
-        "attest",
-        "archive"
-      ],
-      "properties": {
-        "approve": {
-          "$ref": "#/$defs/refPrefix"
-        },
-        "state": {
-          "$ref": "#/$defs/refPrefix"
-        },
-        "submit": {
-          "$ref": "#/$defs/refPrefix"
-        },
-        "queue": {
-          "$ref": "#/$defs/refPrefix"
-        },
-        "attest": {
-          "$ref": "#/$defs/refPrefix"
-        },
-        "archive": {
-          "$ref": "#/$defs/refPrefix"
-        }
-      }
-    }
-  },
-  "$defs": {
-    "refPrefix": {
+    "queue_namespace": {
       "type": "string",
-      "pattern": "^refs/heads/.+/$"
+      "pattern": "^refs/heads/queue/.+/$|^refs/heads/queue/$"
     }
   }
 }

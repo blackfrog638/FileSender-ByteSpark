@@ -9,13 +9,12 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 import model
-import state
+import runtime
 
 
 def render(root: Path, output: Path, remote: Optional[str] = None) -> None:
     contracts = model.load_contracts(root)
-    store = state.StateStore(contracts, remote=remote)
-    snapshots = store.list()
+    snapshots = runtime.RuntimeView(contracts, remote=remote).list()
     rows = []
     for task_id in sorted(contracts.tasks):
         task = contracts.tasks[task_id]
@@ -41,11 +40,10 @@ table {{ border-collapse: collapse; width: 100%; }}
 th, td {{ border-bottom: 1px solid #d6dbe6; padding: .6rem; text-align: left; }}
 </style>
 <h1>Harness V2</h1>
-<p>Derived read-only view. Git contracts and remote state refs remain authoritative.</p>
+<p>Derived read-only view of accepted commits, worktrees, and temporary queues.</p>
 <div class="summary">
   <div class="card">Plans: {plans}</div>
-  <div class="card">Active TaskSpecs: {tasks}</div>
-  <div class="card">Legacy accepted: {legacy}</div>
+  <div class="card">TaskSpecs: {tasks}</div>
 </div>
 <table>
 <thead><tr><th>Task</th><th>Title</th><th>State</th><th>Workstream</th></tr></thead>
@@ -55,7 +53,6 @@ th, td {{ border-bottom: 1px solid #d6dbe6; padding: .6rem; text-align: left; }}
 """.format(
         plans=len(contracts.plans),
         tasks=len(contracts.tasks),
-        legacy=len(contracts.legacy_accepted),
         rows="".join(rows),
     )
     output.parent.mkdir(parents=True, exist_ok=True)

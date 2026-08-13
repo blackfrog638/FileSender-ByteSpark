@@ -2,16 +2,15 @@
   "schema_version": 1,
   "id": "BC-HARNESS-BRANCH-RECLAMATION",
   "title": "Qualify transient Harness branch reclamation",
-  "status": "approved",
   "depends_on": [
     "BC-HARNESS-V2-PILOT"
   ],
   "transitions": [
     {
       "plan": "DP-HARNESS-BRANCH-RECLAMATION",
-      "plan_revision": "cdb84f1fc42a92e3b986e95c196e9ea2df58fcfc3aa064f02b85e0442cb212d9",
+      "plan_revision": "db2cbf64e999cabaf2d54dfba4b5df692593550abdbece4ee3aad6936f8a718a",
       "outcome": "OUT-HARNESS-BRANCH-RECLAMATION",
-      "outcome_revision": "15dffd5f63d8e0f95e0eed55c422583b511f301b9a0ec8e499d4efb8ea44d460",
+      "outcome_revision": "f2381c93ce861c9ccf160eabfebd62999042a19dee6c22ea162bda1318702d88",
       "from": "specified",
       "to": "qualified",
       "criteria": [
@@ -26,15 +25,10 @@
       "requires": [
         {
           "outcome": "OUT-HARNESS-V2-CONTROL-PLANE",
-          "outcome_revision": "f7bbe7accc755cecbf05cc90ac50f2d3eb4fe4df44c5947858351ed90c559574",
+          "outcome_revision": "cec236a21df564701b35bc95b8d19f4bf1b45212cb26e420715b12dbbc312374",
           "minimum_state": "qualified"
         }
       ]
     }
-  ],
-  "approval": {
-    "approved_by": "project-owner",
-    "approved_at": "2026-08-13T06:52:01Z",
-    "content_sha256": "723d5f2fc4cba6dd4df9d9d6a538863a019e137e45a0343fa12bd0576d35aaeb"
-  }
+  ]
 }
