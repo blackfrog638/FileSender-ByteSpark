@@ -876,3 +876,19 @@ state、attestation 或 archive 选择残留，不使用时间或名称作为单
 ```text
 4d7d6e40d5726a7a6ea32bfda80afc6640d6fd6a42598198f1b430036bbbd521
 ```
+
+Cutover candidate `5b50c37ccd6f15c5b793d07841e9265e1571b45e` 通过 hosted
+run `31668486059`，bootstrap attestation digest：
+
+```text
+664f954ea35c8fbb1481b7df55b9856d8af51ef603160820f3ac83a919fb6d8c
+```
+
+发布前将 ruleset 拆分为：
+
+- `20739085`：durable runtime refs，禁止 deletion 和 non-fast-forward；
+- `20781074`：`queue/**`，禁止 non-fast-forward、允许 CAS deletion。
+
+新 `bootstrap-publish` 完成 protected CAS 后自动删除
+`queue/bootstrap/branch-reclamation-cutover-001`；远端复查该 ref 不存在，
+而 bootstrap attestation 和 protected commit 保持可读。
