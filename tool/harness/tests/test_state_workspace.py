@@ -162,7 +162,14 @@ class StateTest(unittest.TestCase):
         original = fixture.git("rev-parse", "HEAD")
         ref = "refs/heads/queue/test/001-XT-101"
         git_ops.update_ref_cas(fixture.root, ref, original, None)
-        moved = fixture.commit("docs: move candidate")
+        moved = git_ops.git_text(
+            fixture.root,
+            "commit-tree",
+            git_ops.current_tree(fixture.root),
+            "-p",
+            original,
+            input_bytes=b"move candidate\n",
+        )
         git_ops.update_ref_cas(fixture.root, ref, moved, original)
         with self.assertRaisesRegex(git_ops.GitError, "compare-and-swap"):
             git_ops.delete_ref_cas(fixture.root, ref, original)
@@ -179,7 +186,14 @@ class StateTest(unittest.TestCase):
         original = fixture.git("rev-parse", "HEAD")
         ref = "refs/heads/queue/test/001-XT-101"
         git_ops.push_ref_cas(fixture.root, "origin", original, ref, None)
-        moved = fixture.commit("docs: move remote candidate")
+        moved = git_ops.git_text(
+            fixture.root,
+            "commit-tree",
+            git_ops.current_tree(fixture.root),
+            "-p",
+            original,
+            input_bytes=b"move remote candidate\n",
+        )
         git_ops.push_ref_cas(fixture.root, "origin", moved, ref, original)
         with self.assertRaisesRegex(git_ops.GitError, "compare-and-swap"):
             git_ops.delete_remote_ref_cas(
