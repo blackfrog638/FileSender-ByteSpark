@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "id": "XT-103",
+  "title": "Reclaim transient Harness branches",
+  "plan": "DP-HARNESS-BRANCH-RECLAMATION",
+  "criteria": [
+    "CRIT-HV2-WORK-BRANCH-RECLAMATION",
+    "CRIT-HV2-QUEUE-BRANCH-RECLAMATION",
+    "CRIT-HV2-BRANCH-GC-RECOVERY"
+  ],
+  "depends_on": [
+    "XT-098",
+    "XT-101"
+  ],
+  "owned_paths": [
+    "AGENTS.md",
+    "docs/adr/0019-harness-transient-branch-retention.md",
+    "docs/harness-v2/acceptance-checklist.md",
+    "docs/harness-v2/architecture.md",
+    "docs/harness-v2/delivery-flow.md",
+    "docs/harness-v2/pilot-operations.md",
+    "docs/harness-v2/worklog.md",
+    "tool/harness/agent.py",
+    "tool/harness/bootstrap.py",
+    "tool/harness/branch_reclamation.py",
+    "tool/harness/closure.py",
+    "tool/harness/git_ops.py",
+    "tool/harness/merge_queue.py",
+    "tool/harness/workspace.py",
+    "tool/harness/tests/test_agent_cli.py",
+    "tool/harness/tests/test_bootstrap.py",
+    "tool/harness/tests/test_queue_attestation.py",
+    "tool/harness/tests/test_state_workspace.py"
+  ],
+  "type": "governance",
+  "workstream": "harness_control_plane",
+  "risk": {
+    "functionality": "high",
+    "security": "high",
+    "performance": "low",
+    "compatibility": "high",
+    "concurrency": "critical",
+    "platform": "high",
+    "persistence": "critical"
+  },
+  "tdd": {
+    "mode": "adversarial",
+    "gate": "harness_v2",
+    "proof_paths": [
+      "tool/harness/tests/test_agent_cli.py",
+      "tool/harness/tests/test_bootstrap.py",
+      "tool/harness/tests/test_queue_attestation.py",
+      "tool/harness/tests/test_state_workspace.py"
+    ],
+    "oracle_paths": [],
+    "failure_fingerprints": [
+      "AssertionError: queue refs must be reclaimed after durable completion"
+    ]
+  },
+  "delivery": {
+    "commit_type": "feat",
+    "scope": "harness",
+    "summary": "reclaim transient delivery branches",
+    "architecture_change": {
+      "mode": "none",
+      "modules": [],
+      "supersedes": {
+        "paths": [],
+        "symbols": [],
+        "targets": []
+      },
+      "temporary_leases": [],
+      "retires_leases": []
+    }
+  }
+}

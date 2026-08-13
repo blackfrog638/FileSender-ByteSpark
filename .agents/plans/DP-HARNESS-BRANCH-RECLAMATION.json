@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "id": "DP-HARNESS-BRANCH-RECLAMATION",
+  "title": "Harness V2 transient branch reclamation",
+  "status": "approved",
+  "source": {
+    "kind": "implementation_plan",
+    "path": "docs/harness-v2/implementation-plan.md"
+  },
+  "requirements": [
+    {
+      "id": "REQ-HV2-BRANCH-RECLAMATION",
+      "statement": "Harness V2 reclaims transient local work branches and remote queue branches after durable evidence makes them unnecessary, while preserving every authoritative planning, state, submission, attestation, and archive ref.",
+      "criteria": [
+        {
+          "id": "CRIT-HV2-WORK-BRANCH-RECLAMATION",
+          "statement": "Submission and payload-free acceptance closure remove the exact local work branch after its worktree is released and durable lifecycle evidence exists.",
+          "negative_definitions": [
+            "Deleting a work branch before submission or closure evidence is durable does not qualify.",
+            "Deleting a branch whose SHA changed after review does not qualify.",
+            "Leaving a completed task work branch indefinitely does not qualify."
+          ],
+          "evidence": {
+            "gates": [
+              "harness_v2"
+            ],
+            "scenarios": [
+              "submission-work-branch-cleanup",
+              "acceptance-work-branch-cleanup",
+              "work-branch-cas-conflict"
+            ],
+            "topology": "isolated_git_worktree_with_append_only_state",
+            "platforms": [
+              "linux",
+              "macos",
+              "windows"
+            ],
+            "roles": [
+              "developer",
+              "acceptance-owner"
+            ],
+            "allow_skipped": false
+          }
+        },
+        {
+          "id": "CRIT-HV2-QUEUE-BRANCH-RECLAMATION",
+          "statement": "Successful publication, publication recovery, queue rejection after archival, and bootstrap publication delete the exact remote and local queue ref with compare-and-swap semantics.",
+          "negative_definitions": [
+            "Deleting a queued candidate before durable acceptance or archive evidence exists does not qualify.",
+            "Deleting a queue ref that moved to another SHA does not qualify.",
+            "Deleting an archive ref after queue cleanup does not qualify.",
+            "Treating a failed cleanup as successful does not qualify."
+          ],
+          "evidence": {
+            "gates": [
+              "harness_v2"
+            ],
+            "scenarios": [
+              "published-candidate-cleanup",
+              "publication-recovery-cleanup",
+              "rejected-candidate-archive-then-cleanup",
+              "bootstrap-candidate-cleanup",
+              "remote-queue-cas-conflict"
+            ],
+            "topology": "bare_remote_with_protected_head_and_external_attestation",
+            "platforms": [
+              "linux",
+              "macos",
+              "windows"
+            ],
+            "roles": [
+              "queue-worker",
+              "publisher",
+              "project-owner"
+            ],
+            "allow_skipped": false
+          }
+        },
+        {
+          "id": "CRIT-HV2-BRANCH-GC-RECOVERY",
+          "statement": "An idempotent branch GC command reports and reclaims only transient refs whose durable state, acceptance, bootstrap attestation, or archive evidence proves eligibility.",
+          "negative_definitions": [
+            "GC deleting approve, state, submit, attest, archive, main, or harness refs does not qualify.",
+            "GC deleting an active or queued task candidate does not qualify.",
+            "GC relying on branch age or name without evidence does not qualify.",
+            "GC defaulting to destructive execution does not qualify."
+          ],
+          "evidence": {
+            "gates": [
+              "harness_v2"
+            ],
+            "scenarios": [
+              "dry-run-default",
+              "done-task-residue",
+              "archived-failure-residue",
+              "bootstrap-attested-residue",
+              "protected-evidence-negative-matrix"
+            ],
+            "topology": "mixed_local_and_remote_ref_inventory",
+            "platforms": [
+              "linux",
+              "macos",
+              "windows"
+            ],
+            "roles": [
+              "integration-owner",
+              "queue-worker"
+            ],
+            "allow_skipped": false
+          }
+        }
+      ],
+      "implementation_tasks": [
+        "XT-103"
+      ],
+      "acceptance_owner": "XT-104"
+    }
+  ],
+  "approval": {
+    "approved_by": "project-owner",
+    "approved_at": "2026-08-13T03:55:09Z",
+    "content_sha256": "cdb84f1fc42a92e3b986e95c196e9ea2df58fcfc3aa064f02b85e0442cb212d9"
+  }
+}

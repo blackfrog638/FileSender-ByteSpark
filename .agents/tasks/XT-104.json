@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "id": "XT-104",
+  "title": "Close Harness branch reclamation evidence",
+  "plan": "DP-HARNESS-BRANCH-RECLAMATION",
+  "criteria": [
+    "CRIT-HV2-WORK-BRANCH-RECLAMATION",
+    "CRIT-HV2-QUEUE-BRANCH-RECLAMATION",
+    "CRIT-HV2-BRANCH-GC-RECOVERY"
+  ],
+  "depends_on": [
+    "XT-103"
+  ],
+  "owned_paths": [
+    ".agents/tasks/XT-104.json"
+  ],
+  "type": "acceptance",
+  "workstream": "integration",
+  "risk": {
+    "functionality": "high",
+    "security": "none",
+    "performance": "none",
+    "compatibility": "none",
+    "concurrency": "medium",
+    "platform": "none",
+    "persistence": "medium"
+  },
+  "tdd": {
+    "mode": "evidence_closure",
+    "gate": null,
+    "proof_paths": [],
+    "oracle_paths": [],
+    "failure_fingerprints": []
+  },
+  "delivery": {
+    "commit_type": "chore",
+    "scope": "harness",
+    "summary": "close branch reclamation evidence",
+    "architecture_change": {
+      "mode": "none",
+      "modules": [],
+      "supersedes": {
+        "paths": [],
+        "symbols": [],
+        "targets": []
+      },
+      "temporary_leases": [],
+      "retires_leases": []
+    }
+  }
+}
