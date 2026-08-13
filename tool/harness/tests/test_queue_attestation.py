@@ -277,9 +277,7 @@ class SubmissionQueueTest(unittest.TestCase):
         submission = fixture.submit()
         self.assertEqual(fixture.store.read("XT-101").state, "queued")
         self.assertFalse(fixture.worktree.exists())
-        self.assertIsNone(
-            git_ops.ref_sha(fixture.root, "refs/heads/work/XT-101")
-        )
+        self.assertIsNone(git_ops.ref_sha(fixture.root, "refs/heads/work/XT-101"))
         self.assertEqual(
             git_ops.ref_sha(fixture.root, submission.ref), submission.commit
         )
@@ -589,10 +587,7 @@ class PublisherTest(unittest.TestCase):
             git_ops.commit_parents(fixture.root, entry.candidate_sha),
             [entry.parent_sha],
         )
-        if (
-            git_ops.remote_ref_sha(fixture.root, "origin", entry.queue_ref)
-            is not None
-        ):
+        if git_ops.remote_ref_sha(fixture.root, "origin", entry.queue_ref) is not None:
             self.fail("queue refs must be reclaimed after durable completion")
         self.assertIsNone(git_ops.ref_sha(fixture.root, entry.queue_ref))
         self.assertIsNotNone(
@@ -634,9 +629,7 @@ class PublisherTest(unittest.TestCase):
         )
         self.assertEqual(fixture.store.read("XT-102").state, "done")
         self.assertFalse(acceptance_path.exists())
-        self.assertIsNone(
-            git_ops.ref_sha(fixture.root, "refs/heads/work/XT-102")
-        )
+        self.assertIsNone(git_ops.ref_sha(fixture.root, "refs/heads/work/XT-102"))
         self.assertEqual(value["criteria"], ["CRIT-EXAMPLE-BEHAVIOR"])
 
     def test_recovers_state_after_candidate_was_published(self) -> None:
