@@ -184,9 +184,28 @@ class BootstrapAcceptanceTest(unittest.TestCase):
         repository.git("remote", "add", "origin", str(remote))
         repository.git("push", "-q", "origin", "{}:refs/heads/harness".format(base))
         contracts = repository.load()
+        queue_ref = "refs/heads/queue/bootstrap/cutover"
+        git_ops.update_ref_cas(
+            repository.root,
+            queue_ref,
+            candidate_sha,
+            None,
+        )
+        git_ops.push_ref_cas(
+            repository.root,
+            "origin",
+            candidate_sha,
+            queue_ref,
+            None,
+        )
 
         self.assertEqual(
-            bootstrap.publish_candidate(contracts, "origin", value),
+            bootstrap.publish_candidate(
+                contracts,
+                "origin",
+                value,
+                queue_ref=queue_ref,
+            ),
             "published",
         )
         self.assertEqual(
@@ -197,8 +216,21 @@ class BootstrapAcceptanceTest(unittest.TestCase):
             ),
             candidate_sha,
         )
+        self.assertIsNone(
+            git_ops.remote_ref_sha(
+                repository.root,
+                "origin",
+                queue_ref,
+            )
+        )
+        self.assertIsNone(git_ops.ref_sha(repository.root, queue_ref))
         self.assertEqual(
-            bootstrap.publish_candidate(contracts, "origin", value),
+            bootstrap.publish_candidate(
+                contracts,
+                "origin",
+                value,
+                queue_ref=queue_ref,
+            ),
             "already_published",
         )
 

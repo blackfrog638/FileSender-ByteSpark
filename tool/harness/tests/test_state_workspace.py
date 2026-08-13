@@ -157,6 +157,48 @@ class StateTest(unittest.TestCase):
                 None,
             )
 
+    def test_local_ref_deletion_is_idempotent_and_compare_and_swap(self) -> None:
+        fixture = RepositoryFixture(self)
+        original = fixture.git("rev-parse", "HEAD")
+        ref = "refs/heads/queue/test/001-XT-101"
+        git_ops.update_ref_cas(fixture.root, ref, original, None)
+        moved = fixture.commit("docs: move candidate")
+        git_ops.update_ref_cas(fixture.root, ref, moved, original)
+        with self.assertRaisesRegex(git_ops.GitError, "compare-and-swap"):
+            git_ops.delete_ref_cas(fixture.root, ref, original)
+        self.assertEqual(git_ops.ref_sha(fixture.root, ref), moved)
+        self.assertTrue(git_ops.delete_ref_cas(fixture.root, ref, moved))
+        self.assertFalse(git_ops.delete_ref_cas(fixture.root, ref, moved))
+
+    def test_remote_ref_deletion_is_idempotent_and_compare_and_swap(self) -> None:
+        fixture = RepositoryFixture(self)
+        remote = Path(fixture.contract_fixture.temporary.name + "-remote.git")
+        self.addCleanup(lambda: shutil.rmtree(remote, ignore_errors=True))
+        subprocess.run(["git", "init", "-q", "--bare", str(remote)], check=True)
+        fixture.git("remote", "add", "origin", str(remote))
+        original = fixture.git("rev-parse", "HEAD")
+        ref = "refs/heads/queue/test/001-XT-101"
+        git_ops.push_ref_cas(fixture.root, "origin", original, ref, None)
+        moved = fixture.commit("docs: move remote candidate")
+        git_ops.push_ref_cas(fixture.root, "origin", moved, ref, original)
+        with self.assertRaisesRegex(git_ops.GitError, "compare-and-swap"):
+            git_ops.delete_remote_ref_cas(
+                fixture.root,
+                "origin",
+                ref,
+                original,
+            )
+        self.assertEqual(
+            git_ops.remote_ref_sha(fixture.root, "origin", ref),
+            moved,
+        )
+        self.assertTrue(
+            git_ops.delete_remote_ref_cas(fixture.root, "origin", ref, moved)
+        )
+        self.assertFalse(
+            git_ops.delete_remote_ref_cas(fixture.root, "origin", ref, moved)
+        )
+
     def test_rejects_tampered_event_chain(self) -> None:
         fixture = RepositoryFixture(self)
         active = fixture.active()
