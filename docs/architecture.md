@@ -9,6 +9,29 @@ establishment, protocol parsing, file access, hashing, and network I/O.
 
 The first supported targets are macOS, Windows, and Linux.
 
+## Authority and projections
+
+`.agents/project/blueprint.json` is the authority for project goals,
+capabilities, outcomes, dependencies, criteria, and target qualification.
+`.agents/project/invariants.json`, `quality-budgets.json`, `assets.json`, and
+`composition-baseline.json` hold the corresponding invariant, budget, asset,
+and current-composition facts. Approved Change Sets under
+`.agents/project/changes/` bind Delivery Plans to revision-specific outcome
+transitions.
+
+This document explains runtime design and decision rationale. It does not
+duplicate the canonical capability, milestone, module, or delivery catalogue.
+The following files are deterministic Blueprint projections and must be
+regenerated with `tool/harness/project_model.py generate`:
+
+- `docs/roadmap.md`;
+- `docs/product/capability-map.md`;
+- `docs/architecture/module-map.md`;
+- `docs/project/semantic-baseline.md`.
+
+Runtime task state is not documentation. It is read from durable Harness refs
+with `tool/harness/agent.sh list`.
+
 ## Runtime components
 
 ```text
@@ -30,9 +53,9 @@ operation identifier and publish events through a callback or polled event
 queue. No C++ exception, STL type, borrowed string, or ownership ambiguity may
 cross the ABI.
 
-The implemented ABI currently publishes lifecycle events through a bounded
-wakeup-and-drain queue. Discovery, session, and transfer operations have not
-yet been added to that event surface.
+The ABI publishes lifecycle, discovery, session, and transfer events through a
+bounded wakeup-and-drain queue. These surfaces have historical implementation
+evidence but are not automatically qualified under the current Blueprint.
 
 ## Native modules
 
@@ -92,10 +115,11 @@ xnn_transfer_core
 
 Each P1 module and its tests own a leaf CMake entry point. The pinned vcpkg
 manifest, Asio/OpenSSL overlays, utf8proc registry version, static triplets,
-and compiled dependency probe are implemented. Discovery is a concrete leaf.
-Identity, TLS, session, storage, and transfer remain empty build boundaries
-until their registered replacement tasks make those same targets concrete.
-Installing dependencies does not implement those remaining capabilities.
+and compiled dependency probe are implemented. Discovery, identity, TLS,
+session, storage, and transfer are concrete canonical leaves. Their legacy
+acceptance is retained as historical evidence; current Blueprint qualification
+still requires the outcome-specific negative, platform, security, concurrency,
+and end-to-end evidence declared by future Change Sets.
 
 ## Subtractive evolution
 
@@ -154,12 +178,12 @@ must enforce:
 - no automatic file acceptance based only on discovery.
 
 ADR 0002 accepts the pairing and authenticated transport design, but the
-profile remains unimplemented. ADR 0004 accepts bounded v1 framing and
-negotiation independently from transport authentication. ADR 0006 accepts the
-P1 runtime and dependency boundaries but does not install or implement those
-providers. No current component may claim discovery, protected identity
-storage, authenticated pairing, encrypted transfer, or production v1
-conformance.
+implementation remains unqualified under the current Blueprint. ADR 0004
+accepts bounded v1 framing and negotiation independently from transport
+authentication. ADR 0006 defines the P1 runtime and dependency boundaries.
+Existing implementations may claim only the behavior demonstrated by their
+historical evidence; they may not claim current end-to-end qualification until
+the corresponding Blueprint outcomes are accepted.
 
 ## Data flow
 

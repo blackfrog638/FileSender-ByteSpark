@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "id": "BC-HARNESS-V2-PILOT",
+  "title": "Qualify the Harness V2 pilot and evidence report",
+  "status": "approved",
+  "depends_on": [],
+  "transitions": [
+    {
+      "plan": "DP-HARNESS-V2-PILOT",
+      "plan_revision": "a366b5d166ffe421545d9af793ce825b248d4f75c7900d48e983ab0dc87b4f65",
+      "outcome": "OUT-HARNESS-V2-PILOT",
+      "outcome_revision": "3a3db1b99548509e3173ffbac546ae4e0c4ca24dc1cbe2aeb5acbd397d72cbe8",
+      "from": "specified",
+      "to": "qualified",
+      "criteria": [
+        "CRIT-HV2-PILOT-FAST-LANE"
+      ],
+      "preserves": [
+        "INV-EXACT-CANDIDATE-PUBLICATION",
+        "INV-RUNTIME-STATE-OUTSIDE-PRODUCT",
+        "INV-NO-SKIPPED-EVIDENCE"
+      ],
+      "requires": [
+        {
+          "outcome": "OUT-HARNESS-V2-CONTROL-PLANE",
+          "outcome_revision": "f7bbe7accc755cecbf05cc90ac50f2d3eb4fe4df44c5947858351ed90c559574",
+          "minimum_state": "qualified"
+        }
+      ]
+    },
+    {
+      "plan": "DP-HARNESS-V2-PILOT",
+      "plan_revision": "a366b5d166ffe421545d9af793ce825b248d4f75c7900d48e983ab0dc87b4f65",
+      "outcome": "OUT-STORAGE-PORTABLE-WINDOWS-PATHS",
+      "outcome_revision": "28c315d79e0c500754cfee9d6c16b061e8253a3434c9d1ab4a3db314401c93f5",
+      "from": "specified",
+      "to": "qualified",
+      "criteria": [
+        "CRIT-HV2-PILOT-STORAGE-PATHS"
+      ],
+      "preserves": [
+        "INV-BOUNDED-HOSTILE-INPUT",
+        "INV-ATOMIC-VERIFIED-COMMIT"
+      ],
+      "requires": []
+    },
+    {
+      "plan": "DP-HARNESS-V2-PILOT-REPORT",
+      "plan_revision": "d83e4480ff1603e276dbc65fecc78ddbd71bbd4851f91e28cf1fb74c5a051780",
+      "outcome": "OUT-HARNESS-V2-PILOT-REPORT",
+      "outcome_revision": "627cde74ff50f1b65e0f00be9dd0e3d4bd8faf87d20a5715804ea57f649918f3",
+      "from": "specified",
+      "to": "qualified",
+      "criteria": [
+        "CRIT-HV2-PILOT-REPORT"
+      ],
+      "preserves": [
+        "INV-NO-SKIPPED-EVIDENCE",
+        "INV-RUNTIME-STATE-OUTSIDE-PRODUCT"
+      ],
+      "requires": [
+        {
+          "outcome": "OUT-HARNESS-V2-PILOT",
+          "outcome_revision": "3a3db1b99548509e3173ffbac546ae4e0c4ca24dc1cbe2aeb5acbd397d72cbe8",
+          "minimum_state": "qualified"
+        }
+      ]
+    }
+  ],
+  "approval": {
+    "approved_by": "project-owner",
+    "approved_at": "2026-08-13T06:52:00Z",
+    "content_sha256": "a92578ba317d9596d3740f0d07b45ccf8af6c850fe1c13db8adc44b0000b7405"
+  }
+}

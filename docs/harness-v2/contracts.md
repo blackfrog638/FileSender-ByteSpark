@@ -14,10 +14,48 @@
   - Criterion：`CRIT-[A-Z0-9-]+`
   - Gate：`[a-z][a-z0-9_]*`
 - 未知字段 fail closed。
-- 静态契约禁止运行时状态、owner、SHA、URL 和证据字段。
+- TaskSpec 禁止运行时状态、调用方 owner、候选 SHA、CI URL 和内嵌证据。
 
 实际 JSON Schema 位于 `.agents/schemas/`，Python validator 是执行语义的
 权威实现，并由正负 fixture 覆盖。
+
+## Project Blueprint
+
+Project Blueprint 位于 Delivery Plan 之上，保存项目长期语义：
+
+```text
+Goal -> Milestone -> Capability -> Outcome
+                                  -> Criterion
+                                  -> Invariant
+                                  -> Quality budget
+                                  -> Implementation unit
+```
+
+规范文件：
+
+- `.agents/project/blueprint.json`：目标、里程碑、能力、outcome 与依赖；
+- `.agents/project/invariants.json`：跨 outcome 不变量及 ADR 引用；
+- `.agents/project/composition-baseline.json`：变更组合前的 outcome 状态；
+- `.agents/project/quality-budgets.json`：active threshold 和明确 deferral；
+- `.agents/project/assets.json`：生产资产覆盖与处置分类；
+- `.agents/project/changes/BC-*.json`：revision-bound 状态转换；
+- `.agents/project/approval.json`：完整 Project Model 的 owner approval digest。
+
+状态只允许单调前进：
+
+```text
+absent -> specified -> implemented -> qualified
+```
+
+Blueprint Change Set 是设计增量，Delivery Plan 是可执行状态转换，
+TaskSpec 是 Plan 的工程拆分。Change Set 绑定批准态 Plan digest、目标
+outcome revision 和全部 precondition revision。组合器拒绝 cycle、orphan、
+duplicate writer、stale revision、unsatisfied precondition、criterion
+弱化、invariant 缺口、资产漏归属和未声明 target gap。
+
+Blueprint、Change Set 和 Project approval 只能由配置的 project owner
+批准。`.agents/project/**` 属于 verification trust root，普通 queue
+payload 不得修改，必须通过 owner-approved bootstrap 发布。
 
 ## Delivery Plan
 
@@ -60,6 +98,8 @@
 
 Plan 约束：
 
+- 每个 Plan 必须恰好属于一个 Blueprint Change Set；
+- Plan criterion statement 和 negative definitions 必须与 Blueprint 完全一致；
 - 每个 requirement 至少有一个 criterion；
 - 每个 criterion 有 statement 和至少一个 negative definition；
 - implementation task 并集必须覆盖全部 criterion；

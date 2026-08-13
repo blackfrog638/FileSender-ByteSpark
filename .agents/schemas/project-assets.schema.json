@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xnntransfer.dev/schemas/harness-v2/project-assets.schema.json",
+  "title": "XnnTransfer Project Asset Rebaseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "production_roots",
+    "units"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "production_roots": {
+      "$ref": "#/$defs/nonEmptyStrings"
+    },
+    "units": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/unit"
+      }
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9-]+$"
+    },
+    "strings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/text"
+      }
+    },
+    "nonEmptyStrings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/text"
+      }
+    },
+    "ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "nonEmptyIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "capabilities",
+        "architecture_modules",
+        "production_paths",
+        "test_paths",
+        "classification",
+        "qualification",
+        "evidence",
+        "rationale",
+        "follow_up_outcomes"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/nonEmptyIds"
+        },
+        "architecture_modules": {
+          "$ref": "#/$defs/strings"
+        },
+        "production_paths": {
+          "$ref": "#/$defs/nonEmptyStrings"
+        },
+        "test_paths": {
+          "$ref": "#/$defs/strings"
+        },
+        "classification": {
+          "enum": [
+            "preserve",
+            "requalify",
+            "replace",
+            "remove"
+          ]
+        },
+        "qualification": {
+          "enum": [
+            "current",
+            "historical",
+            "unqualified"
+          ]
+        },
+        "evidence": {
+          "$ref": "#/$defs/nonEmptyStrings"
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 20
+        },
+        "follow_up_outcomes": {
+          "$ref": "#/$defs/nonEmptyIds"
+        }
+      }
+    }
+  }
+}

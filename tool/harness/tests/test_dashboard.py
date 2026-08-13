@@ -12,6 +12,7 @@ HARNESS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HARNESS))
 
 import dashboard  # noqa: E402
+import model  # noqa: E402
 from test_model import ContractFixture  # noqa: E402
 
 
@@ -55,17 +56,15 @@ class DashboardTest(unittest.TestCase):
         self.assertIn("ready", document)
         self.assertIn("Plans: 1", document)
 
-    def test_empty_active_catalogue_is_visible(self) -> None:
+    def test_rejects_catalogue_that_orphans_blueprint_transition(self) -> None:
         fixture = self._fixture()
         for path in (fixture.root / ".agents" / "plans").glob("*.json"):
             path.unlink()
         for path in (fixture.root / ".agents" / "tasks").glob("*.json"):
             path.unlink()
         output = fixture.root / "dashboard.html"
-        dashboard.render(fixture.root, output)
-        document = output.read_text(encoding="utf-8")
-        self.assertIn("Active TaskSpecs: 0", document)
-        self.assertIn("<tbody></tbody>", document)
+        with self.assertRaisesRegex(model.ContractError, "references unknown Plan"):
+            dashboard.render(fixture.root, output)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xnntransfer.dev/schemas/harness-v2/blueprint.schema.json",
+  "title": "XnnTransfer Project Blueprint",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "mission",
+    "state_order",
+    "goals",
+    "milestones",
+    "capabilities",
+    "outcomes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "title": {
+      "$ref": "#/$defs/text"
+    },
+    "mission": {
+      "$ref": "#/$defs/text"
+    },
+    "state_order": {
+      "const": [
+        "absent",
+        "specified",
+        "implemented",
+        "qualified"
+      ]
+    },
+    "goals": {
+      "$ref": "#/$defs/nonEmptyGoals"
+    },
+    "milestones": {
+      "$ref": "#/$defs/nonEmptyMilestones"
+    },
+    "capabilities": {
+      "$ref": "#/$defs/nonEmptyCapabilities"
+    },
+    "outcomes": {
+      "$ref": "#/$defs/nonEmptyOutcomes"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9-]+$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "nonEmptyIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "goal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "statement",
+        "milestones"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "statement": {
+          "$ref": "#/$defs/text"
+        },
+        "milestones": {
+          "$ref": "#/$defs/nonEmptyIds"
+        }
+      }
+    },
+    "milestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "sequence",
+        "outcomes"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outcomes": {
+          "$ref": "#/$defs/nonEmptyIds"
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "depends_on",
+        "implementation_units"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "depends_on": {
+          "$ref": "#/$defs/ids"
+        },
+        "implementation_units": {
+          "$ref": "#/$defs/nonEmptyIds"
+        }
+      }
+    },
+    "dependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "minimum_state"
+      ],
+      "properties": {
+        "outcome": {
+          "$ref": "#/$defs/id"
+        },
+        "minimum_state": {
+          "enum": [
+            "absent",
+            "specified",
+            "implemented",
+            "qualified"
+          ]
+        }
+      }
+    },
+    "criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "statement",
+        "negative_definitions"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "statement": {
+          "$ref": "#/$defs/text"
+        },
+        "negative_definitions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "milestone",
+        "capability",
+        "statement",
+        "depends_on",
+        "invariants",
+        "criteria",
+        "target_state",
+        "deferred_reason"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "title": {
+          "$ref": "#/$defs/text"
+        },
+        "milestone": {
+          "$ref": "#/$defs/id"
+        },
+        "capability": {
+          "$ref": "#/$defs/id"
+        },
+        "statement": {
+          "$ref": "#/$defs/text"
+        },
+        "depends_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/dependency"
+          }
+        },
+        "invariants": {
+          "$ref": "#/$defs/nonEmptyIds"
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/criterion"
+          }
+        },
+        "target_state": {
+          "enum": [
+            "absent",
+            "specified",
+            "implemented",
+            "qualified"
+          ]
+        },
+        "deferred_reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/text"
+            }
+          ]
+        }
+      }
+    },
+    "nonEmptyGoals": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/goal"
+      }
+    },
+    "nonEmptyMilestones": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/milestone"
+      }
+    },
+    "nonEmptyCapabilities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/capability"
+      }
+    },
+    "nonEmptyOutcomes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/outcome"
+      }
+    }
+  }
+}

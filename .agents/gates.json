@@ -115,6 +115,45 @@
       ],
       "cache": "success_only"
     },
+    "project_model": {
+      "command": {
+        "argv": [
+          "bash",
+          "tool/harness/project_model_test.sh"
+        ],
+        "timeout_seconds": 180,
+        "environment": {}
+      },
+      "aggregate": null,
+      "inputs": [
+        ".agents/project/**",
+        ".agents/plans/**",
+        ".agents/architecture/modules.json",
+        ".agents/schemas/blueprint.schema.json",
+        ".agents/schemas/blueprint-change.schema.json",
+        ".agents/schemas/composition-baseline.schema.json",
+        ".agents/schemas/project-approval.schema.json",
+        ".agents/schemas/project-assets.schema.json",
+        ".agents/schemas/project-invariants.schema.json",
+        ".agents/schemas/quality-budgets.schema.json",
+        "docs/adr/**",
+        "docs/roadmap.md",
+        "docs/product/capability-map.md",
+        "docs/architecture/module-map.md",
+        "docs/project/semantic-baseline.md",
+        "tool/harness/project_model.py",
+        "tool/harness/project_model_test.py",
+        "tool/harness/project_model_test.sh"
+      ],
+      "resource_group": "lightweight",
+      "platforms": [
+        "local",
+        "linux",
+        "macos",
+        "windows"
+      ],
+      "cache": "success_only"
+    },
     "dependency_test": {
       "command": {
         "argv": [
@@ -292,6 +331,7 @@
         "layout",
         "commit_policy",
         "harness_v2",
+        "project_model",
         "dependency_test",
         "architecture",
         "abi_compat",

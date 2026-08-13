@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "XT-106",
+  "title": "Close project semantic baseline evidence",
+  "plan": "DP-PROJECT-SEMANTIC-REBASELINE",
+  "criteria": [
+    "CRIT-PROJECT-BLUEPRINT-GRAPH",
+    "CRIT-PROJECT-PLAN-COMPOSITION",
+    "CRIT-PROJECT-ASSET-REBASELINE",
+    "CRIT-PROJECT-DOC-PROJECTION"
+  ],
+  "depends_on": [
+    "XT-105"
+  ],
+  "owned_paths": [
+    ".agents/tasks/XT-106.json"
+  ],
+  "type": "acceptance",
+  "workstream": "integration",
+  "risk": {
+    "functionality": "high",
+    "security": "none",
+    "performance": "none",
+    "compatibility": "none",
+    "concurrency": "medium",
+    "platform": "none",
+    "persistence": "medium"
+  },
+  "tdd": {
+    "mode": "evidence_closure",
+    "gate": null,
+    "proof_paths": [],
+    "oracle_paths": [],
+    "failure_fingerprints": []
+  },
+  "delivery": {
+    "commit_type": "chore",
+    "scope": "project",
+    "summary": "close project semantic baseline evidence",
+    "architecture_change": {
+      "mode": "none",
+      "modules": [],
+      "supersedes": {
+        "paths": [],
+        "symbols": [],
+        "targets": []
+      },
+      "temporary_leases": [],
+      "retires_leases": []
+    }
+  }
+}

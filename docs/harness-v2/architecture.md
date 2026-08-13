@@ -17,6 +17,15 @@ XnnTransfer/
 │   ├── manifest.json
 │   ├── gates.json
 │   ├── risk-routing.json
+│   ├── project/
+│   │   ├── blueprint.json
+│   │   ├── invariants.json
+│   │   ├── composition-baseline.json
+│   │   ├── quality-budgets.json
+│   │   ├── assets.json
+│   │   ├── approval.json
+│   │   └── changes/
+│   │       └── BC-*.json
 │   ├── plans/
 │   │   └── DP-*.json
 │   ├── tasks/
@@ -30,6 +39,7 @@ XnnTransfer/
 ├── tool/harness/
 │   ├── agent.py
 │   ├── model.py
+│   ├── project_model.py
 │   ├── validate.py
 │   ├── git_ops.py
 │   ├── workspace.py
@@ -58,13 +68,16 @@ XnnTransfer/
 保存在产品仓库并参与 code review：
 
 - `.agents/manifest.json`：V2 版本和全局策略；
+- `.agents/project/`：项目 Blueprint、Change Set、组合 baseline、invariant、
+  quality budget、asset classification 和 owner approval；
 - `.agents/plans/`：需求、criterion、负例、验收 owner；
 - `.agents/tasks/`：任务依赖、owned paths、风险和交付合同；
 - `.agents/gates.json`：受信命令、Gate DAG、输入和资源组；
 - `.agents/risk-routing.json`：风险到 Gate 的最低映射；
 - `.agents/schemas/`：所有机器可读格式。
 
-版本化契约不包含 owner、runtime state、candidate SHA、CI URL 或时间戳。
+TaskSpec 不包含 runtime state、caller owner、candidate SHA、CI URL 或证据。
+Project Model 和 Plan 只包含受信 owner approval metadata，不包含任务运行态。
 
 ### 远端运行控制平面
 
@@ -121,7 +134,7 @@ namespace，可映射为受保护的同名 branch，但语义不变。
 ```text
 agent.py
   |
-  +-> model.py / validate.py
+  +-> model.py / project_model.py / validate.py
   +-> workspace.py -----> git_ops.py
   +-> state.py ---------> git_ops.py
   +-> gates.py ---------> executor.py
@@ -134,6 +147,7 @@ agent.py
 规则：
 
 - `model.py` 不执行 Git、进程或网络操作；
+- `project_model.py` 组合 Blueprint、Plan 和资产图，并生成确定性文档；
 - `git_ops.py` 不解释业务状态；
 - `executor.py` 只执行解析后的受信 Gate；
 - `merge_queue.py` 不能自行修改 TaskSpec 或 Gate policy；
@@ -170,7 +184,8 @@ closure 完成后使用，不生成 candidate。
 
 `task claim` 对 `state/<task>` 执行 CAS，并创建 worktree。claim 校验：
 
-- TaskSpec、Plan 和远端 owner approval ref 已批准；
+- Project Model、Blueprint Change、TaskSpec、Plan 和远端 owner approval
+  evidence 已批准；
 - dependencies 已发布；
 - owned paths 不与 `active` 或 `queued` 任务相交；
 - base 是 accepted branch 的祖先；

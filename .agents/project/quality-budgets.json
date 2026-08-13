@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "budgets": [
+    {
+      "id": "QB-SUPPORTED-PLATFORMS",
+      "dimension": "platform",
+      "statement": "Required behavior passes without skips on Linux, macOS, and Windows.",
+      "outcomes": [
+        "OUT-NATIVE-PACKAGING",
+        "OUT-P1-ADVERSE-PLATFORM",
+        "OUT-P2-INTEROPERABILITY"
+      ],
+      "metric": "required_platforms_with_successful_no_skip_evidence",
+      "operator": "equals",
+      "threshold": 3,
+      "unit": "platforms",
+      "status": "active",
+      "gate": "verify",
+      "deferred_reason": null
+    },
+    {
+      "id": "QB-HOSTILE-INPUT",
+      "dimension": "security",
+      "statement": "Sanitizer and fuzz evidence contains no crash, timeout, skip, or sanitizer finding.",
+      "outcomes": [
+        "OUT-PROTOCOL-V1-CONTRACT",
+        "OUT-P1-PAIRING",
+        "OUT-P1-ONE-FILE-TRANSFER",
+        "OUT-P2-FUZZING"
+      ],
+      "metric": "disallowed_security_gate_outcomes",
+      "operator": "equals",
+      "threshold": 0,
+      "unit": "outcomes",
+      "status": "active",
+      "gate": "security_test",
+      "deferred_reason": null
+    },
+    {
+      "id": "QB-TRANSFER-THROUGHPUT",
+      "dimension": "performance",
+      "statement": "Representative transfer throughput has an approved blocking minimum on every supported platform.",
+      "outcomes": [
+        "OUT-P2-PERFORMANCE"
+      ],
+      "metric": "sustained_verified_transfer_throughput",
+      "operator": "greater_than_or_equal",
+      "threshold": null,
+      "unit": "MiB/s",
+      "status": "deferred",
+      "gate": null,
+      "deferred_reason": "The current benchmark measures lifecycle operations, not transfer I/O; a representative workload and threshold require a future approved Change Set."
+    },
+    {
+      "id": "QB-TRANSFER-MEMORY",
+      "dimension": "performance",
+      "statement": "Peak resident memory and queued transfer bytes remain within approved blocking limits.",
+      "outcomes": [
+        "OUT-P1-SCHEDULING",
+        "OUT-P2-PERFORMANCE"
+      ],
+      "metric": "peak_resident_memory_and_queued_bytes",
+      "operator": "less_than_or_equal",
+      "threshold": null,
+      "unit": "MiB",
+      "status": "deferred",
+      "gate": null,
+      "deferred_reason": "No representative workload or approved resource threshold exists."
+    },
+    {
+      "id": "QB-CANCELLATION-LATENCY",
+      "dimension": "performance",
+      "statement": "Cancellation reaches its observable barrier within an approved platform budget.",
+      "outcomes": [
+        "OUT-P1-CANCELLATION",
+        "OUT-P2-PERFORMANCE"
+      ],
+      "metric": "p95_cancellation_barrier_latency",
+      "operator": "less_than_or_equal",
+      "threshold": null,
+      "unit": "milliseconds",
+      "status": "deferred",
+      "gate": null,
+      "deferred_reason": "The cancellation workload and blocking threshold require a future approved Change Set."
+    }
+  ]
+}

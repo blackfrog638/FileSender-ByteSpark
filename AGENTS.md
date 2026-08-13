@@ -26,6 +26,8 @@ attestations, and product history.
 12. Missing or skipped required tools are failures, not passing evidence.
 13. Standard queue tasks may not modify the Harness verification trust root.
     Those changes require a separately approved bootstrap/governance cutover.
+14. Every Delivery Plan belongs to exactly one Blueprint Change Set and may
+    not redefine or weaken Blueprint criteria, dependencies, or invariants.
 
 ## Sources of truth
 
@@ -33,6 +35,7 @@ attestations, and product history.
 .agents/manifest.json       Harness version, owner, branch, ref namespaces
 .agents/gates.json          Trusted Gate DAG and commands
 .agents/risk-routing.json   Minimum risk and Gate routing
+.agents/project/            Blueprint, Change Sets, invariants, budgets, assets
 .agents/plans/DP-*.json     Requirements and criteria
 .agents/tasks/XT-*.json     Dependencies, ownership, risk, and TDD
 .agents/migration-v1.json   Read-only V1 acceptance/deferred snapshot
@@ -81,12 +84,19 @@ closure, or rejection archival makes them unnecessary.
 
 ### Planning
 
-1. Add or update one Delivery Plan under `.agents/plans/`.
-2. Give every criterion a stable ID, observable statement, negative
-   definitions, and required evidence.
-3. Add one TaskSpec per implementation or acceptance owner.
-4. Run `tool/harness/agent.sh validate`.
-5. The project owner reviews and approves the canonical plan digest.
+1. Update the Project Blueprint only when project goals, capabilities,
+   outcomes, dependencies, invariants, budgets, or asset ownership change.
+2. Add one Blueprint Change Set under `.agents/project/changes/`. Bind exact
+   outcome revisions, precondition revisions, and the intended state
+   transitions.
+3. Add or update one Delivery Plan under `.agents/plans/`. Its criteria and
+   negative definitions must exactly match the referenced Blueprint outcomes.
+4. Add one TaskSpec per implementation or acceptance owner.
+5. Regenerate the derived docs with
+   `python3 -B tool/harness/project_model.py generate`.
+6. Run `tool/harness/agent.sh validate`.
+7. The project owner reviews and approves the Change Set, Plan, and complete
+   Project Model digest.
 
 Approval identity comes from `.agents/manifest.json`, repository Git identity,
 and an immutable remote `approve/DP-NAME/DIGEST` ref. A caller cannot pass an
@@ -96,9 +106,10 @@ to create `approve/**`; `--local` approval is non-authoritative.
 Plans and TaskSpecs must be present on the accepted integration base before
 claim. A pre-existing governance task may deliver new approved Plans and
 TaskSpecs, but may not change active/queued contracts. Manifest, Gate/risk
-policy, schemas, module inventory, commit identity, workflows, Harness code,
-`AGENTS.md`, and `Makefile` require a separate owner-approved cutover because
-a candidate may not redefine the verifier that authorizes itself.
+policy, Project Model, schemas, module inventory, commit identity, workflows,
+Harness code, `AGENTS.md`, and `Makefile` require a separate owner-approved
+cutover because a candidate may not redefine the verifier that authorizes
+itself.
 
 ### Claim
 
@@ -226,6 +237,7 @@ Common commands:
 
 ```bash
 make harness-v2-test
+make project-model-test
 make contract-test
 make architecture-test
 make abi-compat-test

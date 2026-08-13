@@ -1,4 +1,4 @@
-.PHONY: abi-compat-test architecture-test benchmark bootstrap commit-message-test contract-test dashboard dashboard-test dependency-test diff-check doctor flutter-test format harness-v2-test macos-bundle-test native-test security-test vcpkg-bootstrap verify
+.PHONY: abi-compat-test architecture-test benchmark bootstrap commit-message-test contract-test dashboard dashboard-test dependency-test diff-check doctor flutter-test format harness-v2-test macos-bundle-test native-test project-model-test security-test vcpkg-bootstrap verify
 
 abi-compat-test:
 	@tool/harness/abi_compat_test.sh
@@ -47,6 +47,9 @@ flutter-test:
 
 harness-v2-test:
 	@python3 -B -m unittest discover -s tool/harness/tests -p 'test_*.py'
+
+project-model-test:
+	@tool/harness/project_model_test.sh
 
 macos-bundle-test:
 	@tool/harness/macos_bundle_test.sh

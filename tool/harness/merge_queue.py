@@ -57,6 +57,7 @@ TRUST_ROOT_PATTERNS = (
     ".agents/risk-routing.json",
     ".agents/schemas/**",
     ".agents/architecture/**",
+    ".agents/project/**",
     ".agents/commit-identity.json",
     ".agents/migration-v1.json",
     ".github/workflows/**",

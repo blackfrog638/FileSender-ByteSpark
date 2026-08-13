@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "BC-PROJECT-SEMANTIC-REBASELINE",
+  "title": "Establish the global project semantic baseline",
+  "status": "approved",
+  "depends_on": [
+    "BC-HARNESS-BRANCH-RECLAMATION"
+  ],
+  "transitions": [
+    {
+      "plan": "DP-PROJECT-SEMANTIC-REBASELINE",
+      "plan_revision": "7de38aba1b58d4dc878c356936329b339abc72c614ace4534b717b6eaad5aea7",
+      "outcome": "OUT-PROJECT-SEMANTIC-BASELINE",
+      "outcome_revision": "a6c7b5f2f8e47a4ba207866b1799408505f445bb1890ae1c4d788e7b11968df1",
+      "from": "specified",
+      "to": "qualified",
+      "criteria": [
+        "CRIT-PROJECT-BLUEPRINT-GRAPH",
+        "CRIT-PROJECT-PLAN-COMPOSITION",
+        "CRIT-PROJECT-ASSET-REBASELINE",
+        "CRIT-PROJECT-DOC-PROJECTION"
+      ],
+      "preserves": [
+        "INV-BLUEPRINT-IS-PROJECT-AUTHORITY",
+        "INV-CANONICAL-MODULES",
+        "INV-EXACT-CANDIDATE-PUBLICATION",
+        "INV-RUNTIME-STATE-OUTSIDE-PRODUCT",
+        "INV-NO-SKIPPED-EVIDENCE"
+      ],
+      "requires": [
+        {
+          "outcome": "OUT-HARNESS-V2-CONTROL-PLANE",
+          "outcome_revision": "f7bbe7accc755cecbf05cc90ac50f2d3eb4fe4df44c5947858351ed90c559574",
+          "minimum_state": "qualified"
+        },
+        {
+          "outcome": "OUT-HARNESS-BRANCH-RECLAMATION",
+          "outcome_revision": "15dffd5f63d8e0f95e0eed55c422583b511f301b9a0ec8e499d4efb8ea44d460",
+          "minimum_state": "qualified"
+        }
+      ]
+    }
+  ],
+  "approval": {
+    "approved_by": "project-owner",
+    "approved_at": "2026-08-13T06:52:02Z",
+    "content_sha256": "ffac55fc7bb7105a545a3334177b8316474369761005b740d0cf8533e35e3b77"
+  }
+}

@@ -1,0 +1,433 @@
+{
+  "schema_version": 1,
+  "production_roots": [
+    "native/include",
+    "native/src",
+    "apps/desktop/lib",
+    "protocol/spec"
+  ],
+  "units": [
+    {
+      "id": "UNIT-PROTOCOL-CONTRACT",
+      "title": "Protocol specifications and hostile vectors",
+      "capabilities": [
+        "CAP-PROTOCOL"
+      ],
+      "architecture_modules": [],
+      "production_paths": [
+        "protocol/spec/**"
+      ],
+      "test_paths": [
+        "protocol/testdata/**"
+      ],
+      "classification": "preserve",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "protocol/testdata/v1/vectors.json",
+        "tool/harness/security_test.sh"
+      ],
+      "rationale": "Specifications and hostile vectors are independent behavioral oracles. They remain authoritative inputs while current implementation is requalified.",
+      "follow_up_outcomes": [
+        "OUT-PROTOCOL-V1-CONTRACT"
+      ]
+    },
+    {
+      "id": "UNIT-NATIVE-PROTOCOL",
+      "title": "Native protocol parser and transcript runtime",
+      "capabilities": [
+        "CAP-PROTOCOL"
+      ],
+      "architecture_modules": [
+        "protocol"
+      ],
+      "production_paths": [
+        "native/include/xnn_transfer/protocol/**",
+        "native/src/protocol/**"
+      ],
+      "test_paths": [
+        "native/tests/protocol/**",
+        "native/fuzz/protocol/**"
+      ],
+      "classification": "requalify",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "protocol/testdata/v1/vectors.json",
+        "native/tests/protocol/**"
+      ],
+      "rationale": "The canonical parser exists with substantial tests, but historical acceptance is not automatically promoted to the new Blueprint qualification.",
+      "follow_up_outcomes": [
+        "OUT-PROTOCOL-V1-CONTRACT",
+        "OUT-P2-FUZZING"
+      ]
+    },
+    {
+      "id": "UNIT-NATIVE-DISCOVERY",
+      "title": "Native LAN discovery",
+      "capabilities": [
+        "CAP-DISCOVERY"
+      ],
+      "architecture_modules": [
+        "discovery"
+      ],
+      "production_paths": [
+        "native/include/xnn_transfer/core/discovery/**",
+        "native/src/discovery/**"
+      ],
+      "test_paths": [
+        "native/tests/discovery/**"
+      ],
+      "classification": "requalify",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "native/tests/discovery/**"
+      ],
+      "rationale": "The canonical discovery target is concrete. It must be requalified against interface-change, expiry, and untrusted-input outcomes.",
+      "follow_up_outcomes": [
+        "OUT-P1-DISCOVERY",
+        "OUT-P1-ADVERSE-PLATFORM"
+      ]
+    },
+    {
+      "id": "UNIT-NATIVE-IDENTITY",
+      "title": "Protected native identity storage",
+      "capabilities": [
+        "CAP-IDENTITY"
+      ],
+      "architecture_modules": [
+        "identity"
+      ],
+      "production_paths": [
+        "native/include/xnn_transfer/core/security/identity/**",
+        "native/src/security/identity/**"
+      ],
+      "test_paths": [
+        "native/tests/security/identity/**"
+      ],
+      "classification": "requalify",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "native/tests/security/identity/**",
+        "docs/adr/0009-protected-identity-storage.md"
+      ],
+      "rationale": "Platform identity backends and fail-closed behavior exist, but security-sensitive implementation requires current negative and platform evidence.",
+      "follow_up_outcomes": [
+        "OUT-P1-PAIRING",
+        "OUT-P2-INTEROPERABILITY"
+      ]
+    },
+    {
+      "id": "UNIT-NATIVE-TLS",
+      "title": "TLS and cryptographic profile",
+      "capabilities": [
+        "CAP-SESSION"
+      ],
+      "architecture_modules": [
+        "tls"
+      ],
+      "production_paths": [
+        "native/include/xnn_transfer/core/security/tls/**",
+        "native/src/security/tls/**"
+      ],
+      "test_paths": [
+        "native/tests/security/tls/**"
+      ],
+      "classification": "requalify",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "native/tests/security/tls/**",
+        "docs/adr/0002-pairing-and-transport-security.md"
+      ],
+      "rationale": "The OpenSSL-backed TLS provider and profile are concrete, but cryptographic and transcript boundaries require current security qualification.",
+      "follow_up_outcomes": [
+        "OUT-P1-PAIRING",
+        "OUT-P2-INTEROPERABILITY"
+      ]
+    },
+    {
+      "id": "UNIT-NATIVE-SESSION",
+      "title": "Pairing and authenticated session runtime",
+      "capabilities": [
+        "CAP-SESSION"
+      ],
+      "architecture_modules": [
+        "session"
+      ],
+      "production_paths": [
+        "native/include/xnn_transfer/core/session/**",
+        "native/src/session/**"
+      ],
+      "test_paths": [
+        "native/tests/session/**"
+      ],
+      "classification": "requalify",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "native/tests/session/**",
+        "protocol/spec/pairing-v1.md"
+      ],
+      "rationale": "Pairing, admission, connection, and channel code exists. It requires current end-to-end authentication and concurrency evidence.",
+      "follow_up_outcomes": [
+        "OUT-P1-PAIRING",
+        "OUT-P1-ONE-FILE-TRANSFER",
+        "OUT-P1-RESUME"
+      ]
+    },
+    {
+      "id": "UNIT-NATIVE-STORAGE",
+      "title": "Safe native destination storage",
+      "capabilities": [
+        "CAP-STORAGE"
+      ],
+      "architecture_modules": [
+        "storage"
+      ],
+      "production_paths": [
+        "native/include/xnn_transfer/core/storage/**",
+        "native/src/storage/**"
+      ],
+      "test_paths": [
+        "native/tests/storage/**",
+        "protocol/testdata/storage/**"
+      ],
+      "classification": "requalify",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "native/tests/storage/**",
+        "refs/heads/attest/acceptance/XT-099"
+      ],
+      "rationale": "Path validation and atomic destination primitives are concrete. Portable path aliases are currently accepted, while the wider storage policy remains to be requalified.",
+      "follow_up_outcomes": [
+        "OUT-STORAGE-PORTABLE-WINDOWS-PATHS",
+        "OUT-P1-COLLISION",
+        "OUT-P1-ONE-FILE-TRANSFER"
+      ]
+    },
+    {
+      "id": "UNIT-NATIVE-TRANSFER",
+      "title": "Native transfer sender and receiver",
+      "capabilities": [
+        "CAP-TRANSFER"
+      ],
+      "architecture_modules": [
+        "transfer"
+      ],
+      "production_paths": [
+        "native/include/xnn_transfer/core/transfer/**",
+        "native/src/transfer/**"
+      ],
+      "test_paths": [
+        "native/tests/transfer/**"
+      ],
+      "classification": "requalify",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "native/tests/transfer/**"
+      ],
+      "rationale": "The sender, receiver, and frame codec are concrete. Exact-byte, cleanup, scheduling, resume, and performance outcomes require ordered requalification.",
+      "follow_up_outcomes": [
+        "OUT-P1-ONE-FILE-TRANSFER",
+        "OUT-P1-CANCELLATION",
+        "OUT-P1-MULTI-FILE",
+        "OUT-P1-SCHEDULING",
+        "OUT-P1-RESUME",
+        "OUT-P2-PERFORMANCE"
+      ]
+    },
+    {
+      "id": "UNIT-NATIVE-CORE-BRIDGE",
+      "title": "Native engine and C ABI bridge",
+      "capabilities": [
+        "CAP-BRIDGE"
+      ],
+      "architecture_modules": [
+        "core"
+      ],
+      "production_paths": [
+        "native/CMakeLists.txt",
+        "native/include/xnn_transfer/c_api.h",
+        "native/include/xnn_transfer/core/engine.hpp",
+        "native/src/core/**",
+        "native/src/bridge/**",
+        "native/src/security/CMakeLists.txt"
+      ],
+      "test_paths": [
+        "native/tests/abi/**",
+        "native/tests/bridge/**",
+        "native/tests/native_tests.cpp",
+        "native/fuzz/c_api_fuzzer.cpp"
+      ],
+      "classification": "requalify",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "native/tests/abi/**",
+        "tool/harness/abi_compat_test.sh"
+      ],
+      "rationale": "The only Flutter-facing native API and engine bridge are established contracts. They require current ABI, lifecycle, and integrated operation qualification.",
+      "follow_up_outcomes": [
+        "OUT-C-ABI-EVENT-MODEL",
+        "OUT-P1-ONE-FILE-TRANSFER",
+        "OUT-P1-FLUTTER-FLOW"
+      ]
+    },
+    {
+      "id": "UNIT-FLUTTER-NATIVE-ADAPTER",
+      "title": "Flutter native adapter",
+      "capabilities": [
+        "CAP-FLUTTER"
+      ],
+      "architecture_modules": [],
+      "production_paths": [
+        "apps/desktop/lib/core/native/**",
+        "apps/desktop/lib/app/native_vertical_slice_gateway.dart"
+      ],
+      "test_paths": [
+        "apps/desktop/test/core/native/**"
+      ],
+      "classification": "requalify",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "apps/desktop/test/core/native/**"
+      ],
+      "rationale": "FFI is correctly confined to the native adapter, but the operation surface requires current ABI and platform qualification.",
+      "follow_up_outcomes": [
+        "OUT-C-ABI-EVENT-MODEL",
+        "OUT-P1-FLUTTER-FLOW",
+        "OUT-NATIVE-PACKAGING"
+      ]
+    },
+    {
+      "id": "UNIT-FLUTTER-TRANSFER-FEATURE",
+      "title": "Flutter transfer application and presentation",
+      "capabilities": [
+        "CAP-FLUTTER"
+      ],
+      "architecture_modules": [],
+      "production_paths": [
+        "apps/desktop/lib/main.dart",
+        "apps/desktop/lib/app/sas_word_list.dart",
+        "apps/desktop/lib/app/xnn_transfer_app.dart",
+        "apps/desktop/lib/features/**"
+      ],
+      "test_paths": [
+        "apps/desktop/test/app/**",
+        "apps/desktop/test/features/**",
+        "apps/desktop/test/widget_test.dart"
+      ],
+      "classification": "requalify",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "apps/desktop/test/features/**",
+        "tool/harness/flutter_test.sh"
+      ],
+      "rationale": "The layered Flutter state model and vertical-slice UI exist, but the complete native workflow and platform behavior need current qualification.",
+      "follow_up_outcomes": [
+        "OUT-P1-FLUTTER-FLOW",
+        "OUT-P1-ADVERSE-PLATFORM",
+        "OUT-P2-PRIVACY"
+      ]
+    },
+    {
+      "id": "UNIT-BUILD-PACKAGING",
+      "title": "Build, dependency, and desktop packaging infrastructure",
+      "capabilities": [
+        "CAP-PACKAGING"
+      ],
+      "architecture_modules": [],
+      "production_paths": [
+        "CMakeLists.txt",
+        "cmake/**",
+        "vcpkg.json",
+        "vcpkg-configuration.json",
+        "apps/desktop/pubspec.yaml",
+        "apps/desktop/linux/**",
+        "apps/desktop/macos/**",
+        "apps/desktop/windows/**"
+      ],
+      "test_paths": [
+        "tool/harness/dependency_test.sh",
+        "tool/harness/macos_bundle_test.sh"
+      ],
+      "classification": "requalify",
+      "qualification": "historical",
+      "evidence": [
+        ".agents/migration-v1.json",
+        "tool/harness/dependency_test.sh",
+        ".github/workflows/merge-queue.yml"
+      ],
+      "rationale": "Pinned dependencies and platform runners exist. Signed release, update, and full interoperability outcomes remain unqualified.",
+      "follow_up_outcomes": [
+        "OUT-NATIVE-PACKAGING",
+        "OUT-P2-INTEROPERABILITY",
+        "OUT-P2-SIGNED-PACKAGING"
+      ]
+    },
+    {
+      "id": "UNIT-HARNESS",
+      "title": "Harness V2 control plane",
+      "capabilities": [
+        "CAP-HARNESS"
+      ],
+      "architecture_modules": [],
+      "production_paths": [
+        "tool/harness/**",
+        ".github/workflows/merge-queue.yml",
+        ".agents/manifest.json",
+        ".agents/gates.json",
+        ".agents/risk-routing.json",
+        ".agents/schemas/**"
+      ],
+      "test_paths": [
+        "tool/harness/tests/**"
+      ],
+      "classification": "preserve",
+      "qualification": "current",
+      "evidence": [
+        "refs/heads/attest/bootstrap/5b50c37ccd6f15c5b793d07841e9265e1571b45e",
+        "refs/heads/attest/acceptance/XT-103",
+        "docs/adr/0017-harness-v2-control-plane.md"
+      ],
+      "rationale": "The control plane has current owner-approved bootstrap and ordinary queue evidence. It remains the verifier for the semantic re-baseline.",
+      "follow_up_outcomes": [
+        "OUT-HARNESS-V2-CONTROL-PLANE",
+        "OUT-HARNESS-BRANCH-RECLAMATION"
+      ]
+    },
+    {
+      "id": "UNIT-PROJECT-MODEL",
+      "title": "Project Blueprint and deterministic projections",
+      "capabilities": [
+        "CAP-PROJECT-MODEL"
+      ],
+      "architecture_modules": [],
+      "production_paths": [
+        ".agents/project/**",
+        "tool/harness/project_model.py",
+        "tool/harness/project_model_test.py"
+      ],
+      "test_paths": [
+        "tool/harness/project_model_test.py"
+      ],
+      "classification": "requalify",
+      "qualification": "unqualified",
+      "evidence": [
+        "DP-PROJECT-SEMANTIC-REBASELINE",
+        "docs/harness-v2/semantic-rebaseline-plan.md"
+      ],
+      "rationale": "This bootstrap introduces the project model. It remains unqualified until exact-candidate bootstrap evidence and the normal certification Plan close.",
+      "follow_up_outcomes": [
+        "OUT-PROJECT-SEMANTIC-BASELINE"
+      ]
+    }
+  ]
+}

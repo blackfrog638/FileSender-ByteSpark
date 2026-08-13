@@ -226,11 +226,12 @@ class WorkspaceManager:
             ".agents/manifest.json",
             ".agents/gates.json",
             ".agents/risk-routing.json",
+            ".agents/project/approval.json",
             ".agents/plans/{}.json".format(task["plan"]),
             ".agents/tasks/{}.json".format(task_id),
         }
         for path in changed:
-            if path in governed_paths:
+            if path in governed_paths or path.startswith(".agents/project/"):
                 reasons.append("integration changed governance input {}".format(path))
         return sorted(set(reasons))
 

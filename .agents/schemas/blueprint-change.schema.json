@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xnntransfer.dev/schemas/harness-v2/blueprint-change.schema.json",
+  "title": "XnnTransfer Blueprint Change Set",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "title",
+    "status",
+    "depends_on",
+    "transitions",
+    "approval"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "$ref": "#/$defs/id"
+    },
+    "title": {
+      "$ref": "#/$defs/text"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "approved"
+      ]
+    },
+    "depends_on": {
+      "$ref": "#/$defs/ids"
+    },
+    "transitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/transition"
+      }
+    },
+    "approval": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/approval"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9-]+$"
+    },
+    "planId": {
+      "type": "string",
+      "pattern": "^DP-[A-Z0-9-]+$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "state": {
+      "enum": [
+        "absent",
+        "specified",
+        "implemented",
+        "qualified"
+      ]
+    },
+    "ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "nonEmptyIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/id"
+      }
+    },
+    "requirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outcome",
+        "outcome_revision",
+        "minimum_state"
+      ],
+      "properties": {
+        "outcome": {
+          "$ref": "#/$defs/id"
+        },
+        "outcome_revision": {
+          "$ref": "#/$defs/sha256"
+        },
+        "minimum_state": {
+          "$ref": "#/$defs/state"
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan",
+        "plan_revision",
+        "outcome",
+        "outcome_revision",
+        "from",
+        "to",
+        "criteria",
+        "preserves",
+        "requires"
+      ],
+      "properties": {
+        "plan": {
+          "$ref": "#/$defs/planId"
+        },
+        "plan_revision": {
+          "$ref": "#/$defs/sha256"
+        },
+        "outcome": {
+          "$ref": "#/$defs/id"
+        },
+        "outcome_revision": {
+          "$ref": "#/$defs/sha256"
+        },
+        "from": {
+          "$ref": "#/$defs/state"
+        },
+        "to": {
+          "$ref": "#/$defs/state"
+        },
+        "criteria": {
+          "$ref": "#/$defs/nonEmptyIds"
+        },
+        "preserves": {
+          "$ref": "#/$defs/ids"
+        },
+        "requires": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/requirement"
+          }
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approved_by",
+        "approved_at",
+        "content_sha256"
+      ],
+      "properties": {
+        "approved_by": {
+          "$ref": "#/$defs/text"
+        },
+        "approved_at": {
+          "$ref": "#/$defs/text"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    }
+  }
+}

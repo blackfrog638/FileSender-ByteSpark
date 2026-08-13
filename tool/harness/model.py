@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Mapping, Sequence, Set, Tuple
 
+import project_model
+
 
 PLAN_ID = re.compile(r"^DP-[A-Z0-9-]+$")
 TASK_ID = re.compile(r"^XT-[0-9]{3,}$")
@@ -376,6 +378,7 @@ class ContractSet:
     gate_policy: Dict[str, Any]
     risk_routing: Dict[str, Any]
     legacy_accepted: FrozenSet[str]
+    project: project_model.ProjectModel
 
     @property
     def gates(self) -> Mapping[str, Any]:
@@ -1303,6 +1306,27 @@ def load_contracts(root: Path) -> ContractSet:
         if task_id in tasks:
             raise ContractError("duplicate task id {}".format(task_id))
         tasks[task_id] = task
+    module_document = load_json(agents / "architecture" / "modules.json")
+    raw_modules = module_document.get("modules")
+    if not isinstance(raw_modules, list):
+        raise ContractError("architecture module inventory is invalid")
+    architecture_modules = {
+        item["id"]: item
+        for item in raw_modules
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
+    try:
+        project = project_model.load_project(
+            root,
+            plans,
+            set(gate_policy["gates"]),
+            manifest["project_owner"]["id"],
+            architecture_modules,
+            require_approved=True,
+        )
+        project_model.check_generated_documents(project)
+    except project_model.ProjectModelError as error:
+        raise ContractError("project model is invalid: {}".format(error)) from error
     contracts = ContractSet(
         root=root,
         manifest=manifest,
@@ -1311,6 +1335,7 @@ def load_contracts(root: Path) -> ContractSet:
         gate_policy=gate_policy,
         risk_routing=risk_routing,
         legacy_accepted=legacy_accepted,
+        project=project,
     )
     _validate_cross_contracts(contracts)
     return contracts
@@ -1340,7 +1365,32 @@ def approve_plan(root: Path, plan_path: Path, now: str) -> str:
         "content_sha256": "",
     }
     plan["approval"]["content_sha256"] = plan_content_sha256(plan)
-    _validate_plan(plan, manifest, load_json(root / ".agents" / "gates.json")["gates"])
+    gate_policy = load_json(root / ".agents" / "gates.json")
+    _validate_plan(plan, manifest, gate_policy["gates"])
+    plans = {
+        load_json(path)["id"]: load_json(path)
+        for path in sorted((root / ".agents" / "plans").glob("DP-*.json"))
+    }
+    plans[plan["id"]] = plan
+    module_document = load_json(root / ".agents" / "architecture" / "modules.json")
+    architecture_modules = {
+        item["id"]: item
+        for item in module_document.get("modules", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
+    try:
+        project_model.load_project(
+            root,
+            plans,
+            set(gate_policy["gates"]),
+            manifest["project_owner"]["id"],
+            architecture_modules,
+            require_approved=False,
+        )
+    except project_model.ProjectModelError as error:
+        raise ContractError(
+            "approved Plan does not compose with the project model: {}".format(error)
+        ) from error
     with tempfile.NamedTemporaryFile(
         mode="w",
         encoding="utf-8",

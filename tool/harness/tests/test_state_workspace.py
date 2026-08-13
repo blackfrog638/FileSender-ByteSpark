@@ -45,8 +45,7 @@ class RepositoryFixture:
             ["git", "-C", str(self.root), "config", "user.email", "owner@example.com"],
             check=True,
         )
-        (self.root / "docs").mkdir()
-        (self.root / "docs" / "roadmap.md").write_text("# Roadmap\n", encoding="utf-8")
+        (self.root / "docs").mkdir(exist_ok=True)
         (self.root / "native" / "tests").mkdir(parents=True)
         (self.root / "native" / "tests" / "feature_test.cpp").write_text(
             "// test\n", encoding="utf-8"

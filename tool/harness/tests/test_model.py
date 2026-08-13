@@ -16,6 +16,7 @@ HARNESS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(HARNESS))
 
 import model  # noqa: E402
+import project_model  # noqa: E402
 
 
 def leaf(argv: list, inputs: list, group: str = "lightweight") -> Dict[str, Any]:
@@ -232,6 +233,14 @@ class ContractFixture:
 
     def write(self) -> None:
         agents = self.root / ".agents"
+        (self.root / "product").mkdir(exist_ok=True)
+        (self.root / "product" / "example.txt").write_text(
+            "example\n", encoding="utf-8"
+        )
+        (self.root / "docs" / "adr").mkdir(parents=True, exist_ok=True)
+        (self.root / "docs" / "adr" / "0001-example.md").write_text(
+            "# Example decision\n", encoding="utf-8"
+        )
         self._dump(agents / "manifest.json", self.manifest)
         self._dump(
             agents / "commit-identity.json",
@@ -251,6 +260,182 @@ class ContractFixture:
         self._dump(agents / "plans" / "DP-EXAMPLE.json", self.plan)
         self._dump(agents / "tasks" / "XT-101.json", self.implementation)
         self._dump(agents / "tasks" / "XT-102.json", self.acceptance)
+        self._write_project_model()
+
+    def _write_project_model(self) -> None:
+        agents = self.root / ".agents"
+        project = agents / "project"
+        (project / "changes").mkdir(parents=True, exist_ok=True)
+        outcome = {
+            "id": "OUT-EXAMPLE",
+            "title": "Example outcome",
+            "milestone": "MS-EXAMPLE",
+            "capability": "CAP-EXAMPLE",
+            "statement": "Deliver one observable behavior.",
+            "depends_on": [],
+            "invariants": ["INV-EXAMPLE"],
+            "criteria": [
+                {
+                    "id": "CRIT-EXAMPLE-BEHAVIOR",
+                    "statement": "The example behavior is observable.",
+                    "negative_definitions": ["A skipped test does not qualify."],
+                }
+            ],
+            "target_state": "qualified",
+            "deferred_reason": None,
+        }
+        blueprint = {
+            "schema_version": 1,
+            "id": "PROJECT-EXAMPLE",
+            "title": "Example project",
+            "mission": "Exercise strict project composition.",
+            "state_order": [
+                "absent",
+                "specified",
+                "implemented",
+                "qualified",
+            ],
+            "goals": [
+                {
+                    "id": "GOAL-EXAMPLE",
+                    "title": "Example goal",
+                    "statement": "Deliver one qualified outcome.",
+                    "milestones": ["MS-EXAMPLE"],
+                }
+            ],
+            "milestones": [
+                {
+                    "id": "MS-EXAMPLE",
+                    "title": "Example milestone",
+                    "sequence": 10,
+                    "outcomes": ["OUT-EXAMPLE"],
+                }
+            ],
+            "capabilities": [
+                {
+                    "id": "CAP-EXAMPLE",
+                    "title": "Example capability",
+                    "depends_on": [],
+                    "implementation_units": ["UNIT-EXAMPLE"],
+                }
+            ],
+            "outcomes": [outcome],
+        }
+        invariants = {
+            "schema_version": 1,
+            "invariants": [
+                {
+                    "id": "INV-EXAMPLE",
+                    "category": "correctness",
+                    "statement": "The example behavior remains observable.",
+                    "decision_refs": ["docs/adr/0001-example.md"],
+                    "applies_to": ["OUT-EXAMPLE"],
+                }
+            ],
+        }
+        baseline = {
+            "schema_version": 1,
+            "states": [
+                {
+                    "outcome": "OUT-EXAMPLE",
+                    "state": "specified",
+                    "basis": "The example behavior is specified.",
+                }
+            ],
+        }
+        quality = {
+            "schema_version": 1,
+            "budgets": [
+                {
+                    "id": "QB-EXAMPLE",
+                    "dimension": "correctness",
+                    "statement": "The feature Gate has no violations.",
+                    "outcomes": ["OUT-EXAMPLE"],
+                    "metric": "feature_gate_violations",
+                    "operator": "equals",
+                    "threshold": 0,
+                    "unit": "violations",
+                    "status": "active",
+                    "gate": "feature_test",
+                    "deferred_reason": None,
+                }
+            ],
+        }
+        assets = {
+            "schema_version": 1,
+            "production_roots": ["product"],
+            "units": [
+                {
+                    "id": "UNIT-EXAMPLE",
+                    "title": "Example implementation",
+                    "capabilities": ["CAP-EXAMPLE"],
+                    "architecture_modules": [],
+                    "production_paths": ["product/**"],
+                    "test_paths": [],
+                    "classification": "requalify",
+                    "qualification": "historical",
+                    "evidence": ["docs/adr/0001-example.md"],
+                    "rationale": (
+                        "The canonical example remains while current evidence "
+                        "is collected."
+                    ),
+                    "follow_up_outcomes": ["OUT-EXAMPLE"],
+                }
+            ],
+        }
+        change = {
+            "schema_version": 1,
+            "id": "BC-EXAMPLE",
+            "title": "Qualify the example",
+            "status": "approved",
+            "depends_on": [],
+            "transitions": [
+                {
+                    "plan": "DP-EXAMPLE",
+                    "plan_revision": project_model.plan_revision_sha256(self.plan),
+                    "outcome": "OUT-EXAMPLE",
+                    "outcome_revision": project_model.canonical_sha256(outcome),
+                    "from": "specified",
+                    "to": "qualified",
+                    "criteria": ["CRIT-EXAMPLE-BEHAVIOR"],
+                    "preserves": ["INV-EXAMPLE"],
+                    "requires": [],
+                }
+            ],
+            "approval": None,
+        }
+        change["approval"] = {
+            "approved_by": self.manifest["project_owner"]["id"],
+            "approved_at": "2026-08-12T00:00:00Z",
+            "content_sha256": project_model.change_content_sha256(change),
+        }
+        self._dump(project / "blueprint.json", blueprint)
+        self._dump(project / "invariants.json", invariants)
+        self._dump(project / "composition-baseline.json", baseline)
+        self._dump(project / "quality-budgets.json", quality)
+        self._dump(project / "assets.json", assets)
+        self._dump(project / "changes" / "BC-EXAMPLE.json", change)
+        self._dump(
+            project / "approval.json",
+            {
+                "schema_version": 1,
+                "approved_by": self.manifest["project_owner"]["id"],
+                "approved_at": "2026-08-12T00:01:00Z",
+                "content_sha256": project_model.project_source_digest(self.root),
+            },
+        )
+        try:
+            loaded = project_model.load_project(
+                self.root,
+                {"DP-EXAMPLE": self.plan},
+                set(self.gates["gates"]),
+                self.manifest["project_owner"]["id"],
+                {},
+                require_approved=True,
+            )
+        except project_model.ProjectModelError:
+            return
+        project_model.write_generated_documents(loaded)
 
 
 class ModelTest(unittest.TestCase):
@@ -260,15 +445,14 @@ class ModelTest(unittest.TestCase):
         self.assertEqual(set(contracts.tasks), {"XT-101", "XT-102"})
         self.assertEqual(set(contracts.gates), {"governance", "feature_test", "verify"})
 
-    def test_allows_empty_active_plan_and_task_catalogue(self) -> None:
+    def test_rejects_plan_catalogue_missing_blueprint_transitions(self) -> None:
         fixture = ContractFixture(self)
         for path in (fixture.root / ".agents" / "plans").glob("*.json"):
             path.unlink()
         for path in (fixture.root / ".agents" / "tasks").glob("*.json"):
             path.unlink()
-        contracts = model.load_contracts(fixture.root)
-        self.assertEqual(contracts.plans, {})
-        self.assertEqual(contracts.tasks, {})
+        with self.assertRaisesRegex(model.ContractError, "references unknown Plan"):
+            model.load_contracts(fixture.root)
 
     def test_canonical_digest_is_order_independent(self) -> None:
         left = {"a": 1, "b": {"c": ["é", False]}}
@@ -368,7 +552,8 @@ class ModelTest(unittest.TestCase):
         )
         fixture.write()
         with self.assertRaisesRegex(
-            model.ContractError, "maps no requirement criterion"
+            model.ContractError,
+            "maps no requirement criterion|absent from the Blueprint",
         ):
             model.load_contracts(fixture.root)
 

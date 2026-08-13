@@ -1,0 +1,189 @@
+{
+  "schema_version": 1,
+  "invariants": [
+    {
+      "id": "INV-FLUTTER-C-ABI-ONLY",
+      "category": "architecture",
+      "statement": "Flutter reaches native implementation only through the versioned C ABI and dart:ffi remains confined to the native adapter.",
+      "decision_refs": [
+        "docs/adr/0001-monorepo-and-native-boundary.md",
+        "docs/adr/0003-asynchronous-native-event-abi.md"
+      ],
+      "applies_to": [
+        "OUT-C-ABI-EVENT-MODEL",
+        "OUT-NATIVE-PACKAGING",
+        "OUT-P1-FLUTTER-FLOW"
+      ]
+    },
+    {
+      "id": "INV-DISCOVERY-IS-UNTRUSTED",
+      "category": "security",
+      "statement": "Discovery establishes reachability only and never establishes identity, authorization, or automatic file acceptance.",
+      "decision_refs": [
+        "docs/adr/0002-pairing-and-transport-security.md",
+        "docs/adr/0007-lan-discovery.md"
+      ],
+      "applies_to": [
+        "OUT-P1-DISCOVERY",
+        "OUT-P2-PRIVACY"
+      ]
+    },
+    {
+      "id": "INV-AUTH-BEFORE-METADATA",
+      "category": "security",
+      "statement": "Peer identity and transport are authenticated before file metadata or contents are accepted.",
+      "decision_refs": [
+        "docs/adr/0002-pairing-and-transport-security.md"
+      ],
+      "applies_to": [
+        "OUT-PROTOCOL-V1-CONTRACT",
+        "OUT-P1-PAIRING",
+        "OUT-P1-ONE-FILE-TRANSFER",
+        "OUT-P1-FLUTTER-FLOW",
+        "OUT-P1-MULTI-FILE",
+        "OUT-P1-RESUME",
+        "OUT-P2-INTEROPERABILITY"
+      ]
+    },
+    {
+      "id": "INV-NO-SECRET-STORAGE-FALLBACK",
+      "category": "security",
+      "statement": "Pairing identity is stored only by a qualified protected platform backend; unavailable or unqualified storage fails closed.",
+      "decision_refs": [
+        "docs/adr/0009-protected-identity-storage.md"
+      ],
+      "applies_to": [
+        "OUT-P1-PAIRING",
+        "OUT-P2-PRIVACY"
+      ]
+    },
+    {
+      "id": "INV-BOUNDED-HOSTILE-INPUT",
+      "category": "security",
+      "statement": "Frames, paths, manifests, peer metadata, sizes, counts, and persisted records are hostile input and are bounded before use.",
+      "decision_refs": [
+        "docs/adr/0004-v1-framing-and-negotiation.md",
+        "docs/adr/0008-p1-operation-c-abi.md"
+      ],
+      "applies_to": [
+        "OUT-PROTOCOL-V1-CONTRACT",
+        "OUT-C-ABI-EVENT-MODEL",
+        "OUT-P1-DISCOVERY",
+        "OUT-P1-PAIRING",
+        "OUT-P1-ONE-FILE-TRANSFER",
+        "OUT-STORAGE-PORTABLE-WINDOWS-PATHS",
+        "OUT-P1-MULTI-FILE",
+        "OUT-P1-SCHEDULING",
+        "OUT-P1-RESUME",
+        "OUT-P1-COLLISION",
+        "OUT-P2-FUZZING"
+      ]
+    },
+    {
+      "id": "INV-ATOMIC-VERIFIED-COMMIT",
+      "category": "persistence",
+      "statement": "Destination data is written to temporary storage, integrity verified, and atomically committed without traversal or link following.",
+      "decision_refs": [
+        "docs/architecture.md"
+      ],
+      "applies_to": [
+        "OUT-P1-ONE-FILE-TRANSFER",
+        "OUT-P1-CANCELLATION",
+        "OUT-STORAGE-PORTABLE-WINDOWS-PATHS",
+        "OUT-P1-MULTI-FILE",
+        "OUT-P1-RESUME",
+        "OUT-P1-COLLISION",
+        "OUT-P1-ADVERSE-PLATFORM"
+      ]
+    },
+    {
+      "id": "INV-SINGLE-ENGINE-OWNER",
+      "category": "concurrency",
+      "statement": "One native engine owns observable state, serializes state mutation, and treats stop as a barrier across execution domains.",
+      "decision_refs": [
+        "docs/adr/0003-asynchronous-native-event-abi.md",
+        "docs/adr/0006-p1-native-runtime.md"
+      ],
+      "applies_to": [
+        "OUT-C-ABI-EVENT-MODEL",
+        "OUT-P1-DISCOVERY",
+        "OUT-P1-ONE-FILE-TRANSFER",
+        "OUT-P1-CANCELLATION",
+        "OUT-P1-SCHEDULING",
+        "OUT-P2-PERFORMANCE"
+      ]
+    },
+    {
+      "id": "INV-CANONICAL-MODULES",
+      "category": "architecture",
+      "statement": "Each runtime capability has one canonical module and evolves in place without parallel replacement providers.",
+      "decision_refs": [
+        "docs/architecture.md"
+      ],
+      "applies_to": [
+        "OUT-NATIVE-PACKAGING",
+        "OUT-PROJECT-SEMANTIC-BASELINE"
+      ]
+    },
+    {
+      "id": "INV-EXACT-CANDIDATE-PUBLICATION",
+      "category": "delivery",
+      "statement": "Only an immutable submission-equivalent exact candidate with complete external evidence may advance the protected branch by compare-and-swap.",
+      "decision_refs": [
+        "docs/adr/0017-harness-v2-control-plane.md"
+      ],
+      "applies_to": [
+        "OUT-P2-SIGNED-PACKAGING",
+        "OUT-HARNESS-V2-CONTROL-PLANE",
+        "OUT-HARNESS-V2-PILOT",
+        "OUT-HARNESS-BRANCH-RECLAMATION",
+        "OUT-PROJECT-SEMANTIC-BASELINE"
+      ]
+    },
+    {
+      "id": "INV-RUNTIME-STATE-OUTSIDE-PRODUCT",
+      "category": "delivery",
+      "statement": "Lifecycle state and acceptance evidence remain in append-only refs and never enter product commits.",
+      "decision_refs": [
+        "docs/adr/0017-harness-v2-control-plane.md"
+      ],
+      "applies_to": [
+        "OUT-HARNESS-V2-CONTROL-PLANE",
+        "OUT-HARNESS-V2-PILOT",
+        "OUT-HARNESS-V2-PILOT-REPORT",
+        "OUT-HARNESS-BRANCH-RECLAMATION",
+        "OUT-PROJECT-SEMANTIC-BASELINE"
+      ]
+    },
+    {
+      "id": "INV-NO-SKIPPED-EVIDENCE",
+      "category": "quality",
+      "statement": "Missing tools, skipped tests, partial matrices, timeouts, crashes, and output truncation never count as passing required evidence.",
+      "decision_refs": [
+        "AGENTS.md"
+      ],
+      "applies_to": [
+        "OUT-P1-ADVERSE-PLATFORM",
+        "OUT-P2-FUZZING",
+        "OUT-P2-INTEROPERABILITY",
+        "OUT-P2-SIGNED-PACKAGING",
+        "OUT-P2-PERFORMANCE",
+        "OUT-HARNESS-V2-CONTROL-PLANE",
+        "OUT-HARNESS-V2-PILOT",
+        "OUT-HARNESS-V2-PILOT-REPORT",
+        "OUT-PROJECT-SEMANTIC-BASELINE"
+      ]
+    },
+    {
+      "id": "INV-BLUEPRINT-IS-PROJECT-AUTHORITY",
+      "category": "governance",
+      "statement": "Product outcomes, dependencies, invariants, and target states have one authority in the Blueprint; Plans express revision-bound transitions and docs are projections or explanations.",
+      "decision_refs": [
+        "docs/adr/0020-project-blueprint-and-semantic-rebaseline.md"
+      ],
+      "applies_to": [
+        "OUT-PROJECT-SEMANTIC-BASELINE"
+      ]
+    }
+  ]
+}

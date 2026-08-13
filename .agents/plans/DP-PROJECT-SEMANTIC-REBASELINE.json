@@ -1,0 +1,161 @@
+{
+  "schema_version": 1,
+  "id": "DP-PROJECT-SEMANTIC-REBASELINE",
+  "title": "Project semantic re-baseline",
+  "status": "approved",
+  "source": {
+    "kind": "implementation_plan",
+    "path": "docs/harness-v2/semantic-rebaseline-plan.md"
+  },
+  "requirements": [
+    {
+      "id": "REQ-PROJECT-BLUEPRINT",
+      "statement": "The repository has one strict machine-readable Blueprint that defines the project capability graph, milestones, invariants, quality budgets, module projections, and current qualification baseline.",
+      "criteria": [
+        {
+          "id": "CRIT-PROJECT-BLUEPRINT-GRAPH",
+          "statement": "Every product outcome, dependency, invariant, milestone, and implementation module belongs to one acyclic globally validated Blueprint graph.",
+          "negative_definitions": [
+            "A collection of unrelated Delivery Plans does not qualify as a project graph.",
+            "A handwritten roadmap that duplicates machine-readable facts does not qualify.",
+            "An orphan capability, outcome, invariant, module, or milestone does not qualify.",
+            "A cycle hidden across files or node types does not qualify."
+          ],
+          "evidence": {
+            "gates": [
+              "project_model"
+            ],
+            "scenarios": [
+              "complete-project-graph",
+              "cross-file-cycle-rejection",
+              "orphan-node-rejection",
+              "module-projection-validation"
+            ],
+            "topology": "strict_multi_file_project_graph",
+            "platforms": [
+              "linux",
+              "macos",
+              "windows"
+            ],
+            "roles": [
+              "project-owner",
+              "architecture-owner",
+              "product-owner"
+            ],
+            "allow_skipped": false
+          }
+        },
+        {
+          "id": "CRIT-PROJECT-PLAN-COMPOSITION",
+          "statement": "Every active Delivery Plan is an executable transition over revision-bound Blueprint outcomes, and the approved Plan catalogue composes without duplicate writers, unsatisfied preconditions, invariant gaps, or undeclared effects.",
+          "negative_definitions": [
+            "Treating a Delivery Plan as an independent source of product truth does not qualify.",
+            "Binding every Plan to one whole-Blueprint digest does not qualify.",
+            "Two Plans writing the same outcome transition do not qualify.",
+            "A Plan that weakens a Blueprint criterion or invariant does not qualify.",
+            "A stale Plan whose referenced node revision changed does not qualify."
+          ],
+          "evidence": {
+            "gates": [
+              "project_model"
+            ],
+            "scenarios": [
+              "plan-transition-composition",
+              "duplicate-writer-rejection",
+              "unsatisfied-precondition-rejection",
+              "node-revision-staleness",
+              "invariant-preservation"
+            ],
+            "topology": "approved_plan_catalogue_over_blueprint_revision",
+            "platforms": [
+              "linux",
+              "macos",
+              "windows"
+            ],
+            "roles": [
+              "project-owner",
+              "delivery-planner",
+              "integration-owner"
+            ],
+            "allow_skipped": false
+          }
+        },
+        {
+          "id": "CRIT-PROJECT-ASSET-REBASELINE",
+          "statement": "Every production asset is mapped to a Blueprint module and classified as preserve, requalify, replace, or remove with evidence, rationale, and ordered follow-up outcomes.",
+          "negative_definitions": [
+            "Deleting all product code without asset-level evidence does not qualify.",
+            "Automatically treating legacy acceptance as current Blueprint qualification does not qualify.",
+            "Keeping a duplicate provider or stale placeholder declaration does not qualify.",
+            "Classifying an asset without a module, evidence reference, or rationale does not qualify."
+          ],
+          "evidence": {
+            "gates": [
+              "project_model",
+              "architecture"
+            ],
+            "scenarios": [
+              "production-path-coverage",
+              "classification-enum",
+              "historical-evidence-separation",
+              "dependency-ordered-remediation"
+            ],
+            "topology": "production_inventory_with_historical_acceptance_input",
+            "platforms": [
+              "linux",
+              "macos",
+              "windows"
+            ],
+            "roles": [
+              "architecture-owner",
+              "security-reviewer",
+              "module-owner"
+            ],
+            "allow_skipped": false
+          }
+        },
+        {
+          "id": "CRIT-PROJECT-DOC-PROJECTION",
+          "statement": "Roadmap, capability, module, and re-baseline reports are deterministic projections of the Blueprint while explanatory documents and ADRs remain hand-authored.",
+          "negative_definitions": [
+            "A generated document that can drift from its source does not qualify.",
+            "Runtime task state committed into the generated roadmap does not qualify.",
+            "Replacing ADR rationale with generated JSON does not qualify.",
+            "Maintaining a second handwritten milestone or module truth does not qualify."
+          ],
+          "evidence": {
+            "gates": [
+              "project_model"
+            ],
+            "scenarios": [
+              "deterministic-doc-generation",
+              "generated-drift-rejection",
+              "runtime-state-exclusion",
+              "handwritten-rationale-boundary"
+            ],
+            "topology": "blueprint_to_document_projection",
+            "platforms": [
+              "linux",
+              "macos",
+              "windows"
+            ],
+            "roles": [
+              "documentation-owner",
+              "project-owner"
+            ],
+            "allow_skipped": false
+          }
+        }
+      ],
+      "implementation_tasks": [
+        "XT-105"
+      ],
+      "acceptance_owner": "XT-106"
+    }
+  ],
+  "approval": {
+    "approved_by": "project-owner",
+    "approved_at": "2026-08-13T06:51:29Z",
+    "content_sha256": "7de38aba1b58d4dc878c356936329b339abc72c614ace4534b717b6eaad5aea7"
+  }
+}

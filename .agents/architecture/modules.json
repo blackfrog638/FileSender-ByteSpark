@@ -60,7 +60,7 @@
         "native/src/security/identity"
       ],
       "allowed_project_dependencies": [],
-      "placeholder_until": "XT-022"
+      "placeholder_until": null
     },
     {
       "id": "tls",
@@ -74,7 +74,7 @@
       "allowed_project_dependencies": [
         "xnn_transfer_identity"
       ],
-      "placeholder_until": "XT-023"
+      "placeholder_until": null
     },
     {
       "id": "session",
@@ -90,7 +90,7 @@
         "xnn_transfer_protocol",
         "xnn_transfer_tls"
       ],
-      "placeholder_until": "XT-025"
+      "placeholder_until": null
     },
     {
       "id": "storage",
@@ -102,7 +102,7 @@
         "native/src/storage"
       ],
       "allowed_project_dependencies": [],
-      "placeholder_until": "XT-027"
+      "placeholder_until": null
     },
     {
       "id": "transfer",
@@ -118,7 +118,7 @@
         "xnn_transfer_session",
         "xnn_transfer_storage"
       ],
-      "placeholder_until": "XT-028"
+      "placeholder_until": null
     }
   ]
 }

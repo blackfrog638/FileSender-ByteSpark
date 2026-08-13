@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "states": [
+    {
+      "outcome": "OUT-PROTOCOL-V1-CONTRACT",
+      "state": "implemented",
+      "basis": "Versioned specifications, vectors, parser implementation, and historical V1 acceptance exist; current Blueprint qualification is intentionally not inferred."
+    },
+    {
+      "outcome": "OUT-C-ABI-EVENT-MODEL",
+      "state": "implemented",
+      "basis": "The C ABI, bridge, frozen caller, and historical acceptance exist; current Blueprint qualification is intentionally not inferred."
+    },
+    {
+      "outcome": "OUT-NATIVE-PACKAGING",
+      "state": "implemented",
+      "basis": "Cross-platform build and packaging code exists and requires Blueprint requalification."
+    },
+    {
+      "outcome": "OUT-P1-DISCOVERY",
+      "state": "implemented",
+      "basis": "The discovery target and platform implementations are concrete and require Blueprint requalification."
+    },
+    {
+      "outcome": "OUT-P1-PAIRING",
+      "state": "implemented",
+      "basis": "Identity, TLS, and pairing implementations exist and require Blueprint security requalification."
+    },
+    {
+      "outcome": "OUT-P1-ONE-FILE-TRANSFER",
+      "state": "implemented",
+      "basis": "The one-file transfer path exists and requires end-to-end Blueprint qualification."
+    },
+    {
+      "outcome": "OUT-P1-FLUTTER-FLOW",
+      "state": "implemented",
+      "basis": "The Flutter vertical slice and native gateway exist and require end-to-end Blueprint qualification."
+    },
+    {
+      "outcome": "OUT-P1-CANCELLATION",
+      "state": "implemented",
+      "basis": "Cancellation behavior exists and requires concurrency and cleanup requalification."
+    },
+    {
+      "outcome": "OUT-STORAGE-PORTABLE-WINDOWS-PATHS",
+      "state": "specified",
+      "basis": "Composition begins before the accepted Harness V2 pilot transition."
+    },
+    {
+      "outcome": "OUT-P1-MULTI-FILE",
+      "state": "specified",
+      "basis": "The target behavior is specified without a current V2 delivery transition."
+    },
+    {
+      "outcome": "OUT-P1-SCHEDULING",
+      "state": "specified",
+      "basis": "The target behavior is specified without a current V2 delivery transition."
+    },
+    {
+      "outcome": "OUT-P1-RESUME",
+      "state": "specified",
+      "basis": "ADR 0010 is proposed and no current V2 delivery transition exists."
+    },
+    {
+      "outcome": "OUT-P1-COLLISION",
+      "state": "implemented",
+      "basis": "Storage collision primitives exist and require policy-level requalification."
+    },
+    {
+      "outcome": "OUT-P1-ADVERSE-PLATFORM",
+      "state": "specified",
+      "basis": "The adverse-platform matrix is a target without a current V2 delivery transition."
+    },
+    {
+      "outcome": "OUT-P2-FUZZING",
+      "state": "implemented",
+      "basis": "C ABI and protocol fuzzing exist, while the required full surface remains incomplete."
+    },
+    {
+      "outcome": "OUT-P2-INTEROPERABILITY",
+      "state": "specified",
+      "basis": "The interoperability matrix is a target without a current V2 delivery transition."
+    },
+    {
+      "outcome": "OUT-P2-SIGNED-PACKAGING",
+      "state": "absent",
+      "basis": "No signed release pipeline or accepted update policy exists."
+    },
+    {
+      "outcome": "OUT-P2-PRIVACY",
+      "state": "absent",
+      "basis": "No telemetry implementation or accepted privacy policy exists."
+    },
+    {
+      "outcome": "OUT-P2-PERFORMANCE",
+      "state": "specified",
+      "basis": "Informational benchmarks exist but no blocking performance budget is approved."
+    },
+    {
+      "outcome": "OUT-HARNESS-V2-CONTROL-PLANE",
+      "state": "qualified",
+      "basis": "The owner-approved Harness V2 bootstrap attestation is the accepted semantic origin for subsequent V2 Plans."
+    },
+    {
+      "outcome": "OUT-HARNESS-V2-PILOT",
+      "state": "specified",
+      "basis": "Composition begins before DP-HARNESS-V2-PILOT."
+    },
+    {
+      "outcome": "OUT-HARNESS-V2-PILOT-REPORT",
+      "state": "specified",
+      "basis": "Composition begins before DP-HARNESS-V2-PILOT-REPORT."
+    },
+    {
+      "outcome": "OUT-HARNESS-BRANCH-RECLAMATION",
+      "state": "specified",
+      "basis": "Composition begins before DP-HARNESS-BRANCH-RECLAMATION."
+    },
+    {
+      "outcome": "OUT-PROJECT-SEMANTIC-BASELINE",
+      "state": "specified",
+      "basis": "Composition begins before DP-PROJECT-SEMANTIC-REBASELINE."
+    }
+  ]
+}

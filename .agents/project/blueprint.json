@@ -1,0 +1,964 @@
+{
+  "schema_version": 1,
+  "id": "PROJECT-XNN-TRANSFER",
+  "title": "XnnTransfer project blueprint",
+  "mission": "Deliver direct, explicit, secure, cross-platform file transfer between peers on the same LAN without weakening hostile-input, persistence, or delivery guarantees.",
+  "state_order": [
+    "absent",
+    "specified",
+    "implemented",
+    "qualified"
+  ],
+  "goals": [
+    {
+      "id": "GOAL-DIRECT-LAN-TRANSFER",
+      "title": "Direct LAN file transfer",
+      "statement": "Users can discover, authenticate, and transfer files directly on a LAN across supported desktop platforms.",
+      "milestones": [
+        "MS-FOUNDATION",
+        "MS-P1-VERTICAL-SLICE",
+        "MS-P1-PRODUCTION",
+        "MS-P2-HARDENING"
+      ]
+    },
+    {
+      "id": "GOAL-ENGINEERING-INTEGRITY",
+      "title": "Auditable engineering integrity",
+      "statement": "Every product increment is derived from one project model and accepted from immutable exact-candidate evidence.",
+      "milestones": [
+        "MS-GOVERNANCE"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "MS-FOUNDATION",
+      "title": "Contracts and runtime foundation",
+      "sequence": 10,
+      "outcomes": [
+        "OUT-PROTOCOL-V1-CONTRACT",
+        "OUT-C-ABI-EVENT-MODEL",
+        "OUT-NATIVE-PACKAGING"
+      ]
+    },
+    {
+      "id": "MS-P1-VERTICAL-SLICE",
+      "title": "P1 authenticated one-file vertical slice",
+      "sequence": 20,
+      "outcomes": [
+        "OUT-P1-DISCOVERY",
+        "OUT-P1-PAIRING",
+        "OUT-P1-ONE-FILE-TRANSFER",
+        "OUT-P1-FLUTTER-FLOW",
+        "OUT-P1-CANCELLATION",
+        "OUT-STORAGE-PORTABLE-WINDOWS-PATHS"
+      ]
+    },
+    {
+      "id": "MS-P1-PRODUCTION",
+      "title": "P1 production transfer behavior",
+      "sequence": 30,
+      "outcomes": [
+        "OUT-P1-MULTI-FILE",
+        "OUT-P1-SCHEDULING",
+        "OUT-P1-RESUME",
+        "OUT-P1-COLLISION",
+        "OUT-P1-ADVERSE-PLATFORM"
+      ]
+    },
+    {
+      "id": "MS-P2-HARDENING",
+      "title": "P2 hardening and release",
+      "sequence": 40,
+      "outcomes": [
+        "OUT-P2-FUZZING",
+        "OUT-P2-INTEROPERABILITY",
+        "OUT-P2-SIGNED-PACKAGING",
+        "OUT-P2-PRIVACY",
+        "OUT-P2-PERFORMANCE"
+      ]
+    },
+    {
+      "id": "MS-GOVERNANCE",
+      "title": "Project governance and delivery control",
+      "sequence": 5,
+      "outcomes": [
+        "OUT-HARNESS-V2-CONTROL-PLANE",
+        "OUT-HARNESS-V2-PILOT",
+        "OUT-HARNESS-V2-PILOT-REPORT",
+        "OUT-HARNESS-BRANCH-RECLAMATION",
+        "OUT-PROJECT-SEMANTIC-BASELINE"
+      ]
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "CAP-PROTOCOL",
+      "title": "Bounded wire protocol",
+      "depends_on": [],
+      "implementation_units": [
+        "UNIT-PROTOCOL-CONTRACT",
+        "UNIT-NATIVE-PROTOCOL"
+      ]
+    },
+    {
+      "id": "CAP-DISCOVERY",
+      "title": "Untrusted LAN discovery",
+      "depends_on": [
+        "CAP-PROTOCOL"
+      ],
+      "implementation_units": [
+        "UNIT-NATIVE-DISCOVERY"
+      ]
+    },
+    {
+      "id": "CAP-IDENTITY",
+      "title": "Protected peer identity",
+      "depends_on": [],
+      "implementation_units": [
+        "UNIT-NATIVE-IDENTITY"
+      ]
+    },
+    {
+      "id": "CAP-SESSION",
+      "title": "Authenticated encrypted session",
+      "depends_on": [
+        "CAP-PROTOCOL",
+        "CAP-IDENTITY"
+      ],
+      "implementation_units": [
+        "UNIT-NATIVE-TLS",
+        "UNIT-NATIVE-SESSION"
+      ]
+    },
+    {
+      "id": "CAP-STORAGE",
+      "title": "Safe destination storage",
+      "depends_on": [],
+      "implementation_units": [
+        "UNIT-NATIVE-STORAGE"
+      ]
+    },
+    {
+      "id": "CAP-TRANSFER",
+      "title": "Verified file transfer",
+      "depends_on": [
+        "CAP-PROTOCOL",
+        "CAP-SESSION",
+        "CAP-STORAGE"
+      ],
+      "implementation_units": [
+        "UNIT-NATIVE-TRANSFER"
+      ]
+    },
+    {
+      "id": "CAP-BRIDGE",
+      "title": "Versioned asynchronous C ABI",
+      "depends_on": [
+        "CAP-DISCOVERY",
+        "CAP-SESSION",
+        "CAP-TRANSFER"
+      ],
+      "implementation_units": [
+        "UNIT-NATIVE-CORE-BRIDGE"
+      ]
+    },
+    {
+      "id": "CAP-FLUTTER",
+      "title": "Desktop user workflow",
+      "depends_on": [
+        "CAP-BRIDGE"
+      ],
+      "implementation_units": [
+        "UNIT-FLUTTER-NATIVE-ADAPTER",
+        "UNIT-FLUTTER-TRANSFER-FEATURE"
+      ]
+    },
+    {
+      "id": "CAP-PACKAGING",
+      "title": "Cross-platform packaging",
+      "depends_on": [
+        "CAP-BRIDGE",
+        "CAP-FLUTTER"
+      ],
+      "implementation_units": [
+        "UNIT-BUILD-PACKAGING"
+      ]
+    },
+    {
+      "id": "CAP-HARNESS",
+      "title": "Exact-candidate delivery control",
+      "depends_on": [],
+      "implementation_units": [
+        "UNIT-HARNESS"
+      ]
+    },
+    {
+      "id": "CAP-PROJECT-MODEL",
+      "title": "Global project semantic model",
+      "depends_on": [
+        "CAP-HARNESS"
+      ],
+      "implementation_units": [
+        "UNIT-PROJECT-MODEL"
+      ]
+    }
+  ],
+  "outcomes": [
+    {
+      "id": "OUT-PROTOCOL-V1-CONTRACT",
+      "title": "Versioned bounded protocol contract",
+      "milestone": "MS-FOUNDATION",
+      "capability": "CAP-PROTOCOL",
+      "statement": "Version 1 framing, negotiation, transcript order, and limits are specified and validated against hostile vectors.",
+      "depends_on": [],
+      "invariants": [
+        "INV-BOUNDED-HOSTILE-INPUT",
+        "INV-AUTH-BEFORE-METADATA"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-PROTOCOL-V1",
+          "statement": "The versioned protocol specification and vectors define bounded parsing, negotiation, and transcript failure behavior.",
+          "negative_definitions": [
+            "Parser acceptance without protocol ordering does not qualify.",
+            "An unbounded field or collection does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "Existing historical evidence must be requalified against the Blueprint before this outcome is current."
+    },
+    {
+      "id": "OUT-C-ABI-EVENT-MODEL",
+      "title": "Asynchronous versioned C ABI",
+      "milestone": "MS-FOUNDATION",
+      "capability": "CAP-BRIDGE",
+      "statement": "Flutter observes native operations only through a versioned asynchronous C ABI with explicit ownership and bounded event delivery.",
+      "depends_on": [],
+      "invariants": [
+        "INV-FLUTTER-C-ABI-ONLY",
+        "INV-SINGLE-ENGINE-OWNER",
+        "INV-BOUNDED-HOSTILE-INPUT"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-C-ABI",
+          "statement": "The frozen caller remains ABI compatible and native shutdown prevents callbacks after the shutdown barrier.",
+          "negative_definitions": [
+            "Passing only a same-version caller does not qualify.",
+            "Borrowed native memory crossing the ABI does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "Existing historical evidence must be requalified against the Blueprint before this outcome is current."
+    },
+    {
+      "id": "OUT-NATIVE-PACKAGING",
+      "title": "Cross-platform native library packaging",
+      "milestone": "MS-FOUNDATION",
+      "capability": "CAP-PACKAGING",
+      "statement": "Linux, macOS, and Windows desktop bundles load the project native library through the supported adapter.",
+      "depends_on": [
+        {
+          "outcome": "OUT-C-ABI-EVENT-MODEL",
+          "minimum_state": "implemented"
+        }
+      ],
+      "invariants": [
+        "INV-FLUTTER-C-ABI-ONLY",
+        "INV-CANONICAL-MODULES"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-NATIVE-PACKAGING",
+          "statement": "Each supported desktop platform builds, bundles, loads, and smoke-tests the canonical native library.",
+          "negative_definitions": [
+            "Building without loading the bundled library does not qualify.",
+            "Using a system dependency fallback does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "Packaging is implemented but requires Blueprint qualification evidence."
+    },
+    {
+      "id": "OUT-P1-DISCOVERY",
+      "title": "LAN peer discovery",
+      "milestone": "MS-P1-VERTICAL-SLICE",
+      "capability": "CAP-DISCOVERY",
+      "statement": "Peers are discovered and expired across interface changes without treating reachability as identity.",
+      "depends_on": [
+        {
+          "outcome": "OUT-PROTOCOL-V1-CONTRACT",
+          "minimum_state": "implemented"
+        }
+      ],
+      "invariants": [
+        "INV-DISCOVERY-IS-UNTRUSTED",
+        "INV-BOUNDED-HOSTILE-INPUT",
+        "INV-SINGLE-ENGINE-OWNER"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P1-DISCOVERY",
+          "statement": "Discovery handles expiry and interface changes while exposing only untrusted peer candidates.",
+          "negative_definitions": [
+            "Treating an announcement as authenticated identity does not qualify.",
+            "Retaining a peer beyond bounded expiry does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "The concrete implementation requires requalification and cross-platform interface evidence."
+    },
+    {
+      "id": "OUT-P1-PAIRING",
+      "title": "Authenticated peer pairing",
+      "milestone": "MS-P1-VERTICAL-SLICE",
+      "capability": "CAP-SESSION",
+      "statement": "Users explicitly pair peers and bind protected identity to the authenticated TLS transport.",
+      "depends_on": [
+        {
+          "outcome": "OUT-PROTOCOL-V1-CONTRACT",
+          "minimum_state": "implemented"
+        }
+      ],
+      "invariants": [
+        "INV-AUTH-BEFORE-METADATA",
+        "INV-NO-SECRET-STORAGE-FALLBACK",
+        "INV-BOUNDED-HOSTILE-INPUT"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P1-PAIRING",
+          "statement": "Pairing proves key possession, requires explicit user confirmation, and stores identity only in qualified protected storage.",
+          "negative_definitions": [
+            "Unauthenticated discovery data authorizing a session does not qualify.",
+            "A plaintext or silent storage fallback does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "The identity, TLS, and pairing implementation requires Blueprint security requalification."
+    },
+    {
+      "id": "OUT-P1-ONE-FILE-TRANSFER",
+      "title": "Authenticated one-file transfer",
+      "milestone": "MS-P1-VERTICAL-SLICE",
+      "capability": "CAP-TRANSFER",
+      "statement": "One explicitly accepted file is transferred over an authenticated session, hash verified, and atomically committed.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P1-PAIRING",
+          "minimum_state": "implemented"
+        },
+        {
+          "outcome": "OUT-STORAGE-PORTABLE-WINDOWS-PATHS",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-AUTH-BEFORE-METADATA",
+        "INV-ATOMIC-VERIFIED-COMMIT",
+        "INV-BOUNDED-HOSTILE-INPUT",
+        "INV-SINGLE-ENGINE-OWNER"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P1-ONE-FILE",
+          "statement": "An explicitly accepted one-file transfer commits exact verified bytes and leaves no destination file on failure or cancellation.",
+          "negative_definitions": [
+            "Receiving bytes before authentication and acceptance does not qualify.",
+            "Renaming unverified temporary content does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "The implemented vertical slice requires end-to-end Blueprint qualification."
+    },
+    {
+      "id": "OUT-P1-FLUTTER-FLOW",
+      "title": "Flutter transfer flow",
+      "milestone": "MS-P1-VERTICAL-SLICE",
+      "capability": "CAP-FLUTTER",
+      "statement": "Flutter presents peer selection, pairing, send, receive, progress, and terminal outcomes through application abstractions.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P1-DISCOVERY",
+          "minimum_state": "implemented"
+        },
+        {
+          "outcome": "OUT-P1-ONE-FILE-TRANSFER",
+          "minimum_state": "implemented"
+        }
+      ],
+      "invariants": [
+        "INV-FLUTTER-C-ABI-ONLY",
+        "INV-AUTH-BEFORE-METADATA"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P1-FLUTTER-FLOW",
+          "statement": "The desktop UI exposes the complete vertical-slice state machine without presentation code calling FFI directly.",
+          "negative_definitions": [
+            "A fake-only gateway presented as native integration does not qualify.",
+            "A widget importing dart:ffi does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "The existing Flutter flow requires end-to-end native and platform qualification."
+    },
+    {
+      "id": "OUT-P1-CANCELLATION",
+      "title": "Deterministic cancellation",
+      "milestone": "MS-P1-VERTICAL-SLICE",
+      "capability": "CAP-TRANSFER",
+      "statement": "Cancellation reaches a terminal state, stops observable work, and deterministically removes temporary state.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P1-ONE-FILE-TRANSFER",
+          "minimum_state": "implemented"
+        }
+      ],
+      "invariants": [
+        "INV-ATOMIC-VERIFIED-COMMIT",
+        "INV-SINGLE-ENGINE-OWNER"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P1-CANCELLATION",
+          "statement": "Cancellation is idempotent, bounded, and leaves neither callbacks nor temporary destination state after its barrier.",
+          "negative_definitions": [
+            "A best-effort request without a terminal barrier does not qualify.",
+            "Leaving a resumable record without policy authorization does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "Existing cancellation behavior requires concurrency and cleanup requalification."
+    },
+    {
+      "id": "OUT-STORAGE-PORTABLE-WINDOWS-PATHS",
+      "title": "Portable Windows destination paths",
+      "milestone": "MS-P1-VERTICAL-SLICE",
+      "capability": "CAP-STORAGE",
+      "statement": "Shared path validation rejects Windows reserved aliases and trailing ASCII dot or space components before filesystem access.",
+      "depends_on": [],
+      "invariants": [
+        "INV-BOUNDED-HOSTILE-INPUT",
+        "INV-ATOMIC-VERIFIED-COMMIT"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-HV2-PILOT-STORAGE-PATHS",
+          "statement": "The shared path validator rejects ASCII-case variants of CON, PRN, AUX, NUL, COM1 through COM9, and LPT1 through LPT9 with or without extensions, plus every component ending in an ASCII dot or space.",
+          "negative_definitions": [
+            "Rejecting only exact uppercase aliases does not qualify.",
+            "Rejecting an alias without rejecting the same alias with an extension does not qualify.",
+            "Relying on a Windows filesystem error after validation does not qualify.",
+            "Rejecting ordinary interior dots or spaces does not qualify.",
+            "A skipped platform Gate does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": null
+    },
+    {
+      "id": "OUT-P1-MULTI-FILE",
+      "title": "Multi-file manifests and directories",
+      "milestone": "MS-P1-PRODUCTION",
+      "capability": "CAP-TRANSFER",
+      "statement": "Bounded manifests preserve directory structure and commit a validated multi-file transfer consistently.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P1-ONE-FILE-TRANSFER",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-AUTH-BEFORE-METADATA",
+        "INV-ATOMIC-VERIFIED-COMMIT",
+        "INV-BOUNDED-HOSTILE-INPUT"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P1-MULTI-FILE",
+          "statement": "A bounded multi-file manifest is validated as one transfer and cannot escape the selected destination.",
+          "negative_definitions": [
+            "Unbounded file count or aggregate size does not qualify.",
+            "Partially committed destination trees do not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "No approved V2 delivery Plan currently owns this outcome."
+    },
+    {
+      "id": "OUT-P1-SCHEDULING",
+      "title": "Chunk scheduling and backpressure",
+      "milestone": "MS-P1-PRODUCTION",
+      "capability": "CAP-TRANSFER",
+      "statement": "Chunk scheduling bounds memory and I/O while reporting meaningful progress and rate.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P1-ONE-FILE-TRANSFER",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-SINGLE-ENGINE-OWNER",
+        "INV-BOUNDED-HOSTILE-INPUT"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P1-SCHEDULING",
+          "statement": "Backpressure keeps queued bytes and concurrent filesystem work within declared budgets.",
+          "negative_definitions": [
+            "Unbounded buffering does not qualify.",
+            "A rate calculated from uncommitted bytes does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "No approved V2 delivery Plan currently owns this outcome."
+    },
+    {
+      "id": "OUT-P1-RESUME",
+      "title": "Transfer resume",
+      "milestone": "MS-P1-PRODUCTION",
+      "capability": "CAP-TRANSFER",
+      "statement": "A transfer resumes after reconnect or restart from authenticated, versioned, bounded persisted state.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P1-SCHEDULING",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-AUTH-BEFORE-METADATA",
+        "INV-ATOMIC-VERIFIED-COMMIT",
+        "INV-BOUNDED-HOSTILE-INPUT"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P1-RESUME",
+          "statement": "Resume state is versioned, authenticated, bounded, and cannot commit bytes that were not revalidated.",
+          "negative_definitions": [
+            "Trusting stale peer state without authentication does not qualify.",
+            "Persisting an undocumented format does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "ADR 0010 remains proposed and no approved V2 delivery Plan owns this outcome."
+    },
+    {
+      "id": "OUT-P1-COLLISION",
+      "title": "Destination collision policy",
+      "milestone": "MS-P1-PRODUCTION",
+      "capability": "CAP-STORAGE",
+      "statement": "Destination selection applies an explicit collision policy without overwriting unrelated content.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P1-ONE-FILE-TRANSFER",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-ATOMIC-VERIFIED-COMMIT",
+        "INV-BOUNDED-HOSTILE-INPUT"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P1-COLLISION",
+          "statement": "Every destination collision resolves through explicit policy and remains inside the validated destination.",
+          "negative_definitions": [
+            "Implicit overwrite does not qualify.",
+            "A time-of-check/time-of-use destination escape does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "The storage implementation requires policy-level requalification."
+    },
+    {
+      "id": "OUT-P1-ADVERSE-PLATFORM",
+      "title": "Adverse platform behavior",
+      "milestone": "MS-P1-PRODUCTION",
+      "capability": "CAP-PACKAGING",
+      "statement": "Transfers behave deterministically under low space, large files, sleep or wake, and network changes.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P1-RESUME",
+          "minimum_state": "implemented"
+        }
+      ],
+      "invariants": [
+        "INV-ATOMIC-VERIFIED-COMMIT",
+        "INV-NO-SKIPPED-EVIDENCE"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P1-ADVERSE-PLATFORM",
+          "statement": "Supported platforms expose deterministic terminal or resumable outcomes for low-space, large-file, sleep, wake, and network-change scenarios.",
+          "negative_definitions": [
+            "A platform skip does not qualify.",
+            "Silent data loss or an unbounded hang does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "No approved V2 delivery Plan currently owns the adverse-platform matrix."
+    },
+    {
+      "id": "OUT-P2-FUZZING",
+      "title": "Extended fuzz coverage",
+      "milestone": "MS-P2-HARDENING",
+      "capability": "CAP-TRANSFER",
+      "statement": "Session, manifest, storage, transfer, C ABI, and protocol hostile-input surfaces have maintained fuzz targets and corpora.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P1-ONE-FILE-TRANSFER",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-BOUNDED-HOSTILE-INPUT",
+        "INV-NO-SKIPPED-EVIDENCE"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P2-FUZZING",
+          "statement": "Every hostile-input parser and transfer boundary has a sanitizer-backed fuzz target with retained regression corpus.",
+          "negative_definitions": [
+            "Only C ABI and protocol smoke fuzzing does not qualify.",
+            "A fuzz target that skips unavailable code does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "Current fuzzing covers only a subset of the required surfaces."
+    },
+    {
+      "id": "OUT-P2-INTEROPERABILITY",
+      "title": "Cross-platform interoperability",
+      "milestone": "MS-P2-HARDENING",
+      "capability": "CAP-PACKAGING",
+      "statement": "Every supported sender and receiver platform pair interoperates over the same versioned contracts.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P1-ADVERSE-PLATFORM",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-NO-SKIPPED-EVIDENCE",
+        "INV-AUTH-BEFORE-METADATA"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P2-INTEROPERABILITY",
+          "statement": "The full Linux, macOS, and Windows sender-receiver matrix passes exact-byte and authenticated-session scenarios.",
+          "negative_definitions": [
+            "Per-platform self-tests alone do not qualify.",
+            "A partial matrix presented as complete does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "No approved V2 delivery Plan currently owns the interoperability matrix."
+    },
+    {
+      "id": "OUT-P2-SIGNED-PACKAGING",
+      "title": "Signed application packaging",
+      "milestone": "MS-P2-HARDENING",
+      "capability": "CAP-PACKAGING",
+      "statement": "Release artifacts are signed, reproducibly associated with accepted source, and governed by an update policy.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P2-INTEROPERABILITY",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-EXACT-CANDIDATE-PUBLICATION",
+        "INV-NO-SKIPPED-EVIDENCE"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P2-SIGNED-PACKAGING",
+          "statement": "Each release artifact is signed and traceable to the exact accepted source and update policy.",
+          "negative_definitions": [
+            "Unsigned development bundles do not qualify.",
+            "A signature without source provenance does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "No release-signing Delivery Plan exists."
+    },
+    {
+      "id": "OUT-P2-PRIVACY",
+      "title": "Telemetry and privacy policy",
+      "milestone": "MS-P2-HARDENING",
+      "capability": "CAP-FLUTTER",
+      "statement": "Any diagnostics or telemetry are bounded by an explicit privacy policy and default behavior.",
+      "depends_on": [],
+      "invariants": [
+        "INV-DISCOVERY-IS-UNTRUSTED",
+        "INV-NO-SECRET-STORAGE-FALLBACK"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P2-PRIVACY",
+          "statement": "Collected diagnostics, retention, consent, and default-off behavior are explicitly specified and verified.",
+          "negative_definitions": [
+            "Undocumented telemetry does not qualify.",
+            "Collecting peer identity or file metadata by default does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "No telemetry or privacy Delivery Plan exists."
+    },
+    {
+      "id": "OUT-P2-PERFORMANCE",
+      "title": "Performance and resource budgets",
+      "milestone": "MS-P2-HARDENING",
+      "capability": "CAP-TRANSFER",
+      "statement": "Transfer throughput, memory, CPU, file-descriptor, and cancellation latency budgets are measured and enforced.",
+      "depends_on": [
+        {
+          "outcome": "OUT-P1-SCHEDULING",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-SINGLE-ENGINE-OWNER",
+        "INV-NO-SKIPPED-EVIDENCE"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-P2-PERFORMANCE",
+          "statement": "Representative transfer workloads enforce approved throughput and resource budgets on supported platforms.",
+          "negative_definitions": [
+            "An informational lifecycle microbenchmark does not qualify.",
+            "A budget without a blocking Gate does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": "Current benchmarks are informational and no approved blocking budget exists."
+    },
+    {
+      "id": "OUT-HARNESS-V2-CONTROL-PLANE",
+      "title": "Harness V2 control plane",
+      "milestone": "MS-GOVERNANCE",
+      "capability": "CAP-HARNESS",
+      "statement": "Static contracts, append-only runtime state, immutable submissions, exact-candidate CI, and CAS publication form the delivery control plane.",
+      "depends_on": [],
+      "invariants": [
+        "INV-EXACT-CANDIDATE-PUBLICATION",
+        "INV-RUNTIME-STATE-OUTSIDE-PRODUCT",
+        "INV-NO-SKIPPED-EVIDENCE"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-BP-HARNESS-V2",
+          "statement": "Only immutable submission-equivalent candidates with complete exact-candidate evidence can advance the protected branch.",
+          "negative_definitions": [
+            "A local-only result does not qualify.",
+            "A second unverified payload after review does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": null
+    },
+    {
+      "id": "OUT-HARNESS-V2-PILOT",
+      "title": "Harness V2 governed pilot",
+      "milestone": "MS-GOVERNANCE",
+      "capability": "CAP-HARNESS",
+      "statement": "A real low-risk task traverses the complete Harness V2 lifecycle without manual runtime edits.",
+      "depends_on": [
+        {
+          "outcome": "OUT-HARNESS-V2-CONTROL-PLANE",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-EXACT-CANDIDATE-PUBLICATION",
+        "INV-RUNTIME-STATE-OUTSIDE-PRODUCT",
+        "INV-NO-SKIPPED-EVIDENCE"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-HV2-PILOT-FAST-LANE",
+          "statement": "The documentation pilot moves from ready through claim, submission, queue, hosted evidence, publication, and done without manual runtime-state edits.",
+          "negative_definitions": [
+            "A local-only Gate result does not qualify.",
+            "A candidate with more than one hosted workflow run does not qualify.",
+            "A manually edited state ref does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": null
+    },
+    {
+      "id": "OUT-HARNESS-V2-PILOT-REPORT",
+      "title": "Harness V2 pilot evidence report",
+      "milestone": "MS-GOVERNANCE",
+      "capability": "CAP-HARNESS",
+      "statement": "The pilot evidence, latency, closure, and residual limits are recorded without inventing unmeasured SLOs.",
+      "depends_on": [
+        {
+          "outcome": "OUT-HARNESS-V2-PILOT",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-NO-SKIPPED-EVIDENCE",
+        "INV-RUNTIME-STATE-OUTSIDE-PRODUCT"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-HV2-PILOT-REPORT",
+          "statement": "The implementation plan, migration status, worklog, and acceptance checklist identify both exact candidate runs, publication evidence, closure evidence, observed latency, and residual SLO limits.",
+          "negative_definitions": [
+            "Chat-only evidence does not qualify.",
+            "Marking an unmeasured P95 or concurrency target as passing does not qualify.",
+            "Leaving the pilot status as pending does not qualify.",
+            "A local-only Gate result does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": null
+    },
+    {
+      "id": "OUT-HARNESS-BRANCH-RECLAMATION",
+      "title": "Transient branch reclamation",
+      "milestone": "MS-GOVERNANCE",
+      "capability": "CAP-HARNESS",
+      "statement": "Transient work and queue refs are reclaimed only after durable evidence while authoritative refs remain immutable.",
+      "depends_on": [
+        {
+          "outcome": "OUT-HARNESS-V2-CONTROL-PLANE",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-EXACT-CANDIDATE-PUBLICATION",
+        "INV-RUNTIME-STATE-OUTSIDE-PRODUCT"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-HV2-WORK-BRANCH-RECLAMATION",
+          "statement": "Submission and payload-free acceptance closure remove the exact local work branch after its worktree is released and durable lifecycle evidence exists.",
+          "negative_definitions": [
+            "Deleting a work branch before submission or closure evidence is durable does not qualify.",
+            "Deleting a branch whose SHA changed after review does not qualify.",
+            "Leaving a completed task work branch indefinitely does not qualify."
+          ]
+        },
+        {
+          "id": "CRIT-HV2-QUEUE-BRANCH-RECLAMATION",
+          "statement": "Successful publication, publication recovery, queue rejection after archival, and bootstrap publication delete the exact remote and local queue ref with compare-and-swap semantics.",
+          "negative_definitions": [
+            "Deleting a queued candidate before durable acceptance or archive evidence exists does not qualify.",
+            "Deleting a queue ref that moved to another SHA does not qualify.",
+            "Deleting an archive ref after queue cleanup does not qualify.",
+            "Treating a failed cleanup as successful does not qualify."
+          ]
+        },
+        {
+          "id": "CRIT-HV2-BRANCH-GC-RECOVERY",
+          "statement": "An idempotent branch GC command reports and reclaims only transient refs whose durable state, acceptance, bootstrap attestation, or archive evidence proves eligibility.",
+          "negative_definitions": [
+            "GC deleting approve, state, submit, attest, archive, main, or harness refs does not qualify.",
+            "GC deleting an active or queued task candidate does not qualify.",
+            "GC relying on branch age or name without evidence does not qualify.",
+            "GC defaulting to destructive execution does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": null
+    },
+    {
+      "id": "OUT-PROJECT-SEMANTIC-BASELINE",
+      "title": "Global project semantic baseline",
+      "milestone": "MS-GOVERNANCE",
+      "capability": "CAP-PROJECT-MODEL",
+      "statement": "One Blueprint governs project outcomes, Plan composition, code asset disposition, and deterministic documentation projections.",
+      "depends_on": [
+        {
+          "outcome": "OUT-HARNESS-V2-CONTROL-PLANE",
+          "minimum_state": "qualified"
+        },
+        {
+          "outcome": "OUT-HARNESS-BRANCH-RECLAMATION",
+          "minimum_state": "qualified"
+        }
+      ],
+      "invariants": [
+        "INV-BLUEPRINT-IS-PROJECT-AUTHORITY",
+        "INV-CANONICAL-MODULES",
+        "INV-EXACT-CANDIDATE-PUBLICATION",
+        "INV-RUNTIME-STATE-OUTSIDE-PRODUCT",
+        "INV-NO-SKIPPED-EVIDENCE"
+      ],
+      "criteria": [
+        {
+          "id": "CRIT-PROJECT-BLUEPRINT-GRAPH",
+          "statement": "Every product outcome, dependency, invariant, milestone, and implementation module belongs to one acyclic globally validated Blueprint graph.",
+          "negative_definitions": [
+            "A collection of unrelated Delivery Plans does not qualify as a project graph.",
+            "A handwritten roadmap that duplicates machine-readable facts does not qualify.",
+            "An orphan capability, outcome, invariant, module, or milestone does not qualify.",
+            "A cycle hidden across files or node types does not qualify."
+          ]
+        },
+        {
+          "id": "CRIT-PROJECT-PLAN-COMPOSITION",
+          "statement": "Every active Delivery Plan is an executable transition over revision-bound Blueprint outcomes, and the approved Plan catalogue composes without duplicate writers, unsatisfied preconditions, invariant gaps, or undeclared effects.",
+          "negative_definitions": [
+            "Treating a Delivery Plan as an independent source of product truth does not qualify.",
+            "Binding every Plan to one whole-Blueprint digest does not qualify.",
+            "Two Plans writing the same outcome transition do not qualify.",
+            "A Plan that weakens a Blueprint criterion or invariant does not qualify.",
+            "A stale Plan whose referenced node revision changed does not qualify."
+          ]
+        },
+        {
+          "id": "CRIT-PROJECT-ASSET-REBASELINE",
+          "statement": "Every production asset is mapped to a Blueprint module and classified as preserve, requalify, replace, or remove with evidence, rationale, and ordered follow-up outcomes.",
+          "negative_definitions": [
+            "Deleting all product code without asset-level evidence does not qualify.",
+            "Automatically treating legacy acceptance as current Blueprint qualification does not qualify.",
+            "Keeping a duplicate provider or stale placeholder declaration does not qualify.",
+            "Classifying an asset without a module, evidence reference, or rationale does not qualify."
+          ]
+        },
+        {
+          "id": "CRIT-PROJECT-DOC-PROJECTION",
+          "statement": "Roadmap, capability, module, and re-baseline reports are deterministic projections of the Blueprint while explanatory documents and ADRs remain hand-authored.",
+          "negative_definitions": [
+            "A generated document that can drift from its source does not qualify.",
+            "Runtime task state committed into the generated roadmap does not qualify.",
+            "Replacing ADR rationale with generated JSON does not qualify.",
+            "Maintaining a second handwritten milestone or module truth does not qualify."
+          ]
+        }
+      ],
+      "target_state": "qualified",
+      "deferred_reason": null
+    }
+  ]
+}

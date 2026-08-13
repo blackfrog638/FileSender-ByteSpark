@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xnntransfer.dev/schemas/harness-v2/quality-budgets.schema.json",
+  "title": "XnnTransfer Project Quality Budgets",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "budgets"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "budgets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/budget"
+      }
+    }
+  },
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nullableText": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/text"
+        }
+      ]
+    },
+    "nullableNumber": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "number"
+        }
+      ]
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "dimension",
+        "statement",
+        "outcomes",
+        "metric",
+        "operator",
+        "threshold",
+        "unit",
+        "status",
+        "gate",
+        "deferred_reason"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9-]+$"
+        },
+        "dimension": {
+          "$ref": "#/$defs/text"
+        },
+        "statement": {
+          "$ref": "#/$defs/text"
+        },
+        "outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9-]+$"
+          }
+        },
+        "metric": {
+          "$ref": "#/$defs/text"
+        },
+        "operator": {
+          "$ref": "#/$defs/text"
+        },
+        "threshold": {
+          "$ref": "#/$defs/nullableNumber"
+        },
+        "unit": {
+          "$ref": "#/$defs/text"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "deferred"
+          ]
+        },
+        "gate": {
+          "$ref": "#/$defs/nullableText"
+        },
+        "deferred_reason": {
+          "$ref": "#/$defs/nullableText"
+        }
+      }
+    }
+  }
+}

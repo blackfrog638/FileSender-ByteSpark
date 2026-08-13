@@ -14,7 +14,8 @@
       },
       "required_gates": [
         "harness_v2",
-        "layout"
+        "layout",
+        "project_model"
       ]
     },
     {

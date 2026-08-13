@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "XT-105",
+  "title": "Certify the project semantic baseline",
+  "plan": "DP-PROJECT-SEMANTIC-REBASELINE",
+  "criteria": [
+    "CRIT-PROJECT-BLUEPRINT-GRAPH",
+    "CRIT-PROJECT-PLAN-COMPOSITION",
+    "CRIT-PROJECT-ASSET-REBASELINE",
+    "CRIT-PROJECT-DOC-PROJECTION"
+  ],
+  "depends_on": [
+    "XT-104"
+  ],
+  "owned_paths": [
+    "docs/project/qualification-record.md"
+  ],
+  "type": "documentation",
+  "workstream": "project_governance",
+  "risk": {
+    "functionality": "low",
+    "security": "none",
+    "performance": "none",
+    "compatibility": "none",
+    "concurrency": "none",
+    "platform": "none",
+    "persistence": "none"
+  },
+  "tdd": {
+    "mode": "not_required",
+    "gate": null,
+    "proof_paths": [],
+    "oracle_paths": [],
+    "failure_fingerprints": []
+  },
+  "delivery": {
+    "commit_type": "docs",
+    "scope": "project",
+    "summary": "record the project semantic baseline",
+    "architecture_change": {
+      "mode": "none",
+      "modules": [],
+      "supersedes": {
+        "paths": [],
+        "symbols": [],
+        "targets": []
+      },
+      "temporary_leases": [],
+      "retires_leases": []
+    }
+  }
+}
